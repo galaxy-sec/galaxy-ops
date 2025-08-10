@@ -73,8 +73,7 @@ pub async fn do_sys_cmd(cmd: GSysCmd) -> MainResult<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use galaxy_ops::system::proj::SysProject;
-    use std::path::PathBuf;
+
     use tempfile::tempdir;
 
     #[tokio::test]

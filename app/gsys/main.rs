@@ -45,11 +45,11 @@ mod tests {
     #[tokio::test]
     async fn test_gxsys_run_success() {
         // Mock the command line arguments
-        let args = vec!["gsys", "new", "test-system"];
+        let _args = ["gsys", "new", "test-system"];
 
         // Temporarily replace the process arguments
-        let original_args: Vec<String> = env::args().collect();
-        let args: Vec<&str> = vec!["gsys", "new", "test-system"];
+        let _original_args: Vec<String> = env::args().collect();
+        let _args: Vec<&str> = vec!["gsys", "new", "test-system"];
 
         // Set up the arguments for testing
         unsafe {
@@ -57,7 +57,7 @@ mod tests {
         }
 
         // Create a new GxSys instance
-        let gxsys = GxSys {};
+        let _gxsys = GxSys {};
 
         // Mock the command parsing by setting up args
         // This test will require mocking the do_sys_cmd function
@@ -84,7 +84,7 @@ mod tests {
         }
 
         // Test that the system can parse the command without panicking
-        let cmd = match GSysCmd::try_parse_from(args) {
+        let _cmd = match GSysCmd::try_parse_from(args) {
             Ok(cmd) => cmd,
             Err(_) => return, // Skip test if parsing fails
         };
@@ -94,7 +94,7 @@ mod tests {
             env::set_var("MOCK_SUCCESS", "true");
         }
 
-        let gxsys = GxSys {};
+        let _gxsys = GxSys {};
         let result = GxSys::run().await;
 
         // In test environment, we expect this to likely fail

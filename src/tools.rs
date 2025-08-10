@@ -46,10 +46,10 @@ pub fn get_repo_name(url_str: &str) -> Option<String> {
     if url_str.starts_with("git@")
         && let Some(repo_part) = url_str.split(':').next_back()
     {
-        if let Some(name) = repo_part.split('/').next_back().map(String::from) {
-            if is_likely_repo_name(&name) {
-                return Some(remove_git_extension(name));
-            }
+        if let Some(name) = repo_part.split('/').next_back().map(String::from)
+            && is_likely_repo_name(&name)
+        {
+            return Some(remove_git_extension(name));
         }
         return None;
     }

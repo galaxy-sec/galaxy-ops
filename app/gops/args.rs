@@ -306,7 +306,7 @@ mod tests {
             GInsCmd::Localize(local_args) => {
                 assert_eq!(*local_args.debug(), 0);
                 assert_eq!(local_args.value(), &Some("prod-values.yml".to_string()));
-                assert_eq!(local_args.use_default_value, true);
+                assert!(local_args.use_default_value);
                 assert_eq!(local_args.log(), &None);
             }
             _ => panic!("Expected Localize command"),
@@ -322,7 +322,7 @@ mod tests {
             GInsCmd::Localize(local_args) => {
                 assert_eq!(*local_args.debug(), 1);
                 assert_eq!(*local_args.log(), Some("test=debug".to_string()));
-                assert_eq!(local_args.use_default_value, false);
+                assert!(!local_args.use_default_value);
                 assert_eq!(local_args.value(), &None);
             }
             _ => panic!("Expected Localize command"),
@@ -408,7 +408,7 @@ mod tests {
 
     #[test]
     fn test_help_output() {
-        let app = GInsCmd::command();
+        let _app = GInsCmd::command();
     }
 
     #[test]

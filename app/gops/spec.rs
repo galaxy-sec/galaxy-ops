@@ -61,7 +61,6 @@ pub async fn do_ins_cmd(cmd: GInsCmd) -> MainResult<()> {
 mod tests {
     use super::*;
     use crate::args::{GInsCmd, ImportArgs, LocalArgs, NewArgs, SettingArgs, UpdateArgs};
-    use std::path::PathBuf;
     use tempfile::tempdir;
 
     #[tokio::test]
@@ -280,15 +279,15 @@ mod tests {
     #[tokio::test]
     async fn test_download_options_creation() {
         // Test DownloadOptions creation with different force levels
-        let options1 = DownloadOptions::from((0, ValueDict::default()));
-        let options2 = DownloadOptions::from((1, ValueDict::default()));
-        let options3 = DownloadOptions::from((2, ValueDict::default()));
-        let options4 = DownloadOptions::from((3, ValueDict::default()));
+        let _options1 = DownloadOptions::from((0, ValueDict::default()));
+        let _options2 = DownloadOptions::from((1, ValueDict::default()));
+        let _options3 = DownloadOptions::from((2, ValueDict::default()));
+        let _options4 = DownloadOptions::from((3, ValueDict::default()));
 
         // Should create without panicking
         // Note: We can't easily test the internal state without accessors
         // But we can verify they don't panic
-        assert!(true);
+        // This test validates DownloadOptions creation - no assertion needed
     }
 
     #[tokio::test]

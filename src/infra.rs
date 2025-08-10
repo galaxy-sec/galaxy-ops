@@ -59,8 +59,9 @@ pub fn once_init_log() {
     INSTANCE.get_or_init(|| {
         let conf = LogConf::new_console("debug");
         // If logger is already initialized, that's okay for testing
-        if let Err(_) = configure_logging(&conf) {
+        if configure_logging(&conf).is_err() {
             // Logger already initialized, continue
+            //
         }
         TestIniter {}
     });

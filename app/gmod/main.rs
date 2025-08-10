@@ -25,6 +25,17 @@ async fn main() {
     process::exit(-1);
 }
 
+pub struct GxMod {}
+impl GxMod {
+    pub async fn run() -> MainResult<()> {
+        setup_start_env_vars().owe_res()?;
+        println!("gmod: {}", env!("CARGO_PKG_VERSION"));
+        let cmd = GxModCmd::parse();
+        do_mod_cmd(cmd).await?;
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -133,16 +144,5 @@ mod tests {
                 cmd_args
             );
         }
-    }
-}
-
-pub struct GxMod {}
-impl GxMod {
-    pub async fn run() -> MainResult<()> {
-        setup_start_env_vars().owe_res()?;
-        println!("gmod: {}", env!("CARGO_PKG_VERSION"));
-        let cmd = GxModCmd::parse();
-        do_mod_cmd(cmd).await?;
-        Ok(())
     }
 }

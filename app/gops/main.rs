@@ -24,6 +24,17 @@ async fn main() {
     process::exit(-1);
 }
 
+pub struct GxOps {}
+impl GxOps {
+    pub async fn run() -> MainResult<()> {
+        setup_start_env_vars().owe_res()?;
+        let cmd = GInsCmd::parse();
+        println!("gops: {}", env!("CARGO_PKG_VERSION"));
+        do_ins_cmd(cmd).await?;
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -33,11 +44,11 @@ mod tests {
     #[tokio::test]
     async fn test_gxops_run_success() {
         // Mock the command line arguments
-        let args = vec!["gops", "new", "test-system"];
+        let _args = ["gops", "new", "test-system"];
 
         // Temporarily replace the process arguments
-        let original_args: Vec<String> = env::args().collect();
-        let args: Vec<&str> = vec!["gops", "new", "test-system"];
+        let _original_args: Vec<String> = env::args().collect();
+        let _args: Vec<&str> = vec!["gops", "new", "test-system"];
 
         // Set up the arguments for testing
         unsafe {
@@ -45,7 +56,7 @@ mod tests {
         }
 
         // Create a new GxOps instance
-        let gxops = GxOps {};
+        let _gxops = GxOps {};
 
         // Mock the command parsing by setting up args
         // This test will require mocking the do_ins_cmd function
@@ -72,7 +83,7 @@ mod tests {
         }
 
         // Test that the system can parse the command without panicking
-        let cmd = match GInsCmd::try_parse_from(args) {
+        let _cmd = match GInsCmd::try_parse_from(args) {
             Ok(cmd) => cmd,
             Err(_) => return, // Skip test if parsing fails
         };
@@ -82,7 +93,7 @@ mod tests {
             env::set_var("MOCK_SUCCESS", "true");
         }
 
-        let gxops = GxOps {};
+        let _gxops = GxOps {};
         let result = GxOps::run().await;
 
         // In test environment, we expect this to likely fail
@@ -99,12 +110,12 @@ mod tests {
             env::set_var("TEST_MODE", "true");
         }
 
-        let cmd = match GInsCmd::try_parse_from(args) {
+        let _cmd = match GInsCmd::try_parse_from(args) {
             Ok(cmd) => cmd,
             Err(_) => return,
         };
 
-        let gxops = GxOps {};
+        let _gxops = GxOps {};
         let result = GxOps::run().await;
         assert!(result.is_ok() || result.is_err());
     }
@@ -118,12 +129,12 @@ mod tests {
             env::set_var("TEST_MODE", "true");
         }
 
-        let cmd = match GInsCmd::try_parse_from(args) {
+        let _cmd = match GInsCmd::try_parse_from(args) {
             Ok(cmd) => cmd,
             Err(_) => return,
         };
 
-        let gxops = GxOps {};
+        let _gxops = GxOps {};
         let result = GxOps::run().await;
         assert!(result.is_ok() || result.is_err());
     }
@@ -137,12 +148,12 @@ mod tests {
             env::set_var("TEST_MODE", "true");
         }
 
-        let cmd = match GInsCmd::try_parse_from(args) {
+        let _cmd = match GInsCmd::try_parse_from(args) {
             Ok(cmd) => cmd,
             Err(_) => return,
         };
 
-        let gxops = GxOps {};
+        let _gxops = GxOps {};
         let result = GxOps::run().await;
         assert!(result.is_ok() || result.is_err());
     }
@@ -156,7 +167,7 @@ mod tests {
             env::set_var("TEST_MODE", "true");
         }
 
-        let cmd = match GInsCmd::try_parse_from(args) {
+        let _cmd = match GInsCmd::try_parse_from(args) {
             Ok(cmd) => cmd,
             Err(_) => return,
         };
@@ -275,16 +286,5 @@ mod tests {
                 cmd_args
             );
         }
-    }
-}
-
-pub struct GxOps {}
-impl GxOps {
-    pub async fn run() -> MainResult<()> {
-        setup_start_env_vars().owe_res()?;
-        let cmd = GInsCmd::parse();
-        println!("gops: {}", env!("CARGO_PKG_VERSION"));
-        do_ins_cmd(cmd).await?;
-        Ok(())
     }
 }

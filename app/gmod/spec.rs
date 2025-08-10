@@ -51,8 +51,10 @@ pub async fn do_mod_cmd(cmd: args::GxModCmd) -> MainResult<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::args::{GxModCmd, LocalArgs, SpecArgs, UpdateArgs};
-    use std::path::PathBuf;
+    use crate::{
+        GxModCmd,
+        args::{LocalArgs, SpecArgs, UpdateArgs},
+    };
     use tempfile::tempdir;
 
     #[tokio::test]

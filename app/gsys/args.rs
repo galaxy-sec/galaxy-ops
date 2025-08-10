@@ -186,7 +186,7 @@ mod tests {
             GSysCmd::Localize(local_args) => {
                 assert_eq!(*local_args.debug(), 0);
                 assert_eq!(*local_args.value(), Some("prod-values.yml".to_string()));
-                assert_eq!(local_args.use_default_value, true);
+                assert!(local_args.use_default_value);
             }
             _ => panic!("Expected Localize command"),
         }
@@ -201,7 +201,7 @@ mod tests {
             GSysCmd::Localize(local_args) => {
                 assert_eq!(*local_args.debug(), 1);
                 assert_eq!(*local_args.log(), Some("all=info".to_string()));
-                assert_eq!(local_args.use_default_value, false);
+                assert!(!local_args.use_default_value);
                 assert_eq!(*local_args.value(), None);
             }
             _ => panic!("Expected Localize command"),
