@@ -1,10 +1,15 @@
 use once_cell::sync::OnceCell;
 use orion_infra::logging::{LogConf, configure_logging};
+use std::sync::{Mutex, Once};
 
 pub trait DfxArgsGetter {
     fn debug_level(&self) -> usize;
     fn log_setting(&self) -> Option<String>;
 }
+
+// Singleton state for logging configuration
+static LOGGING_INITIALIZED: Once = Once::new();
+static LOGGING_STATE: Mutex<Option<LogConf>> = Mutex::new(None);
 
 pub fn configure_run_logging(_log_conf: Option<String>, debug: usize) {
     let setting = level_setting(debug);
@@ -13,16 +18,31 @@ pub fn configure_run_logging(_log_conf: Option<String>, debug: usize) {
 }
 
 pub fn configure_dfx_logging(dfx: &impl DfxArgsGetter) {
+    // Check if logging has already been configured
+    if LOGGING_INITIALIZED.is_completed() {
+        return;
+    }
+
     let setting = if let Some(log_setting) = dfx.log_setting() {
         log_setting
     } else {
         level_setting(dfx.debug_level()).to_string()
     };
     let conf = LogConf::new_console(&setting);
-    // Safe logging configuration - ignore initialization conflicts in test environment
-    if configure_logging(&conf).is_err() {
-        // Logger already initialized, continue
-    }
+
+    // Use Once to ensure initialization happens only once
+    let _ = LOGGING_INITIALIZED.call_once(|| {
+        // Store the configuration for potential future use
+        let conf_copy = conf.clone();
+        let _ = LOGGING_STATE.lock().map(|mut state| {
+            *state = Some(conf_copy);
+        });
+
+        // Configure the actual logging
+        if configure_logging(&conf).is_err() {
+            // Logger already initialized, continue
+        }
+    });
 }
 
 fn level_setting(debug: usize) -> &'static str {
@@ -178,15 +198,19 @@ mod tests {
             debug: 2,
             log: None,
         };
-        // Test that configure_dfx_logging doesn't panic
-        // Handle potential logger already initialized error
-        let result = std::panic::catch_unwind(|| {
+        // Test that configure_dfx_logging doesn't panic on first call
+        let result1 = std::panic::catch_unwind(|| {
             configure_dfx_logging(&args);
         });
 
-        // If it succeeds or fails (likely due to logger initialization), test passes
-        // Logger initialization errors are expected in test environment due to global logger state
-        assert!(result.is_ok() || result.is_err());
+        // Test that configure_dfx_logging doesn't panic on subsequent calls
+        let result2 = std::panic::catch_unwind(|| {
+            configure_dfx_logging(&args);
+        });
+
+        // Both calls should not panic regardless of logger state
+        assert!(result1.is_ok());
+        assert!(result2.is_ok());
     }
 
     #[test]
@@ -195,15 +219,19 @@ mod tests {
             debug: 1,
             log: Some("custom=debug".to_string()),
         };
-        // Test that configure_dfx_logging doesn't panic
-        // Handle potential logger already initialized error
-        let result = std::panic::catch_unwind(|| {
+        // Test that configure_dfx_logging doesn't panic on first call
+        let result1 = std::panic::catch_unwind(|| {
             configure_dfx_logging(&args);
         });
 
-        // If it succeeds or fails (likely due to logger initialization), test passes
-        // Logger initialization errors are expected in test environment due to global logger state
-        assert!(result.is_ok() || result.is_err());
+        // Test that configure_dfx_logging doesn't panic on subsequent calls
+        let result2 = std::panic::catch_unwind(|| {
+            configure_dfx_logging(&args);
+        });
+
+        // Both calls should not panic regardless of logger state
+        assert!(result1.is_ok());
+        assert!(result2.is_ok());
     }
 
     #[test]
@@ -212,15 +240,19 @@ mod tests {
             debug: 3,
             log: None,
         };
-        // Test that configure_dfx_logging doesn't panic
-        // Handle potential logger already initialized error
-        let result = std::panic::catch_unwind(|| {
+        // Test that configure_dfx_logging doesn't panic on first call
+        let result1 = std::panic::catch_unwind(|| {
             configure_dfx_logging(&args);
         });
 
-        // If it succeeds or fails (likely due to logger initialization), test passes
-        // Logger initialization errors are expected in test environment due to global logger state
-        assert!(result.is_ok() || result.is_err());
+        // Test that configure_dfx_logging doesn't panic on subsequent calls
+        let result2 = std::panic::catch_unwind(|| {
+            configure_dfx_logging(&args);
+        });
+
+        // Both calls should not panic regardless of logger state
+        assert!(result1.is_ok());
+        assert!(result2.is_ok());
     }
 
     #[test]
