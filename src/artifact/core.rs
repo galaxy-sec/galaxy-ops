@@ -123,4 +123,66 @@ mod tests {
         .with_cache_enable(true);
         Ok(())
     }
+
+    #[tokio::test]
+    async fn test_artifact_with_cache_enabled() {
+        let artifact = Artifact::new(
+            "test-artifact",
+            "1.0.0",
+            HttpResource::from("https://example.com/repo"),
+            "test-artifact",
+        );
+
+        // Test with cache enabled
+        let artifact_with_cache = artifact.clone().with_cache_enable(true);
+        assert!(artifact_with_cache.cache_enable());
+
+        // Test with cache disabled
+        let artifact_without_cache = artifact.clone().with_cache_enable(false);
+        assert!(!artifact_without_cache.cache_enable());
+    }
+
+    #[tokio::test]
+    async fn test_artifact_with_cache_addr() {
+        let cache_addr = Address::Http(HttpResource::from("https://example.com/cache.zip"));
+
+        let artifact = Artifact {
+            name: "cached-artifact".to_string(),
+            version: "3.0.0".to_string(),
+            origin_addr: HttpResource::from("https://github.com/example/main.git").into(),
+            cache_addr: Some(cache_addr),
+            cache_enable: true,
+            local: "cached-artifact-local".to_string(),
+        };
+
+        assert!(artifact.cache_addr.is_some());
+        assert!(artifact.cache_enable);
+
+        if let Some(addr) = artifact.cache_addr {
+            match addr {
+                Address::Http(http_addr) => {
+                    // Use Debug trait to compare HTTP resources
+                    let addr_debug = format!("{:?}", http_addr);
+                    assert!(addr_debug.contains("example.com"));
+                }
+                _ => panic!("Expected HTTP address"),
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_artifact_basic_properties() {
+        let artifact = Artifact::new(
+            "test-artifact",
+            "1.0.0",
+            HttpResource::from("https://example.com/repo"),
+            "test-artifact-local",
+        );
+
+        assert_eq!(artifact.name, "test-artifact");
+        assert_eq!(artifact.version, "1.0.0");
+        assert_eq!(artifact.local, "test-artifact-local");
+        assert!(!artifact.cache_enable);
+        assert!(artifact.cache_addr.is_none());
+    }
 }

@@ -186,4 +186,47 @@ pub mod tests {
         assert!(yaml_vec.contains("- addr:"));
         assert!(yaml_vec.contains("rename: mysql2"));
     }
+
+    #[test]
+    fn test_dependency_builder_pattern() {
+        let dep = Dependency::new(
+            Address::from(LocalPath::from("./example/data")),
+            PathTemplate::from("env_res".to_string()),
+        )
+        .with_rename("test_dep");
+
+        assert_eq!(dep.rename().as_ref().unwrap(), &"test_dep");
+        // Check that the address is not empty (basic validation)
+        assert!(!dep.addr().to_string().is_empty());
+        assert_eq!(
+            dep.local().path(&Default::default()).to_str(),
+            Some("env_res")
+        );
+    }
+
+    #[test]
+    fn test_dependency_enable_flag() {
+        let dep_enabled = Dependency {
+            addr: Address::from(LocalPath::from("./example/data")),
+            local: PathTemplate::from("env_res".to_string()),
+            rename: None,
+            enable: Some(true),
+        };
+
+        let dep_disabled = Dependency {
+            addr: Address::from(LocalPath::from("./example/data")),
+            local: PathTemplate::from("env_res".to_string()),
+            rename: None,
+            enable: Some(false),
+        };
+
+        let dep_default = Dependency::new(
+            Address::from(LocalPath::from("./example/data")),
+            PathTemplate::from("env_res".to_string()),
+        );
+
+        assert!(dep_enabled.is_enable());
+        assert!(!dep_disabled.is_enable());
+        assert!(dep_default.is_enable()); // Should default to true
+    }
 }

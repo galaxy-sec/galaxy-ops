@@ -182,3 +182,54 @@ impl Localizable for ModuleSpecRef {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use crate::module::{ModelSTD, refs::ModuleSpecRef};
+
+    #[test]
+    fn test_module_spec_ref_builder() {
+        let model_std = ModelSTD::x86_ubt22_k8s();
+        let module_ref = ModuleSpecRef::from(
+            "test-module",
+            "https://github.com/example/test-module.git",
+            model_std.clone(),
+        )
+        .with_enable(true)
+        .with_local(PathBuf::from("/tmp/test"));
+
+        assert_eq!(module_ref.name(), "test-module");
+        assert!(!module_ref.addr().to_string().is_empty());
+        assert_eq!(module_ref.model(), &model_std);
+        assert!(module_ref.is_enable());
+        assert!(module_ref.local().is_some());
+    }
+
+    #[test]
+    fn test_module_spec_ref_enable_flag() {
+        let model_std = ModelSTD::x86_ubt22_k8s();
+
+        let enabled_ref =
+            ModuleSpecRef::from("test", "https://example.com", model_std.clone()).with_enable(true);
+        let disabled_ref = ModuleSpecRef::from("test", "https://example.com", model_std.clone())
+            .with_enable(false);
+        let default_ref = ModuleSpecRef::from("test", "https://example.com", model_std);
+
+        assert!(enabled_ref.is_enable());
+        assert!(!disabled_ref.is_enable());
+        assert!(default_ref.is_enable()); // Default should be true
+    }
+
+    #[tokio::test]
+    async fn test_module_spec_ref_spec_path() {
+        let model_std = ModelSTD::x86_ubt22_k8s();
+        let module_ref = ModuleSpecRef::from("test-module", "https://example.com", model_std);
+
+        let root = PathBuf::from("/project/root");
+        let spec_path = module_ref.spec_path(&root);
+
+        assert_eq!(spec_path, root.join("mods").join("test-module"));
+    }
+}
