@@ -195,3 +195,298 @@ impl DfxArgsGetter for LocalArgs {
         self.log.clone()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::CommandFactory;
+
+    #[test]
+    fn test_gins_cmd_app_creation() {
+        let app = GInsCmd::command();
+        assert_eq!(app.get_name(), "gops");
+        assert!(app.get_about().is_some());
+        assert!(app.get_long_about().is_some());
+    }
+
+    #[test]
+    fn test_new_command_parsing() {
+        let args = vec!["gops", "new", "test-system"];
+        let cmd = GInsCmd::try_parse_from(args).unwrap();
+
+        match cmd {
+            GInsCmd::New(new_args) => {
+                assert_eq!(new_args.name(), "test-system");
+            }
+            _ => panic!("Expected New command"),
+        }
+    }
+
+    #[test]
+    fn test_import_command_parsing() {
+        let args = vec!["gops", "import", "--path", "/path/to/module"];
+        let cmd = GInsCmd::try_parse_from(args).unwrap();
+
+        match cmd {
+            GInsCmd::Import(import_args) => {
+                assert_eq!(import_args.path(), "/path/to/module");
+                assert_eq!(*import_args.debug(), 0);
+                assert_eq!(import_args.force, 0);
+            }
+            _ => panic!("Expected Import command"),
+        }
+    }
+
+    #[test]
+    fn test_import_command_with_options() {
+        let args = vec![
+            "gops",
+            "import",
+            "--debug",
+            "2",
+            "--force",
+            "1",
+            "--path",
+            "/path/to/module",
+        ];
+        let cmd = GInsCmd::try_parse_from(args).unwrap();
+
+        match cmd {
+            GInsCmd::Import(import_args) => {
+                assert_eq!(import_args.path(), "/path/to/module");
+                assert_eq!(*import_args.debug(), 2);
+                assert_eq!(import_args.force, 1);
+            }
+            _ => panic!("Expected Import command"),
+        }
+    }
+
+    #[test]
+    fn test_update_command_parsing() {
+        let args = vec!["gops", "update", "--debug", "1", "--log", "cmd=debug"];
+        let cmd = GInsCmd::try_parse_from(args).unwrap();
+
+        match cmd {
+            GInsCmd::Update(update_args) => {
+                assert_eq!(*update_args.debug(), 1);
+                assert_eq!(*update_args.log(), Some("cmd=debug".to_string()));
+                assert_eq!(update_args.force, 0);
+            }
+            _ => panic!("Expected Update command"),
+        }
+    }
+
+    #[test]
+    fn test_update_command_with_force() {
+        let args = vec!["gops", "update", "-f", "3", "-d", "2"];
+        let cmd = GInsCmd::try_parse_from(args).unwrap();
+
+        match cmd {
+            GInsCmd::Update(update_args) => {
+                assert_eq!(*update_args.debug(), 2);
+                assert_eq!(update_args.force, 0);
+                assert_eq!(*update_args.log(), Some("all=info".to_string()));
+            }
+            _ => panic!("Expected Update command"),
+        }
+    }
+
+    #[test]
+    fn test_localize_command_parsing() {
+        let args = vec![
+            "gops",
+            "localize",
+            "--value",
+            "prod-values.yml",
+            "--default",
+        ];
+        let cmd = GInsCmd::try_parse_from(args).unwrap();
+
+        match cmd {
+            GInsCmd::Localize(local_args) => {
+                assert_eq!(*local_args.debug(), 0);
+                assert_eq!(local_args.value(), &Some("prod-values.yml".to_string()));
+                assert_eq!(local_args.use_default_value, true);
+                assert_eq!(local_args.log(), &None);
+            }
+            _ => panic!("Expected Localize command"),
+        }
+    }
+
+    #[test]
+    fn test_localize_command_with_debug() {
+        let args = vec!["gops", "localize", "-d", "1", "--log", "all=info"];
+        let cmd = GInsCmd::try_parse_from(args).unwrap();
+
+        match cmd {
+            GInsCmd::Localize(local_args) => {
+                assert_eq!(*local_args.debug(), 1);
+                assert_eq!(*local_args.log(), Some("test=debug".to_string()));
+                assert_eq!(local_args.use_default_value, false);
+                assert_eq!(local_args.value(), &None);
+            }
+            _ => panic!("Expected Localize command"),
+        }
+    }
+
+    #[test]
+    fn test_setting_command_parsing() {
+        let args = vec!["gops", "setting", "--debug", "2", "--log", "system=debug"];
+        let cmd = GInsCmd::try_parse_from(args).unwrap();
+
+        match cmd {
+            GInsCmd::Setting(setting_args) => {
+                assert_eq!(*setting_args.debug(), 2);
+                assert_eq!(*setting_args.log(), Some("system=debug".to_string()));
+            }
+            _ => panic!("Expected Setting command"),
+        }
+    }
+
+    #[test]
+    fn test_dfx_args_getter_setting() {
+        let setting_args = SettingArgs {
+            debug: 2,
+            log: Some("system=debug".to_string()),
+        };
+
+        assert_eq!(setting_args.debug_level(), 2);
+        assert_eq!(setting_args.log_setting(), Some("system=debug".to_string()));
+    }
+
+    #[test]
+    fn test_dfx_args_getter_update() {
+        let update_args = UpdateArgs {
+            debug: 1,
+            log: Some("cmd=debug".to_string()),
+            force: 2,
+        };
+
+        assert_eq!(update_args.debug_level(), 1);
+        assert_eq!(update_args.log_setting(), Some("cmd=debug".to_string()));
+    }
+
+    #[test]
+    fn test_dfx_args_getter_import() {
+        let import_args = ImportArgs {
+            debug: 3,
+            log: Some("import=debug".to_string()),
+            force: 1,
+            path: "/test/path".to_string(),
+        };
+
+        assert_eq!(import_args.debug_level(), 3);
+        assert_eq!(import_args.log_setting(), Some("import=debug".to_string()));
+    }
+
+    #[test]
+    fn test_dfx_args_getter_localize() {
+        let local_args = LocalArgs {
+            debug: 1,
+            log: Some("local=info".to_string()),
+            value: Some("test.yml".to_string()),
+            use_default_value: true,
+        };
+
+        assert_eq!(local_args.debug_level(), 1);
+        assert_eq!(local_args.log_setting(), Some("local=info".to_string()));
+    }
+
+    #[test]
+    fn test_invalid_system_name() {
+        let args = vec!["gops", "new", ""];
+        let result = GInsCmd::try_parse_from(args);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_import_without_path() {
+        let args = vec!["gops", "import"];
+        let result = GInsCmd::try_parse_from(args);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_help_output() {
+        let app = GInsCmd::command();
+    }
+
+    #[test]
+    fn test_subcommand_help() {
+        let args = vec!["gops", "new", "--help"];
+        let cmd = GInsCmd::try_parse_from(args);
+
+        match cmd {
+            Err(e) => {
+                assert_eq!(e.kind(), clap::error::ErrorKind::DisplayHelp);
+            }
+            Ok(_) => panic!("Expected help display error"),
+        }
+    }
+
+    #[test]
+    fn test_all_commands_parse() {
+        let commands = vec![
+            vec!["gops", "new", "test"],
+            vec!["gops", "import", "--path", "/test"],
+            vec!["gops", "update"],
+            vec!["gops", "localize"],
+            vec!["gops", "setting"],
+        ];
+
+        for cmd_args in commands {
+            let result = GInsCmd::try_parse_from(cmd_args.clone());
+            assert!(result.is_ok(), "Failed to parse command: {:?}", cmd_args);
+        }
+    }
+
+    #[test]
+    fn test_commands_with_all_options() {
+        let commands = vec![
+            vec!["gops", "new", "test"],
+            vec![
+                "gops",
+                "import",
+                "--debug",
+                "1",
+                "--log",
+                "import=debug",
+                "--force",
+                "2",
+                "--path",
+                "/test/path",
+            ],
+            vec![
+                "gops",
+                "update",
+                "--debug",
+                "2",
+                "--log",
+                "update=debug",
+                "--force",
+                "3",
+            ],
+            vec![
+                "gops",
+                "localize",
+                "--debug",
+                "1",
+                "--log",
+                "local=debug",
+                "--value",
+                "test.yml",
+                "--default",
+            ],
+            vec!["gops", "setting", "--debug", "2", "--log", "setting=debug"],
+        ];
+
+        for cmd_args in commands {
+            let result = GInsCmd::try_parse_from(cmd_args.clone());
+            assert!(
+                result.is_ok(),
+                "Failed to parse command with options: {:?}",
+                cmd_args
+            );
+        }
+    }
+}

@@ -114,3 +114,170 @@ impl DfxArgsGetter for LocalArgs {
         self.log.clone()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::CommandFactory;
+
+    #[test]
+    fn test_gsys_cmd_app_creation() {
+        let app = GSysCmd::command();
+        assert_eq!(app.get_name(), "gsys");
+        assert!(app.get_about().is_some());
+        assert!(app.get_long_about().is_some());
+    }
+
+    #[test]
+    fn test_new_args_parsing() {
+        let args = vec!["gsys", "new", "test-system"];
+        let cmd = GSysCmd::try_parse_from(args).unwrap();
+
+        match cmd {
+            GSysCmd::New(new_args) => {
+                assert_eq!(new_args.name(), "test-system");
+            }
+            _ => panic!("Expected New command"),
+        }
+    }
+
+    #[test]
+    fn test_update_args_parsing() {
+        let args = vec!["gsys", "update", "--debug", "2", "--log", "cmd=debug"];
+        let cmd = GSysCmd::try_parse_from(args).unwrap();
+
+        match cmd {
+            GSysCmd::Update(update_args) => {
+                assert_eq!(*update_args.debug(), 2);
+                assert_eq!(*update_args.log(), Some("cmd=debug".to_string()));
+                assert_eq!(update_args.force, 0);
+            }
+            _ => panic!("Expected Update command"),
+        }
+    }
+
+    #[test]
+    fn test_update_args_with_force() {
+        let args = vec!["gsys", "update", "-f", "1", "-d", "3"];
+        let cmd = GSysCmd::try_parse_from(args).unwrap();
+
+        match cmd {
+            GSysCmd::Update(update_args) => {
+                assert_eq!(*update_args.debug(), 3);
+                assert_eq!(update_args.force, 1);
+                assert_eq!(*update_args.log(), None);
+            }
+            _ => panic!("Expected Update command"),
+        }
+    }
+
+    #[test]
+    fn test_localize_args_parsing() {
+        let args = vec![
+            "gsys",
+            "localize",
+            "--value",
+            "prod-values.yml",
+            "--default",
+        ];
+        let cmd = GSysCmd::try_parse_from(args).unwrap();
+
+        match cmd {
+            GSysCmd::Localize(local_args) => {
+                assert_eq!(*local_args.debug(), 0);
+                assert_eq!(*local_args.value(), Some("prod-values.yml".to_string()));
+                assert_eq!(local_args.use_default_value, true);
+            }
+            _ => panic!("Expected Localize command"),
+        }
+    }
+
+    #[test]
+    fn test_localize_args_with_debug() {
+        let args = vec!["gsys", "localize", "-d", "1", "--log", "all=info"];
+        let cmd = GSysCmd::try_parse_from(args).unwrap();
+
+        match cmd {
+            GSysCmd::Localize(local_args) => {
+                assert_eq!(*local_args.debug(), 1);
+                assert_eq!(*local_args.log(), Some("all=info".to_string()));
+                assert_eq!(local_args.use_default_value, false);
+                assert_eq!(*local_args.value(), None);
+            }
+            _ => panic!("Expected Localize command"),
+        }
+    }
+
+    #[test]
+    fn test_dfx_args_getter_update() {
+        let update_args = UpdateArgs {
+            debug: 2,
+            log: Some("cmd=debug".to_string()),
+            force: 1,
+        };
+
+        assert_eq!(update_args.debug_level(), 2);
+        assert_eq!(update_args.log_setting(), Some("cmd=debug".to_string()));
+    }
+
+    #[test]
+    fn test_dfx_args_getter_localize() {
+        let local_args = LocalArgs {
+            debug: 1,
+            log: Some("all=info".to_string()),
+            value: Some("test.yml".to_string()),
+            use_default_value: true,
+        };
+
+        assert_eq!(local_args.debug_level(), 1);
+        assert_eq!(local_args.log_setting(), Some("all=info".to_string()));
+    }
+
+    #[test]
+    fn test_invalid_system_name() {
+        let args = vec!["gsys", "new", ""];
+        let result = GSysCmd::try_parse_from(args);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_invalid_debug_level() {
+        let args = vec!["gsys", "update", "--debug", "10"];
+        let result = GSysCmd::try_parse_from(args);
+        // Note: clap doesn't validate numeric ranges by default, so this will succeed
+        // In a real implementation, you'd add custom validation
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_help_output() {
+        let help_text = GSysCmd::command().render_help().to_string();
+        assert!(help_text.contains("Galaxy System Management Tool"));
+        assert!(help_text.contains("Create new system operator"));
+        assert!(help_text.contains("Update system configuration"));
+        assert!(help_text.contains("Localize system configuration"));
+    }
+
+    #[test]
+    fn test_long_help_output() {
+        let long_help = GSysCmd::command().render_long_help().to_string();
+        assert!(long_help.contains("comprehensive tool for managing Galaxy system"));
+        assert!(long_help.contains("Create a new system specification"));
+        assert!(long_help.contains("Update an existing system's configuration"));
+        assert!(long_help.contains("Generate localized configuration files"));
+    }
+
+    #[test]
+    fn test_subcommand_help() {
+        let args = vec!["gsys", "new", "--help"];
+        let cmd = GSysCmd::try_parse_from(args);
+
+        // This will show help and exit, so we expect an error in the test
+        match cmd {
+            Err(e) => {
+                assert_eq!(e.kind(), clap::error::ErrorKind::DisplayHelp);
+            }
+            Ok(_) => panic!("Expected help display error"),
+        }
+    }
+}
