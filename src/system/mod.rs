@@ -15,13 +15,9 @@ use derive_more::Deref;
 use orion_variate::update::DownloadOptions;
 use orion_variate::vars::{ValueDict, ValueType, VarCollection};
 
+use crate::error::MainResult;
 use crate::module::refs::ModuleSpecRef;
 use crate::module::spec::ModuleSpec;
-use crate::{
-    error::MainResult,
-    resource::{ResouceTypes, Vps},
-    software::FileFormat,
-};
 
 #[derive(Getters, Clone, Debug, Default, Serialize, Deserialize, Deref)]
 #[serde(transparent)]
@@ -123,32 +119,6 @@ impl SetupTaskBuilder for ModulesList {
     }
 }
 */
-
-#[derive(Getters, Clone, Debug, Serialize, Deserialize)]
-pub struct ModelConfig {
-    fmt: FileFormat,
-    path: String,
-}
-impl ModelConfig {
-    pub fn new<S: Into<String>>(fmt: FileFormat, path: S) -> Self {
-        Self {
-            fmt,
-            path: path.into(),
-        }
-    }
-}
-
-#[derive(Getters, Clone, Debug, Serialize, Deserialize)]
-pub struct ModelResource {
-    res: Vec<ResouceTypes>,
-}
-
-impl From<Vec<Vps>> for ModelResource {
-    fn from(value: Vec<Vps>) -> Self {
-        let res = value.iter().map(ResouceTypes::from).collect();
-        Self { res }
-    }
-}
 
 #[derive(Getters, Clone, Debug, Serialize, Deserialize)]
 pub struct NetResSpace {

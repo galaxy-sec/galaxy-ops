@@ -3,11 +3,7 @@ pub mod conf;
 pub mod const_vars;
 pub mod error;
 pub mod module;
-pub mod resource;
-pub mod software;
-pub mod spec;
 pub mod system;
-pub mod task;
 pub mod workflow;
 #[macro_use]
 pub mod tools;

@@ -5,18 +5,15 @@ use orion_common::serde::{Persistable, SerdeResult};
 use orion_error::{ErrorOwe, StructError, UvsConfFrom};
 use serde::Serialize;
 
-use crate::task::OperationType;
-
 #[derive(Getters, Clone, Debug, PartialEq, Serialize)]
 pub struct GxlAction {
-    task: OperationType,
     file: String,
     code: String,
 }
 
 impl GxlAction {
-    pub fn new(task: OperationType, file: String, code: String) -> Self {
-        Self { task, file, code }
+    pub fn new(file: String, code: String) -> Self {
+        Self { file, code }
     }
     pub fn is_action(path: &Path) -> bool {
         if let Some(file_name) = path.file_name().and_then(|f| f.to_str()) {
@@ -41,17 +38,8 @@ impl Persistable<GxlAction> for GxlAction {
             .and_then(|f| f.to_str())
             .ok_or_else(|| StructError::from_conf("bad file name".to_string()))?;
 
-        let task_type = match file_name {
-            "setup.gxl" => OperationType::Setup,
-            "update.gxl" => OperationType::Update,
-            "port.gxl" => OperationType::Port,
-            "backup.gxl" => OperationType::Backup,
-            "uninstall.gxl" => OperationType::UnInstall,
-            _ => OperationType::Other,
-        };
         let code = std::fs::read_to_string(path).owe_res()?;
         Ok(Self {
-            task: task_type,
             file: file_name.to_string(),
             code,
         })
