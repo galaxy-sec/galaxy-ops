@@ -31,7 +31,7 @@ pub fn configure_dfx_logging(dfx: &impl DfxArgsGetter) {
     let conf = LogConf::new_console(&setting);
 
     // Use Once to ensure initialization happens only once
-    let _ = LOGGING_INITIALIZED.call_once(|| {
+    LOGGING_INITIALIZED.call_once(|| {
         // Store the configuration for potential future use
         let conf_copy = conf.clone();
         let _ = LOGGING_STATE.lock().map(|mut state| {
