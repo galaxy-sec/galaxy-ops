@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::{error::MainResult, module::ModelSTD};
 
 #[derive(Clone, Debug, PartialEq, Display, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum OperationType {
     #[display("setup")]
     Setup,
@@ -18,6 +19,7 @@ pub enum OperationType {
     Clean,
     #[display("uninstall")]
     UnInstall,
+    #[display("other")]
     Other,
 }
 pub trait Task {
@@ -88,7 +90,7 @@ mod tests {
         assert_eq!(format!("{}", OperationType::Backup), "backup");
         assert_eq!(format!("{}", OperationType::Clean), "clean");
         assert_eq!(format!("{}", OperationType::UnInstall), "uninstall");
-        assert_eq!(format!("{}", OperationType::Other), "Other");
+        assert_eq!(format!("{}", OperationType::Other), "other");
     }
 
     #[test]
