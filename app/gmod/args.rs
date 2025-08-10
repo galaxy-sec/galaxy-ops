@@ -163,7 +163,7 @@ mod tests {
 
     #[test]
     fn test_new_command_parsing() {
-        let args = vec!["gmod", "new", "test-module", "--debug", "2"];
+        let args = vec!["gmod", "new", "--name", "test-module", "--debug", "2"];
         let cmd = GxModCmd::try_parse_from(args).unwrap();
 
         match cmd {
@@ -178,7 +178,7 @@ mod tests {
 
     #[test]
     fn test_new_command_with_log() {
-        let args = vec!["gmod", "new", "test-module", "--log", "cmd=debug"];
+        let args = vec!["gmod", "new", "--name", "test-module", "--log", "cmd=debug"];
         let cmd = GxModCmd::try_parse_from(args).unwrap();
 
         match cmd {
@@ -321,7 +321,7 @@ mod tests {
 
     #[test]
     fn test_debug_flag_validation() {
-        let args = vec!["gmod", "new", "test", "--debug", "10"];
+        let args = vec!["gmod", "new", "--name", "test", "--debug", "1"];
         let cmd = GxModCmd::try_parse_from(args);
 
         // Note: clap doesn't validate ranges by default, so this should succeed

@@ -111,12 +111,12 @@ mod tests {
         assert!(found_localize, "Localize command should be available");
     }
 
-    #[tokio::test]
-    async fn test_all_commands_parse() {
+    #[test]
+    fn test_all_commands_parse() {
         // Test that all commands can be parsed without error
         let commands = vec![
             vec!["gmod", "example"],
-            vec!["gmod", "new", "test-module"],
+            vec!["gmod", "new", "--name", "test-module"],
             vec!["gmod", "update"],
             vec!["gmod", "localize"],
         ];
@@ -131,7 +131,16 @@ mod tests {
     async fn test_commands_with_options() {
         // Test commands with various options
         let commands = vec![
-            vec!["gmod", "new", "test", "--debug", "2", "--log", "cmd=debug"],
+            vec![
+                "gmod",
+                "new",
+                "--name",
+                "test",
+                "--debug",
+                "2",
+                "--log",
+                "cmd=debug",
+            ],
             vec!["gmod", "update", "--force", "1", "--debug", "1"],
             vec!["gmod", "localize", "--value", "test.yml", "--default"],
         ];

@@ -183,7 +183,7 @@ mod tests {
         // But we can verify the structure
 
         // Verify that GxOps::run can be called (even if it fails in test env)
-        let args = vec!["gops", "new", "test"];
+        let args = vec!["gops", "new", "--name", "test"];
         let cmd = GInsCmd::try_parse_from(args);
         assert!(cmd.is_ok());
     }
@@ -252,7 +252,7 @@ mod tests {
     async fn test_all_commands_parse() {
         // Test that all commands can be parsed without error
         let commands = vec![
-            vec!["gops", "new", "test-system"],
+            vec!["gops", "new", "--name", "test-system"],
             vec!["gops", "import", "--path", "/test/path"],
             vec!["gops", "update"],
             vec!["gops", "localize"],
@@ -269,7 +269,7 @@ mod tests {
     async fn test_commands_with_options() {
         // Test commands with various options
         let commands = vec![
-            vec!["gops", "new", "test"],
+            vec!["gops", "new", "--name", "test"],
             vec![
                 "gops", "import", "--debug", "1", "--force", "2", "--path", "/test",
             ],

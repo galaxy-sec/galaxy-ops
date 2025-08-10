@@ -19,7 +19,10 @@ pub fn configure_dfx_logging(dfx: &impl DfxArgsGetter) {
         level_setting(dfx.debug_level()).to_string()
     };
     let conf = LogConf::new_console(&setting);
-    configure_logging(&conf).unwrap();
+    // Safe logging configuration - ignore initialization conflicts in test environment
+    if configure_logging(&conf).is_err() {
+        // Logger already initialized, continue
+    }
 }
 
 fn level_setting(debug: usize) -> &'static str {

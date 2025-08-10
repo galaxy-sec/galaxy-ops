@@ -261,7 +261,18 @@ mod tests {
         // Try to get current directory
         let current_dir = std::env::current_dir();
         assert!(current_dir.is_ok());
-        assert_eq!(current_dir.unwrap(), temp_dir.path());
+
+        // Handle macOS path normalization (/private/var vs /var)
+        let current_path = current_dir.unwrap();
+        let temp_path = temp_dir.path();
+
+        // Use canonical path to resolve any symlinks or path normalization differences
+        let current_canonical =
+            std::fs::canonicalize(&current_path).unwrap_or_else(|_| current_path.to_path_buf());
+        let temp_canonical =
+            std::fs::canonicalize(temp_path).unwrap_or_else(|_| temp_path.to_path_buf());
+
+        assert_eq!(current_canonical, temp_canonical);
 
         // Restore original directory
         std::env::set_current_dir(original_dir).unwrap();
