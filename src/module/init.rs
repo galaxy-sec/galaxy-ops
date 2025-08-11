@@ -4,7 +4,6 @@ use orion_error::{ErrorOwe, ErrorWith};
 
 use crate::{
     error::MainResult,
-    task::OperationType,
     workflow::{
         act::{ModWorkflows, Workflow},
         gxl::GxlAction,
@@ -32,18 +31,10 @@ pub trait ModPrjIniter {
 
 impl ModActIniter for GxlAction {
     fn host_ops_tpl() -> Self {
-        Self::new(
-            OperationType::Setup,
-            "operators.gxl".into(),
-            MOD_HOST_OPS_GXL.to_string(),
-        )
+        Self::new("operators.gxl".into(), MOD_HOST_OPS_GXL.to_string())
     }
     fn k8s_ops_tpl() -> Self {
-        Self::new(
-            OperationType::Setup,
-            "operators.gxl".into(),
-            K8S_K8S_OPS_GXL.to_string(),
-        )
+        Self::new("operators.gxl".into(), K8S_K8S_OPS_GXL.to_string())
     }
 }
 impl ModPrjIniter for GxlProject {

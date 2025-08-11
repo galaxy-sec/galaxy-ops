@@ -1,27 +1,32 @@
 use super::prelude::*;
 use crate::error::{MainError, ModReason};
+use crate::local::{LocalizeExecPath, LocalizeVarPath};
 use crate::predule::*;
 
 use orion_error::UvsLogicFrom;
+use orion_variate::types::ResourceDownloader;
+use orion_variate::vars::EnvEvalable;
 
 use super::ModelSTD;
-use crate::types::{Localizable, LocalizeOptions, ValuePath};
+use crate::types::{Localizable, LocalizeOptions, RefUpdateable, ValuePath};
 use crate::{const_vars::MOD_DIR, error::MainResult, module::model::ModModelSpec};
 
 #[derive(Getters, Clone, Debug, Serialize, Deserialize)]
 pub struct ModuleSpecRef {
     name: String,
-    addr: AddrType,
+    addr: Address,
     #[serde(alias = "node")]
     model: ModelSTD,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     enable: Option<bool>,
     #[serde(skip)]
     local: Option<PathBuf>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    setting: Option<LocalizeVarPath>,
 }
 
 impl ModuleSpecRef {
-    pub fn from<S: Into<String>, A: Into<AddrType>>(
+    pub fn from<S: Into<String>, A: Into<Address>>(
         name: S,
         addr: A,
         node: ModelSTD,
@@ -32,10 +37,21 @@ impl ModuleSpecRef {
             model: node,
             enable: None,
             local: None,
+            setting: None,
         }
     }
     pub fn with_enable(mut self, effective: bool) -> Self {
         self.enable = Some(effective);
+        self
+    }
+
+    pub fn with_setting(mut self, setting: LocalizeVarPath) -> Self {
+        self.setting = Some(setting);
+        self
+    }
+
+    pub fn with_local(mut self, local: PathBuf) -> Self {
+        self.local = Some(local);
         self
     }
 
@@ -49,27 +65,29 @@ impl ModuleSpecRef {
         self.local = Some(local);
     }
     pub fn get_target_spec(&self) -> MainResult<Option<ModModelSpec>> {
-        if self.is_enable() {
-            if let Some(local) = &self.local {
-                let target_root = local.join(self.name());
-                let target_path = target_root.join(self.model().to_string());
-                if target_path.exists() {
-                    let spec = ModModelSpec::load_from(&target_path)
-                        .with(&target_root)
-                        .owe(MainReason::from(ModReason::Load))?;
-                    return Ok(Some(spec));
-                }
+        if self.is_enable()
+            && let Some(local) = &self.local
+        {
+            let target_root = local.join(self.name());
+            let target_path = target_root.join(self.model().to_string());
+            if target_path.exists() {
+                let spec = ModModelSpec::load_from(&target_path)
+                    .with(&target_root)
+                    .owe(MainReason::from(ModReason::Load))?;
+                return Ok(Some(spec));
             }
         }
         Ok(None)
     }
 }
-impl ModuleSpecRef {
-    #[requires(self.local.is_some())]
-    pub async fn update(
+#[async_trait]
+impl RefUpdateable<UpdateUnit> for ModuleSpecRef {
+    //#[requires(self.local.is_some())]
+    async fn update_local(
         &self,
+        accessor: Accessor,
         _sys_root: &Path,
-        options: &UpdateOptions,
+        options: &DownloadOptions,
     ) -> MainResult<UpdateUnit> {
         //trace!(target: "spec/mod/",  "{:?}",self );
         if let Some(local) = &self.local {
@@ -82,9 +100,8 @@ impl ModuleSpecRef {
             let target_path = target_root.join(self.model().to_string());
             if !target_path.exists() || options.clean_cache() {
                 let tmp_name = "__mod";
-                let prj_path = self
-                    .addr
-                    .update_local_rename(local, tmp_name, options)
+                let prj_path = accessor
+                    .download_rename(self.addr(), local, tmp_name, options)
                     .await
                     .owe(MainReason::from(ModReason::Update))?;
                 let mod_path = prj_path.position().join(MOD_DIR);
@@ -106,7 +123,7 @@ impl ModuleSpecRef {
                 .with(&target_root)
                 .owe(MainReason::from(ModReason::Load))?;
             let unit = spec
-                .update_local(&target_path, options)
+                .update_local(accessor, &target_path, options)
                 .await
                 .owe(MainReason::from(ModReason::Update))?;
             ModModelSpec::clean_other(&target_root, self.model())?;
@@ -118,7 +135,9 @@ impl ModuleSpecRef {
             ))
         }
     }
+}
 
+impl ModuleSpecRef {
     pub fn spec_value_path(&self, parent: ValuePath) -> ValuePath {
         let value = PathBuf::from(self.name());
         parent.join(value)
@@ -129,7 +148,7 @@ impl ModuleSpecRef {
 impl Localizable for ModuleSpecRef {
     async fn localize(
         &self,
-        dst_path: Option<ValuePath>,
+        val_path: Option<ValuePath>,
         options: LocalizeOptions,
     ) -> MainResult<()> {
         if self.enable.is_none_or(|x| x) {
@@ -147,13 +166,70 @@ impl Localizable for ModuleSpecRef {
                 //}
                 let value = PathBuf::from(self.name());
                 //let local = PathBuf::from(self.name()).join("local");
-                let cur_dst_path = dst_path.map(|x| x.join(value));
-                spec.localize(cur_dst_path, options).await?;
+                let cur_dst_path = val_path.map(|x| x.join(value));
+                spec.localize(cur_dst_path.clone(), options.clone()).await?;
                 flag.mark_suc();
+                if let Some(setting) = &self.setting {
+                    let used_value_file = ValuePath::new(spec.used_value_path()?);
+                    let exe_setting =
+                        LocalizeExecPath::from(setting.clone().env_eval(options.evaled_value()));
+                    exe_setting.localize(Some(used_value_file), options).await?;
+                }
             }
             Ok(())
         } else {
             Ok(())
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use crate::module::{ModelSTD, refs::ModuleSpecRef};
+
+    #[test]
+    fn test_module_spec_ref_builder() {
+        let model_std = ModelSTD::x86_ubt22_k8s();
+        let module_ref = ModuleSpecRef::from(
+            "test-module",
+            "https://github.com/example/test-module.git",
+            model_std.clone(),
+        )
+        .with_enable(true)
+        .with_local(PathBuf::from("/tmp/test"));
+
+        assert_eq!(module_ref.name(), "test-module");
+        assert!(!module_ref.addr().to_string().is_empty());
+        assert_eq!(module_ref.model(), &model_std);
+        assert!(module_ref.is_enable());
+        assert!(module_ref.local().is_some());
+    }
+
+    #[test]
+    fn test_module_spec_ref_enable_flag() {
+        let model_std = ModelSTD::x86_ubt22_k8s();
+
+        let enabled_ref =
+            ModuleSpecRef::from("test", "https://example.com", model_std.clone()).with_enable(true);
+        let disabled_ref = ModuleSpecRef::from("test", "https://example.com", model_std.clone())
+            .with_enable(false);
+        let default_ref = ModuleSpecRef::from("test", "https://example.com", model_std);
+
+        assert!(enabled_ref.is_enable());
+        assert!(!disabled_ref.is_enable());
+        assert!(default_ref.is_enable()); // Default should be true
+    }
+
+    #[tokio::test]
+    async fn test_module_spec_ref_spec_path() {
+        let model_std = ModelSTD::x86_ubt22_k8s();
+        let module_ref = ModuleSpecRef::from("test-module", "https://example.com", model_std);
+
+        let root = PathBuf::from("/project/root");
+        let spec_path = module_ref.spec_path(&root);
+
+        assert_eq!(spec_path, root.join("mods").join("test-module"));
     }
 }

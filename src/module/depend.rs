@@ -1,92 +1,28 @@
-use crate::predule::*;
+use crate::{
+    predule::*,
+    types::{Accessor, RefUpdateable},
+};
 
 use async_trait::async_trait;
+use orion_error::ErrorConv;
 use orion_variate::{
-    addr::{AddrResult, AddrType, GitAddr, LocalAddr, types::EnvVarPath},
-    types::{LocalUpdate, UpdateUnit},
-    update::UpdateOptions,
+    addr::{Address, GitRepository, LocalPath, types::PathTemplate},
+    types::ResourceDownloader,
+    update::DownloadOptions,
 };
 
 #[derive(Getters, Clone, Debug, Serialize, Deserialize)]
 pub struct Dependency {
-    addr: AddrType,
-    local: EnvVarPath,
+    addr: Address,
+    local: PathTemplate,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     rename: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     enable: Option<bool>,
 }
 
-#[derive(Getters, Clone, Debug, Serialize, Deserialize, Default)]
-pub struct DependencySet {
-    dep_root: EnvVarPath,
-    deps: Vec<Dependency>,
-}
-
-impl DependencySet {
-    pub fn example() -> Self {
-        let depends = vec![
-            Dependency {
-                addr: AddrType::from(LocalAddr::from("./example/data")),
-                local: EnvVarPath::from("env_res".to_string()),
-                rename: Some("mysql2".to_string()),
-                enable: Some(false),
-            },
-            Dependency {
-                addr: AddrType::from(GitAddr::from("https://github.com/xxx")),
-                local: EnvVarPath::from("env_res".to_string()),
-                rename: Some("mylib".to_string()),
-                enable: Some(false),
-            },
-        ];
-
-        DependencySet {
-            deps: depends,
-            dep_root: EnvVarPath::from("./depends".to_string()),
-        }
-    }
-    pub fn for_test() -> Self {
-        let depends = vec![Dependency {
-            addr: AddrType::from(LocalAddr::from("./example/knowlege/mysql")),
-            local: EnvVarPath::from("env_res".to_string()),
-            rename: Some("mysql_x86".to_string()),
-            enable: Some(true),
-        }];
-
-        DependencySet {
-            deps: depends,
-            dep_root: EnvVarPath::from("./depends".to_string()),
-        }
-    }
-    pub async fn update(&self, options: &UpdateOptions) -> AddrResult<()> {
-        //let options = UpdateOptions::for_depend();
-        //options.
-        for dep in self.deps().iter() {
-            if dep.is_enable() {
-                dep.update(&self.dep_root().path(options.values()), options)
-                    .await?;
-            }
-        }
-        Ok(())
-    }
-    pub fn push(&mut self, item: Dependency) {
-        self.deps.push(item);
-    }
-    /*
-    pub fn check_exists(&self) -> Result<(), PathBuf> {
-        for x in &self.deps {
-            let path = self.dep_root().path().join(x.local().path());
-            if !path.exists() {
-                return Err(path.clone());
-            }
-        }
-        Ok(())
-    }
-    */
-}
-
 impl Dependency {
-    pub fn new(addr: AddrType, local: EnvVarPath) -> Self {
+    pub fn new(addr: Address, local: PathTemplate) -> Self {
         Self {
             addr,
             local,
@@ -101,22 +37,97 @@ impl Dependency {
 }
 
 #[async_trait]
-impl LocalUpdate for Dependency {
-    async fn update_local(&self, path: &Path, options: &UpdateOptions) -> AddrResult<UpdateUnit> {
-        self.addr.update_local(path, options).await
+impl RefUpdateable<()> for Dependency {
+    async fn update_local(
+        &self,
+        accessor: Accessor,
+        path: &Path,
+        options: &DownloadOptions,
+    ) -> MainResult<()> {
+        let path = path.join(self.local().path(options.values()));
+        if let Some(rename) = self.rename() {
+            accessor
+                .download_rename(self.addr(), &path, rename, options)
+                .await
+                .err_conv()?;
+        } else {
+            accessor
+                .download_to_local(self.addr(), &path, options)
+                .await
+                .err_conv()?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Getters, Clone, Debug, Serialize, Deserialize, Default)]
+pub struct DependencySet {
+    dep_root: PathTemplate,
+    deps: Vec<Dependency>,
+}
+
+impl DependencySet {
+    pub fn example() -> Self {
+        let depends = vec![
+            Dependency {
+                addr: Address::from(LocalPath::from("./example/data")),
+                local: PathTemplate::from("env_res".to_string()),
+                rename: Some("mysql2".to_string()),
+                enable: Some(false),
+            },
+            Dependency {
+                addr: Address::from(GitRepository::from("https://github.com/xxx")),
+                local: PathTemplate::from("env_res".to_string()),
+                rename: Some("mylib".to_string()),
+                enable: Some(false),
+            },
+        ];
+
+        DependencySet {
+            deps: depends,
+            dep_root: PathTemplate::from("./depends".to_string()),
+        }
+    }
+    pub fn for_test() -> Self {
+        let depends = vec![Dependency {
+            addr: Address::from(LocalPath::from("./example/knowlege/mysql")),
+            local: PathTemplate::from("env_res".to_string()),
+            rename: Some("mysql_x86".to_string()),
+            enable: Some(true),
+        }];
+
+        DependencySet {
+            deps: depends,
+            dep_root: PathTemplate::from("./depends".to_string()),
+        }
+    }
+    pub fn push(&mut self, item: Dependency) {
+        self.deps.push(item);
+    }
+}
+#[async_trait]
+impl RefUpdateable<()> for DependencySet {
+    async fn update_local(
+        &self,
+        accessor: Accessor,
+        _path: &Path,
+        options: &DownloadOptions,
+    ) -> MainResult<()> {
+        for dep in self.deps().iter() {
+            if dep.is_enable() {
+                dep.update_local(
+                    accessor.clone(),
+                    &self.dep_root().path(options.values()),
+                    options,
+                )
+                .await?;
+            }
+        }
+        Ok(())
     }
 }
 
 impl Dependency {
-    pub async fn update(&self, root: &Path, options: &UpdateOptions) -> AddrResult<UpdateUnit> {
-        //let item_path = path.join(self.local());
-        let path = root.join(self.local().path(options.values()));
-        if let Some(rename) = self.rename() {
-            self.update_local_rename(&path, rename, options).await
-        } else {
-            self.update_local(&path, options).await
-        }
-    }
     pub fn is_enable(&self) -> bool {
         self.enable.unwrap_or(true)
     }
@@ -128,11 +139,15 @@ pub mod tests {
 
     use orion_error::TestAssertWithMsg;
     use orion_variate::{
-        addr::{AddrType, LocalAddr},
-        update::UpdateOptions,
+        addr::{Address, LocalPath},
+        update::DownloadOptions,
     };
 
-    use crate::module::depend::{Dependency, DependencySet, EnvVarPath};
+    use crate::{
+        accessor::accessor_for_test,
+        module::depend::{Dependency, DependencySet, PathTemplate},
+        types::RefUpdateable,
+    };
 
     #[tokio::test]
     async fn test_depend() {
@@ -142,11 +157,12 @@ pub mod tests {
         }
         std::fs::create_dir_all(&prj_path).assert("create prj_path");
         let item = Dependency::new(
-            AddrType::from(LocalAddr::from("./example/knowlege/mysql")),
-            EnvVarPath::from("env_res".to_string()),
+            Address::from(LocalPath::from("./example/knowlege/mysql")),
+            PathTemplate::from("env_res".to_string()),
         )
         .with_rename("mysql2");
-        item.update(&prj_path, &UpdateOptions::for_test())
+        let accessor = accessor_for_test();
+        item.update_local(accessor, &prj_path, &DownloadOptions::for_test())
             .await
             .assert("update");
         assert!(prj_path.join("env_res").join("mysql2").exists())
@@ -155,19 +171,62 @@ pub mod tests {
     #[test]
     fn test_serialize_to_yaml() {
         let item = Dependency {
-            addr: AddrType::from(LocalAddr::from("./example/knowlege/mysql")),
-            local: EnvVarPath::from("env_res".to_string()),
+            addr: Address::from(LocalPath::from("./example/knowlege/mysql")),
+            local: PathTemplate::from("env_res".to_string()),
             rename: Some("mysql2".to_string()),
             enable: Some(true),
         };
 
         let vec = DependencySet {
             deps: vec![item.clone(), item],
-            dep_root: EnvVarPath::from("./".to_string()),
+            dep_root: PathTemplate::from("./".to_string()),
         };
         let yaml_vec = serde_yaml::to_string(&vec).unwrap();
         println!("{yaml_vec:#}",);
         assert!(yaml_vec.contains("- addr:"));
         assert!(yaml_vec.contains("rename: mysql2"));
+    }
+
+    #[test]
+    fn test_dependency_builder_pattern() {
+        let dep = Dependency::new(
+            Address::from(LocalPath::from("./example/data")),
+            PathTemplate::from("env_res".to_string()),
+        )
+        .with_rename("test_dep");
+
+        assert_eq!(dep.rename().as_ref().unwrap(), &"test_dep");
+        // Check that the address is not empty (basic validation)
+        assert!(!dep.addr().to_string().is_empty());
+        assert_eq!(
+            dep.local().path(&Default::default()).to_str(),
+            Some("env_res")
+        );
+    }
+
+    #[test]
+    fn test_dependency_enable_flag() {
+        let dep_enabled = Dependency {
+            addr: Address::from(LocalPath::from("./example/data")),
+            local: PathTemplate::from("env_res".to_string()),
+            rename: None,
+            enable: Some(true),
+        };
+
+        let dep_disabled = Dependency {
+            addr: Address::from(LocalPath::from("./example/data")),
+            local: PathTemplate::from("env_res".to_string()),
+            rename: None,
+            enable: Some(false),
+        };
+
+        let dep_default = Dependency::new(
+            Address::from(LocalPath::from("./example/data")),
+            PathTemplate::from("env_res".to_string()),
+        );
+
+        assert!(dep_enabled.is_enable());
+        assert!(!dep_disabled.is_enable());
+        assert!(dep_default.is_enable()); // Should default to true
     }
 }

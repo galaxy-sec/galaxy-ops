@@ -14,10 +14,10 @@ const POSTGRESQL_MD5_URL: &str =
 const POSTGRESQL_README_URL: &str = "https://mirrors.aliyun.com/postgresql/README";
 const POSTGRESQL_ARCHIVE: &str = "postgresql-17.4.tar.gz";
 const POSTGRESQL_MD5_ARCHIVE: &str = "postgresql-17.4.tar.gz.md5";
+use crate::artifact::{Artifact, ArtifactPackage};
 use async_trait::async_trait;
 use indexmap::IndexMap;
-use orion_variate::ext::{Artifact, ArtifactPackage};
-use orion_variate::{addr::HttpAddr, vars::VarDefinition};
+use orion_variate::{addr::HttpResource, vars::VarDefinition};
 
 use super::{
     CpuArch, ModelSTD, OsCPE, RunSPC,
@@ -78,10 +78,15 @@ impl ModuleSpec {
 }
 
 #[async_trait]
-impl LocalUpdate for ModuleSpec {
-    async fn update_local(&self, path: &Path, options: &UpdateOptions) -> AddrResult<UpdateUnit> {
+impl RefUpdateable<UpdateUnit> for ModuleSpec {
+    async fn update_local(
+        &self,
+        accessor: Accessor,
+        path: &Path,
+        options: &DownloadOptions,
+    ) -> MainResult<UpdateUnit> {
         for (target, node) in &self.targets {
-            node.update_local(&path.join(target.to_string()), options)
+            node.update_local(accessor.clone(), &path.join(target.to_string()), options)
                 .await?;
         }
         Ok(UpdateUnit::from(path.to_path_buf()))
@@ -152,7 +157,7 @@ impl ModuleSpec {
             ArtifactPackage::from(vec![Artifact::new(
                 name,
                 "0.1.0",
-                HttpAddr::from(POSTGRESQL_URL),
+                HttpResource::from(POSTGRESQL_URL),
                 POSTGRESQL_ARCHIVE,
             )]),
             ModWorkflows::mod_k8s_tpl_init(),
@@ -168,7 +173,7 @@ impl ModuleSpec {
             ArtifactPackage::from(vec![Artifact::new(
                 name,
                 "0.1.0",
-                HttpAddr::from(POSTGRESQL_URL),
+                HttpResource::from(POSTGRESQL_URL),
                 POSTGRESQL_ARCHIVE,
             )]),
             ModWorkflows::mod_host_tpl_init(),
@@ -183,7 +188,9 @@ impl ModuleSpec {
 
     pub fn make_new(name: &str) -> MainResult<ModuleSpec> {
         let mut conf = ConfSpec::new("1.0.0", CONFS_DIR);
-        conf.add(ConfFile::new("example.conf").with_addr(HttpAddr::from(POSTGRESQL_README_URL)));
+        conf.add(
+            ConfFile::new("example.conf").with_addr(HttpResource::from(POSTGRESQL_README_URL)),
+        );
         let vars = VarCollection::define(vec![
             VarDefinition::from(("EXAMPLE_SIZE", 1000)),
             VarDefinition::from(("ART_CACHE_REPO", "")),
@@ -195,10 +202,12 @@ impl ModuleSpec {
                 Artifact::new(
                     name,
                     "0.1.0",
-                    HttpAddr::from(POSTGRESQL_MD5_URL),
+                    HttpResource::from(POSTGRESQL_MD5_URL),
                     POSTGRESQL_MD5_ARCHIVE,
                 )
-                .with_cache_addr(Some(AddrType::from(HttpAddr::from("{{ART_CACHE_REPO}}")))),
+                .with_cache_addr(Some(Address::from(HttpResource::from(
+                    "{{ART_CACHE_REPO}}",
+                )))),
             ]),
             ModWorkflows::mod_k8s_tpl_init(),
             GxlProject::spec_k8s_tpl(),
@@ -213,10 +222,12 @@ impl ModuleSpec {
                 Artifact::new(
                     name,
                     "0.1.0",
-                    HttpAddr::from(POSTGRESQL_MD5_URL),
+                    HttpResource::from(POSTGRESQL_MD5_URL),
                     POSTGRESQL_MD5_ARCHIVE,
                 )
-                .with_cache_addr(Some(AddrType::from(HttpAddr::from("{{ART_CACHE_REPO}}")))),
+                .with_cache_addr(Some(Address::from(HttpResource::from(
+                    "{{ART_CACHE_REPO}}",
+                )))),
             ]),
             ModWorkflows::mod_host_tpl_init(),
             GxlProject::spec_host_tpl(),
@@ -230,10 +241,12 @@ impl ModuleSpec {
                 Artifact::new(
                     name,
                     "0.1.0",
-                    HttpAddr::from(POSTGRESQL_MD5_URL),
+                    HttpResource::from(POSTGRESQL_MD5_URL),
                     POSTGRESQL_MD5_ARCHIVE,
                 )
-                .with_cache_addr(Some(AddrType::from(HttpAddr::from("{{ART_CACHE_REPO}}")))),
+                .with_cache_addr(Some(Address::from(HttpResource::from(
+                    "{{ART_CACHE_REPO}}",
+                )))),
             ]),
             ModWorkflows::mod_host_tpl_init(),
             GxlProject::spec_host_tpl(),
@@ -259,7 +272,7 @@ pub fn make_mod_spec_4test() -> MainResult<ModuleSpec> {
         ArtifactPackage::from(vec![Artifact::new(
             name,
             "0.1.0",
-            HttpAddr::from(POSTGRESQL_URL),
+            HttpResource::from(POSTGRESQL_URL),
             POSTGRESQL_ARCHIVE,
         )]),
         ModWorkflows::mod_k8s_tpl_init(),
@@ -275,7 +288,7 @@ pub fn make_mod_spec_4test() -> MainResult<ModuleSpec> {
         ArtifactPackage::from(vec![Artifact::new(
             name,
             "0.1.0",
-            HttpAddr::from(POSTGRESQL_URL),
+            HttpResource::from(POSTGRESQL_URL),
             POSTGRESQL_ARCHIVE,
         )]),
         ModWorkflows::mod_host_tpl_init(),
