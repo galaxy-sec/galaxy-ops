@@ -5,7 +5,7 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/),
 并且本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
-## [0.11.0-beta] - 2025-08-10
+## [0.11.0] - 2025-08-10
 
 ### 重大变更
 - **应用程序重命名**: 将所有 `ds-*` 前缀的应用程序重命名为 `g*` 系列
@@ -18,7 +18,7 @@
 ### 新增功能
 - **本地化系统**: 新增完整的本地化功能
   - 添加 `LocalizeVarPath` 和 `LocalizeSet` 类型
-  - 支持模块级别的本地化配置
+  - 支持模块级别的本地化配置  [mod_list](https://galaxy-sec.github.io/operator-docs/operator/sys/structure/file-organization.html)
   - 添加模板化和设置导出功能
 - **通用访问器**: 新增 accessor 模块
   - 统一管理下载操作和资源访问
