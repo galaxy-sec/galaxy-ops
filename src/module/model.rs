@@ -1,13 +1,12 @@
-use orion_variate::ext::ArtifactPackage;
-
 use super::prelude::*;
 use crate::{
+    artifact::ArtifactPackage,
     const_vars::{
         DEFAULT_VALUE_FILE, LOCAL_DIR, SAMPLE_VALUE_FILE, USED_JSON, USED_READABLE_FILE,
         USER_VALUE_FILE, VALUE_DIR,
     },
     predule::*,
-    types::{Localizable, ValuePath},
+    types::{Localizable, RefUpdateable, ValuePath},
 };
 use std::{fs::read_to_string, str::FromStr};
 
@@ -64,10 +63,15 @@ impl ModModelSpec {
 }
 
 #[async_trait]
-impl LocalUpdate for ModModelSpec {
-    async fn update_local(&self, path: &Path, options: &UpdateOptions) -> AddrResult<UpdateUnit> {
+impl RefUpdateable<UpdateUnit> for ModModelSpec {
+    async fn update_local(
+        &self,
+        accessor: Accessor,
+        path: &Path,
+        options: &DownloadOptions,
+    ) -> MainResult<UpdateUnit> {
         //self.conf_spec.update_local(path, options).await?;
-        self.depends.update(options).await?;
+        self.depends.update_local(accessor, path, options).await?;
         Ok(UpdateUnit::new(path.to_path_buf(), self.vars.clone()))
     }
 }
@@ -252,6 +256,15 @@ impl ModModelSpec {
         }
         Ok(None)
     }
+    pub fn used_value_path(&self) -> MainResult<PathBuf> {
+        let local = self
+            .local
+            .clone()
+            .ok_or(MainReason::from(ElementReason::Miss("local-path".into())).to_err())?;
+        let value_path = ensure_path(local.join(VALUE_DIR)).owe_logic()?;
+        let value_file = value_path.join(USED_JSON);
+        Ok(value_file)
+    }
 }
 
 #[async_trait]
@@ -277,8 +290,7 @@ impl Localizable for ModModelSpec {
 
         let value_root = localize_path.path(); //.join(VALUE_DIR);
         let value_paths = TargetValuePaths::from(value_root);
-        let used_value_path = ensure_path(local.join(VALUE_DIR)).owe_logic()?;
-        let used_value_file = used_value_path.join(USED_JSON);
+        let used_value_file = self.used_value_path()?;
         let local_path = local.join(LOCAL_DIR);
         debug!( target:"spec/mod/target", "localize mod-target begin: {}" ,local_path.display() );
         make_clean_path(&local_path).owe_logic()?;

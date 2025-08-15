@@ -1,10 +1,14 @@
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use async_trait::async_trait;
 use getset::Getters;
 use orion_infra::path::{PathResult, ensure_path};
 use orion_variate::{
-    update::UpdateOptions,
+    addr::accessor::UniversalAccessor,
+    update::DownloadOptions,
     vars::{EnvDict, EnvEvalable, ValueDict, VarCollection},
 };
 
@@ -24,10 +28,27 @@ impl SysUpdateValue {
     }
 }
 
+pub type Accessor = Arc<UniversalAccessor>;
 #[async_trait]
-pub trait SysUpdateable<T> {
+pub trait InsUpdateable<T> {
     //pub type UpdateObj = T;
-    async fn update_local(self, path: &Path, options: &UpdateOptions) -> MainResult<T>;
+    async fn update_local(
+        self,
+        accessor: Accessor,
+        path: &Path,
+        options: &DownloadOptions,
+    ) -> MainResult<T>;
+}
+
+#[async_trait]
+pub trait RefUpdateable<T> {
+    //pub type UpdateObj = T;
+    async fn update_local(
+        &self,
+        accessor: Accessor,
+        path: &Path,
+        options: &DownloadOptions,
+    ) -> MainResult<T>;
 }
 
 #[derive(Clone, Debug, Default)]
@@ -67,7 +88,7 @@ impl LocalizeOptions {
 pub trait Localizable {
     async fn localize(
         &self,
-        dst_path: Option<ValuePath>,
+        val_path: Option<ValuePath>,
         options: LocalizeOptions,
     ) -> MainResult<()>;
 }

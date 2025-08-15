@@ -9,22 +9,18 @@ use crate::{
     types::Localizable, workflow::prj::GxlProject,
 };
 
+use super::conf::SysConf;
 use super::{
     init::{SYS_PRJ_ADM, SYS_PRJ_WORK, sys_init_gitignore},
     spec::SysModelSpec,
 };
-use crate::types::{LocalizeOptions, ValuePath};
+use crate::types::{Accessor, LocalizeOptions, RefUpdateable, ValuePath};
 use async_trait::async_trait;
 use orion_common::serde::{Configable, Persistable};
 use orion_infra::auto_exit_log;
 use orion_infra::path::{ensure_path, make_clean_path};
-use orion_variate::update::UpdateOptions;
+use orion_variate::update::DownloadOptions;
 use orion_variate::vars::{ValueDict, ValueType};
-
-#[derive(Getters, Clone, Debug, Serialize, Deserialize)]
-struct SysConf {
-    test_envs: DependencySet,
-}
 
 #[derive(Getters, Clone, Debug)]
 pub struct SysProject {
@@ -34,13 +30,7 @@ pub struct SysProject {
     root_local: PathBuf,
     val_dict: ValueDict,
 }
-impl SysConf {
-    pub fn new(local_res: DependencySet) -> Self {
-        Self {
-            test_envs: local_res,
-        }
-    }
-}
+
 impl SysProject {
     pub fn new(spec: SysModelSpec, local_res: DependencySet, root_local: PathBuf) -> Self {
         let conf = SysConf::new(local_res);
@@ -73,8 +63,8 @@ impl SysProject {
         }
         let conf = SysConf::from_conf(&conf_file_v2).owe_res()?;
         let root_local = root_local.to_path_buf();
-        let sys_local = root_local.join("sys");
-        let sys_spec = SysModelSpec::load_from(&sys_local)?;
+        let sys_path = root_local.join("sys");
+        let sys_spec = SysModelSpec::load_from(&sys_path)?;
         let project = GxlProject::load_from(&root_local).owe(SysReason::Load.into())?;
         let value_root = ensure_path(root_local.join(VALUE_DIR)).owe_logic()?;
         let value_file = value_root.join(VALUE_FILE);
@@ -110,6 +100,8 @@ impl SysProject {
             .save_to(self.root_local(), None)
             .owe(SysReason::Save.into())?;
 
+        // 保存 sys_local 配置
+
         let value_root = ensure_path(self.root_local().join(VALUE_DIR)).owe_logic()?;
         let value_file = value_root.join(VALUE_FILE);
         self.val_dict.save_conf(&value_file).owe_res()?;
@@ -119,45 +111,32 @@ impl SysProject {
     }
 }
 
-impl SysConf {
-    pub async fn update(&self, options: &UpdateOptions) -> MainResult<()> {
-        self.test_envs
-            .update(options)
-            .await
-            .owe(SysReason::Update.into())
-    }
-}
-
-impl SysProject {
-    pub async fn update(&self, options: &UpdateOptions) -> MainResult<()> {
-        self.conf.update(options).await?;
-        self.sys_spec().update_local(options).await
-    }
-}
-
 #[async_trait]
-impl Localizable for SysConf {
-    async fn localize(
+impl RefUpdateable<()> for SysProject {
+    async fn update_local(
         &self,
-        _dst_path: Option<ValuePath>,
-        _options: LocalizeOptions,
+        accessor: Accessor,
+        path: &Path,
+        options: &DownloadOptions,
     ) -> MainResult<()> {
-        Ok(())
+        self.conf
+            .update_local(accessor.clone(), path, options)
+            .await?;
+        self.sys_spec().update_local(accessor, path, options).await
     }
 }
 
 impl SysProject {
     pub async fn localize(&self, options: LocalizeOptions) -> MainResult<()> {
         let value_path = self.value_path().ensure_exist().owe_res()?;
-        //let value_file = value_path.value_file();
-        //let dict = ValueDict::from_valconf(&value_file).owe_res()?;
-        //let options = options.with_global(dict);
         let dst_path = Some(value_path);
 
         self.conf
             .localize(dst_path.clone(), options.clone())
             .await?;
-        self.sys_spec().localize(dst_path, options).await?;
+        self.sys_spec()
+            .localize(dst_path.clone(), options.clone())
+            .await?;
         Ok(())
     }
     pub fn value_path(&self) -> ValuePath {
@@ -187,12 +166,13 @@ pub mod tests {
     use orion_error::{ErrorOwe, TestAssertWithMsg};
     use orion_infra::path::make_clean_path;
     use orion_variate::{
-        addr::{AddrType, GitAddr, types::EnvVarPath},
+        addr::{Address, HttpResource, types::PathTemplate},
         tools::test_init,
-        update::UpdateOptions,
+        update::DownloadOptions,
     };
 
     use crate::{
+        accessor::accessor_for_test,
         const_vars::SYS_MODEL_PRJ_ROOT,
         error::MainResult,
         module::{
@@ -200,7 +180,7 @@ pub mod tests {
             depend::{Dependency, DependencySet},
         },
         system::{proj::SysProject, spec::SysModelSpec},
-        types::LocalizeOptions,
+        types::{LocalizeOptions, RefUpdateable},
     };
     #[tokio::test]
     async fn test_mod_prj_new() -> MainResult<()> {
@@ -225,8 +205,9 @@ pub mod tests {
         std::fs::create_dir_all(&prj_path).assert("yes");
         project.save().assert("save dss_prj");
         let project = SysProject::load(&prj_path).assert("dss-project");
+        let accessor = accessor_for_test();
         project
-            .update(&UpdateOptions::default())
+            .update_local(accessor, &prj_path, &DownloadOptions::default())
             .await
             .assert("spec.update_local");
         project
@@ -241,10 +222,10 @@ pub mod tests {
         let mut res = DependencySet::default();
         res.push(
             Dependency::new(
-                AddrType::from(GitAddr::from(
+                Address::from(HttpResource::from(
                     "https://e.coding.net/dy-sec/galaxy-open/bitnami-common.git",
                 )),
-                EnvVarPath::from(prj_path.join("test_res")),
+                PathTemplate::from(prj_path.join("test_res")),
             )
             .with_rename("bit-common"),
         );

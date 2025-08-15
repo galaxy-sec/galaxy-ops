@@ -4,14 +4,19 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::{const_vars::CONFS_DIR, error::MainResult};
+use crate::{
+    const_vars::CONFS_DIR,
+    error::MainResult,
+    types::{Accessor, RefUpdateable},
+};
 use async_trait::async_trait;
 use orion_common::serde::Configable;
+use orion_error::ErrorConv;
 use orion_infra::auto_exit_log;
 use orion_variate::{
-    addr::{AddrResult, AddrType, path_file_name},
-    types::{LocalUpdate, UpdateUnit},
-    update::UpdateOptions,
+    addr::{Address, accessor::path_file_name},
+    types::{ResourceDownloader, UpdateUnit},
+    update::DownloadOptions,
 };
 // 由于 `crate::tools::log_flag` 未定义，移除该导入
 #[derive(Clone, Debug, Getters, Deserialize, Serialize)]
@@ -28,7 +33,7 @@ fn default_local_root() -> String {
 #[derive(Clone, Debug, Getters, Deserialize, Serialize)]
 pub struct ConfFile {
     path: String,
-    addr: Option<AddrType>,
+    addr: Option<Address>,
 }
 
 #[derive(Getters, Clone, Debug, Serialize)]
@@ -85,7 +90,7 @@ impl ConfFile {
             addr: None,
         }
     }
-    pub fn with_addr<A: Into<AddrType>>(mut self, addr: A) -> Self {
+    pub fn with_addr<A: Into<Address>>(mut self, addr: A) -> Self {
         self.addr = Some(addr.into());
         self
     }
@@ -119,8 +124,13 @@ impl ConfSpec {
 }
 
 #[async_trait]
-impl LocalUpdate for ConfSpec {
-    async fn update_local(&self, path: &Path, options: &UpdateOptions) -> AddrResult<UpdateUnit> {
+impl RefUpdateable<UpdateUnit> for ConfSpec {
+    async fn update_local(
+        &self,
+        accessor: Accessor,
+        path: &Path,
+        options: &DownloadOptions,
+    ) -> MainResult<UpdateUnit> {
         debug!( target:"spec/confspec", "upload_local confspec begin: {}" ,path.display() );
 
         let mut is_suc = auto_exit_log!(
@@ -131,10 +141,12 @@ impl LocalUpdate for ConfSpec {
         std::fs::create_dir_all(&root).owe_res()?;
         for f in &self.files {
             if let Some(addr) = f.addr() {
-                let filename = path_file_name(&PathBuf::from(f.path.as_str()))?;
-                let x = addr
-                    .update_local_rename(&root, filename.as_str(), options)
-                    .await?;
+                let filename = path_file_name(&PathBuf::from(f.path.as_str())).err_conv()?;
+
+                let x = accessor
+                    .download_rename(addr, &root, filename.as_str(), options)
+                    .await
+                    .err_conv()?;
                 is_suc.mark_suc();
                 return Ok(x);
             }
@@ -146,11 +158,13 @@ impl LocalUpdate for ConfSpec {
 #[cfg(test)]
 mod tests {
 
+    use crate::accessor::accessor_for_test;
+
     use super::*;
     use httpmock::{Method::GET, MockServer};
     use orion_error::TestAssert;
     use orion_variate::{
-        addr::{GitAddr, HttpAddr, LocalAddr},
+        addr::{HttpResource, LocalPath},
         tools::test_init,
     };
     use tokio::fs;
@@ -168,7 +182,7 @@ mod tests {
         assert_eq!(file.path(), "config.yml");
         assert!(file.addr().is_none());
 
-        let with_addr = file.with_addr(AddrType::Local(LocalAddr::from("/tmp")));
+        let with_addr = file.with_addr(Address::Local(LocalPath::from("/tmp")));
         assert!(with_addr.addr().is_some());
     }
     #[tokio::test]
@@ -180,8 +194,7 @@ mod tests {
         // 创建带地址的配置
         let mut spec = ConfSpec::new("3.0", CONFS_DIR);
         spec.add(
-            ConfFile::new("db.yml")
-                .with_addr(AddrType::Local(LocalAddr::from("./temp/src/db.yml"))),
+            ConfFile::new("db.yml").with_addr(Address::Local(LocalPath::from("./temp/src/db.yml"))),
         );
 
         // 模拟本地文件
@@ -192,9 +205,10 @@ mod tests {
             .await
             .owe_res()?;
 
+        let accessor = accessor_for_test();
         // 执行更新
         let _ = spec
-            .update_local(&dst_dir, &UpdateOptions::for_test())
+            .update_local(accessor, &dst_dir, &DownloadOptions::for_test())
             .await
             .owe_logic()?;
         assert!(dst_dir.join("confs/db.yml").exists());
@@ -213,9 +227,11 @@ mod tests {
             then.status(200).body("[settings]\nenv=\"test\"");
         });
 
-        // 创建包含HttpAddr的配置
+        // 创建包含HttpResource的配置
         let mut conf = ConfSpec::new("1.0", CONFS_DIR);
-        conf.add(ConfFile::new("remote.yml").with_addr(HttpAddr::from(server.url("/global.yml"))));
+        conf.add(
+            ConfFile::new("remote.yml").with_addr(HttpResource::from(server.url("/global.yml"))),
+        );
 
         // 测试更新
         //let src_dir = PathBuf::from("./temp/src");
@@ -227,8 +243,9 @@ mod tests {
         }
         std::fs::create_dir_all(&temp_dir).assert();
 
+        let accessor = accessor_for_test();
         let updated_v = conf
-            .update_local(&temp_dir, &UpdateOptions::for_test())
+            .update_local(accessor, &temp_dir, &DownloadOptions::for_test())
             .await
             .assert();
 
@@ -247,9 +264,9 @@ mod tests {
     }
     #[tokio::test(flavor = "current_thread")]
     async fn test_conf_with_addr_addr() -> MainResult<()> {
-        // 创建包含HttpAddr的配置
+        // 创建包含HttpResource的配置
         let mut conf = ConfSpec::new("1.0", CONFS_DIR);
-        conf.add(ConfFile::new("bitnami").with_addr(GitAddr::from(
+        conf.add(ConfFile::new("bitnami").with_addr(HttpResource::from(
             "https://github.com/galaxy-sec/hello-word.git",
         )));
 
@@ -262,8 +279,9 @@ mod tests {
             std::fs::remove_dir_all(&temp_dir).assert();
         }
         std::fs::create_dir_all(&temp_dir).assert();
+        let accessor = accessor_for_test();
         let updated_v = conf
-            .update_local(&temp_dir, &UpdateOptions::for_test())
+            .update_local(accessor, &temp_dir, &DownloadOptions::for_test())
             .await
             .assert();
         assert_eq!(

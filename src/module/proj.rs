@@ -1,3 +1,5 @@
+use orion_variate::addr::HttpResource;
+
 use super::prelude::*;
 use crate::const_vars::{
     BITNAMI_COMMON_GIT_URL, MOD_PRJ_CONF_FILE_V1, MOD_PRJ_CONF_FILE_V2, MOD_PRJ_TEST_ROOT,
@@ -5,7 +7,7 @@ use crate::const_vars::{
 use crate::error::ModReason;
 use crate::module::init::MOD_PRJ_ROOT_FILE;
 use crate::predule::*;
-use crate::types::{Localizable, ValuePath};
+use crate::types::{Localizable, RefUpdateable, ValuePath};
 
 use super::init::{MOD_PRJ_ADM_GXL, MOD_PRJ_WORK_GXL, mod_init_gitignore};
 use crate::{
@@ -102,20 +104,34 @@ impl ModProject {
     }
 }
 
-impl ModConf {
-    pub async fn update(&self, options: &UpdateOptions) -> MainResult<()> {
+#[async_trait]
+impl RefUpdateable<()> for ModConf {
+    async fn update_local(
+        &self,
+        accessor: Accessor,
+        _path: &Path,
+        options: &DownloadOptions,
+    ) -> MainResult<()> {
         self.test_envs
-            .update(options)
+            .update_local(accessor, _path, options)
             .await
             .owe(ModReason::Update.into())
     }
 }
 
-impl ModProject {
-    pub async fn update(&self, options: &UpdateOptions) -> MainResult<()> {
-        self.conf.update(options).await?;
+#[async_trait]
+impl RefUpdateable<()> for ModProject {
+    async fn update_local(
+        &self,
+        accessor: Accessor,
+        _path: &Path,
+        options: &DownloadOptions,
+    ) -> MainResult<()> {
+        self.conf
+            .update_local(accessor.clone(), _path, options)
+            .await?;
         self.mod_spec()
-            .update_local(self.root_local(), options)
+            .update_local(accessor, self.root_local(), options)
             .await
             .owe(ModReason::Update.into())?;
         Ok(())
@@ -168,8 +184,8 @@ pub fn make_mod_prj_testins(prj_path: &Path) -> MainResult<ModProject> {
     let mut res = DependencySet::default();
     res.push(
         Dependency::new(
-            AddrType::from(GitAddr::from(BITNAMI_COMMON_GIT_URL)),
-            EnvVarPath::from(prj_path.join("test_res")),
+            Address::from(HttpResource::from(BITNAMI_COMMON_GIT_URL)),
+            PathTemplate::from(prj_path.join("test_res")),
         )
         .with_rename("bit-common"),
     );
@@ -178,12 +194,16 @@ pub fn make_mod_prj_testins(prj_path: &Path) -> MainResult<ModProject> {
 
 #[cfg(test)]
 pub mod tests {
-    use crate::{predule::*, types::LocalizeOptions};
+    use crate::{
+        accessor::accessor_for_test,
+        predule::*,
+        types::{LocalizeOptions, RefUpdateable},
+    };
     use std::path::PathBuf;
 
     use orion_error::TestAssertWithMsg;
     use orion_infra::path::make_clean_path;
-    use orion_variate::{tools::test_init, update::UpdateOptions};
+    use orion_variate::{tools::test_init, update::DownloadOptions};
 
     use crate::{
         const_vars::MODULES_SPC_ROOT,
@@ -212,8 +232,9 @@ pub mod tests {
         std::fs::create_dir_all(&prj_path).assert("yes");
         project.save().assert("save dss_prj");
         let project = ModProject::load(&prj_path).assert("dss-project");
+        let accessor = accessor_for_test();
         project
-            .update(&UpdateOptions::default())
+            .update_local(accessor, &prj_path, &DownloadOptions::default())
             .await
             .assert("spec.update_local");
 
