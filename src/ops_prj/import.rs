@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use fs_extra::dir::{CopyOptions, move_dir};
 use orion_common::serde::Configable;
-use orion_error::{ErrorOwe, ErrorWith, UvsConfFrom};
+use orion_error::{ErrorOwe, ErrorWith, ToStructError, UvsConfFrom};
 use orion_infra::path::make_clean_path;
 use orion_variate::{
     archive::decompress,
@@ -13,7 +13,7 @@ use orion_variate::{
 
 use crate::{
     artifact::types::{PackageType, build_pkg, convert_addr},
-    error::{MainError, MainResult},
+    error::{MainReason, MainResult},
     ops_prj::{proj::OpsProject, system::OpsSystem},
     system::spec::SysModelSpec,
     types::Accessor,
@@ -94,10 +94,11 @@ impl OpsProject {
                     .with(&value_link)?;
             }
         } else {
-            MainError::from_conf(format!(
+            MainReason::from_conf(format!(
                 "import package failed, bad path: {}",
                 sys_src.display()
-            ));
+            ))
+            .to_err();
         }
         self.save()?;
         // 5. 提供系统包的信息， 包组所有组件。

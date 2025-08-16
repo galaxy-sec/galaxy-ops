@@ -326,7 +326,7 @@ mod tests {
 
         // Verify each model can be converted to string
         for model in models {
-            let model_str = format!("{}", model);
+            let model_str = format!("{model}");
             assert!(!model_str.is_empty());
         }
     }

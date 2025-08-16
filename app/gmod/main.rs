@@ -123,7 +123,7 @@ mod tests {
 
         for cmd_args in commands {
             let result = GxModCmd::try_parse_from(cmd_args.clone());
-            assert!(result.is_ok(), "Failed to parse command: {:?}", cmd_args);
+            assert!(result.is_ok(), "Failed to parse command: {cmd_args:?}");
         }
     }
 
@@ -149,8 +149,7 @@ mod tests {
             let result = GxModCmd::try_parse_from(cmd_args.clone());
             assert!(
                 result.is_ok(),
-                "Failed to parse command with options: {:?}",
-                cmd_args
+                "Failed to parse command with options: {cmd_args:?}",
             );
         }
     }
