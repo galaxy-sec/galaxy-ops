@@ -37,17 +37,6 @@ pub async fn do_ins_cmd(cmd: GInsCmd) -> MainResult<()> {
                 .await
                 .err_conv()?;
         }
-        GInsCmd::Localize(_args) => {
-            todo!();
-            /*
-            configure_dfx_logging(&args);
-            let spec = OpsProject::load(&current_dir).err_conv()?;
-            let dict = load_project_global_value(spec.root_local(), args.value())?;
-            spec.localize(LocalizeOptions::new(dict, args.use_default_value))
-                .await
-                .err_conv()?;
-            */
-        }
         GInsCmd::Setting(args) => {
             configure_dfx_logging(&args);
             let spec = OpsProject::load(&current_dir).err_conv()?;
@@ -157,30 +146,6 @@ mod tests {
 
         // Should fail gracefully (no project exists)
         let result = do_ins_cmd(cmd).await;
-        assert!(result.is_err());
-    }
-
-    #[tokio::test]
-    async fn test_do_ins_cmd_localize_todo() {
-        let temp_dir = tempdir().unwrap();
-
-        // Create test command
-        let cmd = GInsCmd::Localize(LocalArgs {
-            debug: 0,
-            log: None,
-            value: None,
-            use_default_value: false,
-        });
-
-        std::env::set_current_dir(temp_dir.path()).unwrap();
-
-        // Should panic due to todo!()
-        let result = std::panic::catch_unwind(|| {
-            tokio::runtime::Runtime::new().unwrap().block_on(async {
-                let _ = do_ins_cmd(cmd).await;
-            })
-        });
-
         assert!(result.is_err());
     }
 

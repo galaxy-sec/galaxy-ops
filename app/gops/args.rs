@@ -26,10 +26,6 @@ pub enum GInsCmd {
     Update(UpdateArgs),
     /// 本地化模块配置
     ///
-    /// 将模块配置本地化，适配当前环境
-    Localize(LocalArgs),
-    /// 系统设置管理
-    ///
     /// 管理系统级别的配置设置
     Setting(SettingArgs),
 }
@@ -289,44 +285,6 @@ mod tests {
                 assert_eq!(update_args.log(), &None);
             }
             _ => panic!("Expected Update command"),
-        }
-    }
-
-    #[test]
-    fn test_localize_command_parsing() {
-        let args = vec![
-            "gops",
-            "localize",
-            "--value",
-            "prod-values.yml",
-            "--default",
-        ];
-        let cmd = GInsCmd::try_parse_from(args).unwrap();
-
-        match cmd {
-            GInsCmd::Localize(local_args) => {
-                assert_eq!(*local_args.debug(), 0);
-                assert_eq!(local_args.value(), &Some("prod-values.yml".to_string()));
-                assert!(local_args.use_default_value);
-                assert_eq!(local_args.log(), &None);
-            }
-            _ => panic!("Expected Localize command"),
-        }
-    }
-
-    #[test]
-    fn test_localize_command_with_debug() {
-        let args = vec!["gops", "localize", "-d", "1", "--log", "all=info"];
-        let cmd = GInsCmd::try_parse_from(args).unwrap();
-
-        match cmd {
-            GInsCmd::Localize(local_args) => {
-                assert_eq!(*local_args.debug(), 1);
-                assert_eq!(*local_args.log(), Some("all=info".to_string()));
-                assert!(!local_args.use_default_value);
-                assert_eq!(local_args.value(), &None);
-            }
-            _ => panic!("Expected Localize command"),
         }
     }
 
