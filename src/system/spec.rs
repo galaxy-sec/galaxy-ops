@@ -1,5 +1,5 @@
 use crate::{
-    error::{MainError, SysReason},
+    error::SysReason,
     local::LocalizeVarPath,
     predule::*,
     system::path::SysTargetPaths,
@@ -14,7 +14,7 @@ use crate::{
 use async_trait::async_trait;
 use getset::{Getters, WithSetters};
 use orion_common::serde::{Configable, Persistable, Yamlable};
-use orion_error::{ErrorOwe, ErrorWith, StructError, UvsConfFrom, UvsLogicFrom, WithContext};
+use orion_error::{ErrorOwe, ErrorWith, UvsConfFrom, UvsLogicFrom, WithContext};
 use orion_infra::auto_exit_log;
 use orion_variate::{
     addr::{GitRepository, LocalPath},
@@ -93,7 +93,7 @@ impl SysModelSpec {
         let _name = root
             .file_name()
             .and_then(|f| f.to_str())
-            .ok_or_else(|| StructError::from_conf("bad name".to_string()))?;
+            .ok_or_else(|| MainReason::from_conf("bad name".to_string()).to_err())?;
 
         let mut flag = auto_exit_log!(
             info!(target: "sys", "load sys spec success!:{}", root.display()),
@@ -103,11 +103,11 @@ impl SysModelSpec {
 
         ctx.with_path("mod_list", paths.modlist_path());
         let define = if !paths.define_path().exists() {
-            return MainError::from_logic(format!(
+            return MainReason::from_logic(format!(
                 "miss define file : {}",
                 paths.define_path().display()
             ))
-            .err();
+            .err_result();
         } else {
             SysDefine::from_conf(paths.define_path())
                 .with("load define".to_string())

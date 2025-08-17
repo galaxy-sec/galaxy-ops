@@ -2,16 +2,33 @@ use std::path::{Path, PathBuf};
 
 use fs_extra::dir::CopyOptions;
 use log::{debug, info};
-use orion_error::{ErrorOwe, ErrorWith, StructError, UvsConfFrom, UvsResFrom, WithContext};
+use orion_error::{ErrorOwe, ErrorWith, UvsConfFrom, UvsResFrom, WithContext};
+use orion_variate::tpl::{CommentFmt, CustTmplLabel, LabelCoverter};
 use serde::Serialize;
 
 use crate::{
-    error::{MainResult, ModReason},
+    error::{MainReason, MainResult, ModReason, ToErr},
     module::setting::TemplatePath,
 };
-use orion_variate::tpl::{CommentFmt, CustTmplLabel, LabelCoverter, TplHandleBars};
 
 use super::setting::TemplateConfig;
+use handlebars::Handlebars;
+
+pub struct TplHandleBars<'a> {
+    handlebars: Handlebars<'a>,
+}
+impl TplHandleBars<'_> {
+    pub fn init() -> Self {
+        let mut handlebars = Handlebars::new();
+        handlebars.set_strict_mode(true);
+        Self { handlebars }
+    }
+
+    pub fn render_data<T: Serialize>(&self, template: &str, data: &T) -> MainResult<String> {
+        let out_data = self.handlebars.render_template(template, data).owe_biz()?;
+        Ok(out_data)
+    }
+}
 
 pub struct LocalizeTemplate<'a> {
     handlebars: TplHandleBars<'a>,
@@ -99,7 +116,8 @@ impl LocalizeTemplate<'_> {
         err_ctx.with("tpl", tpl_path.to_string_lossy());
         // 2. 验证模板文件
         if !tpl_path.exists() {
-            return Err(StructError::from_conf("tpl path not exists".to_string())).with(&err_ctx);
+            return Err(MainReason::from_conf("tpl path not exists".to_string()).to_err())
+                .with(&err_ctx);
         }
         if !templatize.is_include(tpl_path) {
             info!("ignore:{}", tpl_path.display());
@@ -115,7 +133,7 @@ impl LocalizeTemplate<'_> {
 
                 return Ok(());
             }
-            return Err(StructError::from_res("path not parent".into())).with(dst_path);
+            return Err(MainReason::from_res("path not parent".into()).to_err()).with(dst_path);
         }
         err_ctx.with("dst", dst_path.to_string_lossy());
 

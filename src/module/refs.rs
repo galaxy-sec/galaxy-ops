@@ -1,5 +1,5 @@
 use super::prelude::*;
-use crate::error::{MainError, ModReason};
+use crate::error::ModReason;
 use crate::local::{LocalizeExecPath, LocalizeVarPath};
 use crate::predule::*;
 
@@ -130,9 +130,7 @@ impl RefUpdateable<UpdateUnit> for ModuleSpecRef {
             flag.mark_suc();
             return Ok(unit);
         } else {
-            Err(MainError::from_logic(
-                "no local value in ModuleSpecRef ".into(),
-            ))
+            Err(MainReason::from_logic("no local value in ModuleSpecRef ".into()).to_err())
         }
     }
 }

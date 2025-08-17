@@ -3,11 +3,11 @@ use std::path::Path;
 use super::gxl::GxlAction;
 use derive_getters::Getters;
 use log::warn;
-use orion_common::serde::{Persistable, SerdeResult};
-use orion_error::{ErrorOwe, ErrorWith, StructError, UvsConfFrom};
+use orion_common::serde::{Persistable, SerdeReason, SerdeResult};
+use orion_error::{ErrorOwe, ErrorWith, UvsConfFrom};
 use serde::Serialize;
 
-use crate::const_vars::WORKFLOWS_DIR;
+use crate::{const_vars::WORKFLOWS_DIR, error::ToErr};
 
 #[derive(Getters, Clone, Debug, Default, Serialize)]
 pub struct Workflows {
@@ -80,17 +80,19 @@ impl Persistable<Workflow> for Workflow {
     fn load_from(path: &Path) -> SerdeResult<Workflow> {
         // 首先检查文件是否存在且是普通文件
         if !path.exists() {
-            return Err(StructError::from_conf("path not exists".into())).with(path);
+            return Err(SerdeReason::from_conf("path not exists".to_string()).to_err()).with(path);
         }
 
         if !path.is_file() {
-            return Err(StructError::from_conf("path not file".into())).with(path);
+            return Err(SerdeReason::from_conf("path not file".to_string()).to_err()).with(path);
         }
 
         // 根据扩展名分发加载逻辑
         match path.extension().and_then(|s| s.to_str()) {
             Some("gxl") => GxlAction::load_from(path).map(Workflow::Gxl),
-            _ => Err(StructError::from_conf("file type not support".into())).with(path),
+            _ => {
+                Err(SerdeReason::from_conf("file type not support".to_string()).to_err()).with(path)
+            }
         }
     }
 }

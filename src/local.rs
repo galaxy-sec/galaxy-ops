@@ -1,5 +1,5 @@
 use crate::{
-    error::MainError,
+    error::MainReason,
     module::{
         localize::LocalizeTemplate,
         setting::{Setting, TemplateConfig},
@@ -10,7 +10,7 @@ use crate::{
 use async_trait::async_trait;
 use derive_more::Deref;
 use getset::Getters;
-use orion_error::UvsResFrom;
+use orion_error::{ToStructError, UvsResFrom};
 use orion_infra::auto_exit_log;
 use orion_variate::{update::DownloadOptions, vars::EnvEvalable};
 
@@ -167,11 +167,11 @@ impl Localizable for LocalizeExecPath {
             (self.setting.clone().or(Some(Setting::default())), val_path)
         {
             if !value_file.path().exists() {
-                return MainError::from_res(format!(
+                return MainReason::from_res(format!(
                     "sys value file not exists: {}",
                     value_file.path().display()
                 ))
-                .err();
+                .err_result();
             }
             let tpl_path_opt = setting
                 .localize()
@@ -195,7 +195,7 @@ impl Localizable for LocalizeExecPath {
                 .render_path(self.src(), &self.dst, value_file.path(), &tpl_path)
                 .with(&ctx)?;
         } else {
-            return MainError::from_res("sys value file miss".into()).err();
+            return MainReason::from_res("sys value file miss".into()).err_result();
         }
 
         flag.mark_suc();
