@@ -2,7 +2,6 @@ use std::fs;
 use std::path::Path;
 
 use galaxy_ops::artifact::Artifact;
-use serde_yaml;
 
 #[test]
 fn test_parse_artifact_yml() {
@@ -61,7 +60,8 @@ fn test_parse_actual_artifact_files() {
     for file_path in test_cases {
         let path = Path::new(file_path);
         if path.exists() {
-            let content = fs::read_to_string(path).expect(&format!("Failed to read {}", file_path));
+            let content =
+                fs::read_to_string(path).unwrap_or_else(|_| panic!("Failed to read {}", file_path));
 
             let result: Result<Vec<Artifact>, serde_yaml::Error> = serde_yaml::from_str(&content);
             assert!(

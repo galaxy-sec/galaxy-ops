@@ -3,13 +3,6 @@ name = "galaxy-ops"
 version = "0.11.0"
 edition = "2024"
 
-[[bin]]
-name = "gsys"
-path = "app/gsys/main.rs"
-
-[[bin]]
-name = "gmod"
-path = "app/gmod/main.rs"
 
 [[bin]]
 name = "gops"

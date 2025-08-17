@@ -227,7 +227,7 @@ mod tests {
         let mut found_new = false;
         let mut found_import = false;
         let mut found_update = false;
-        let mut found_localize = false;
+
         let mut found_setting = false;
 
         for subcommand in subcommands {
@@ -235,7 +235,7 @@ mod tests {
                 "new" => found_new = true,
                 "import" => found_import = true,
                 "update" => found_update = true,
-                "localize" => found_localize = true,
+
                 "setting" => found_setting = true,
                 _ => {}
             }
@@ -244,8 +244,22 @@ mod tests {
         assert!(found_new, "New command should be available");
         assert!(found_import, "Import command should be available");
         assert!(found_update, "Update command should be available");
-        assert!(found_localize, "Localize command should be available");
         assert!(found_setting, "Setting command should be available");
+
+        // Check for new subcommands
+        let mut found_mod = false;
+        let mut found_sys = false;
+
+        for subcommand in app.get_subcommands() {
+            match subcommand.get_name() {
+                "mod" => found_mod = true,
+                "sys" => found_sys = true,
+                _ => {}
+            }
+        }
+
+        assert!(found_mod, "Mod subcommand should be available");
+        assert!(found_sys, "Sys subcommand should be available");
     }
 
     #[tokio::test]
@@ -255,8 +269,14 @@ mod tests {
             vec!["gops", "new", "--name", "test-system"],
             vec!["gops", "import", "--path", "/test/path"],
             vec!["gops", "update"],
-            vec!["gops", "localize"],
             vec!["gops", "setting"],
+            vec!["gops", "mod", "example"],
+            vec!["gops", "mod", "new", "--name", "test-module"],
+            vec!["gops", "mod", "update"],
+            vec!["gops", "mod", "localize"],
+            vec!["gops", "sys", "new", "--name", "test-system"],
+            vec!["gops", "sys", "update"],
+            vec!["gops", "sys", "localize"],
         ];
 
         for cmd_args in commands {
@@ -274,7 +294,22 @@ mod tests {
                 "gops", "import", "--debug", "1", "--force", "2", "--path", "/test",
             ],
             vec!["gops", "update", "--debug", "2", "--log", "cmd=debug"],
-            vec!["gops", "localize", "--value", "test.yml", "--default"],
+            vec![
+                "gops",
+                "mod",
+                "localize",
+                "--value",
+                "test.yml",
+                "--default",
+            ],
+            vec![
+                "gops",
+                "sys",
+                "localize",
+                "--value",
+                "test.yml",
+                "--default",
+            ],
             vec!["gops", "setting", "--debug", "1", "--log", "setting=debug"],
         ];
 

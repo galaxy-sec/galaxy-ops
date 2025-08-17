@@ -1,14 +1,133 @@
 use galaxy_ops::accessor::accessor_for_default;
 use galaxy_ops::error::MainResult;
 use galaxy_ops::infra::configure_dfx_logging;
+use galaxy_ops::module::proj::ModProject;
+use galaxy_ops::module::spec::make_mod_spec_example;
 use galaxy_ops::ops_prj::proj::OpsProject;
-use galaxy_ops::types::InsUpdateable;
+use galaxy_ops::project::load_project_global_value;
+use galaxy_ops::system::proj::SysProject;
+use galaxy_ops::types::{InsUpdateable, Localizable, LocalizeOptions, RefUpdateable};
+use orion_common::serde::Persistable;
 use orion_error::{ErrorConv, ErrorOwe};
 use orion_infra::path::make_new_path;
 use orion_variate::update::DownloadOptions;
 use orion_variate::vars::ValueDict;
 
-use crate::args::GInsCmd;
+use crate::args::{GInsCmd, ModCmd, SysCmd};
+use galaxy_ops::module::ModelSTD;
+use inquire::Select;
+
+fn ia_model_std() -> MainResult<ModelSTD> {
+    let support_models = ModelSTD::support();
+
+    // 准备选项列表
+    let options: Vec<String> = support_models
+        .iter()
+        .map(|model| format!("{model}"))
+        .collect();
+
+    // 添加使用当前系统的选项
+    let all_options = options;
+
+    // 检查是否在测试环境中
+    if std::env::var("TEST_MODE").is_ok() {
+        // 在测试环境中，自动选择第一个支持的模式
+        if let Some(first_model) = support_models.first() {
+            return Ok(first_model.clone());
+        } else {
+            return Ok(ModelSTD::from_cur_sys());
+        }
+    }
+
+    // 检查是否在测试环境中
+    if std::env::var("TEST_MODE").is_ok() {
+        // 在测试环境中，自动选择第一个支持的模式
+        if let Some(first_model) = support_models.first() {
+            return Ok(first_model.clone());
+        } else {
+            return Ok(ModelSTD::from_cur_sys());
+        }
+    }
+
+    let selection = Select::new("请选择系统型号配置:", all_options.clone())
+        .prompt()
+        .unwrap();
+
+    // 从预定义选项中选择
+    let index = all_options.iter().position(|s| s == &selection).unwrap();
+    if index < support_models.len() {
+        Ok(support_models[index].clone())
+    } else {
+        Ok(ModelSTD::from_cur_sys()) // 兜底处理
+    }
+}
+
+pub async fn do_mod_cmd(cmd: ModCmd) -> MainResult<()> {
+    let current_dir = std::env::current_dir().expect("无法获取当前目录");
+    match cmd {
+        ModCmd::Example(_args) => {
+            let spec = make_mod_spec_example().err_conv()?;
+            spec.save_to(&std::path::PathBuf::from("./"), None)
+                .owe_res()?;
+        }
+        ModCmd::New(args) => {
+            let project_dir = current_dir.join(args.name());
+            std::fs::create_dir(&project_dir).owe_res()?;
+            configure_dfx_logging(&args);
+            let spec = ModProject::make_new(&project_dir, args.name.as_str()).err_conv()?;
+            spec.save().err_conv()?;
+        }
+        ModCmd::Update(args) => {
+            configure_dfx_logging(&args);
+            let spec = ModProject::load(&current_dir).err_conv()?;
+            let options = DownloadOptions::from((args.force, ValueDict::default()));
+            let accessor = accessor_for_default();
+            spec.update_local(accessor, &current_dir, &options)
+                .await
+                .err_conv()?;
+        }
+        ModCmd::Localize(args) => {
+            configure_dfx_logging(&args);
+            let spec = ModProject::load(&current_dir).err_conv()?;
+            let dict = load_project_global_value(spec.root_local(), args.value())?;
+            spec.localize(None, LocalizeOptions::new(dict, args.use_default_value))
+                .await
+                .err_conv()?;
+        }
+    }
+    Ok(())
+}
+
+pub async fn do_sys_cmd(cmd: SysCmd) -> MainResult<()> {
+    let current_dir = std::env::current_dir().expect("无法获取当前目录");
+    match cmd {
+        SysCmd::New(args) => {
+            let new_prj = current_dir.join(args.name());
+            make_new_path(&new_prj).owe_res()?;
+            let model_in = ia_model_std()?;
+            let spec = SysProject::make_new(&new_prj, args.name(), model_in).err_conv()?;
+            spec.save().err_conv()?;
+        }
+        SysCmd::Update(args) => {
+            configure_dfx_logging(&args);
+            let options = DownloadOptions::from((args.force, ValueDict::default()));
+            let spec = SysProject::load(&current_dir).err_conv()?;
+            let accessor = accessor_for_default();
+            spec.update_local(accessor, &current_dir, &options)
+                .await
+                .err_conv()?;
+        }
+        SysCmd::Localize(args) => {
+            configure_dfx_logging(&args);
+            let spec = SysProject::load(&current_dir).err_conv()?;
+            let dict = load_project_global_value(spec.root_local(), args.value())?;
+            spec.localize(LocalizeOptions::new(dict, args.use_default_value))
+                .await
+                .err_conv()?;
+        }
+    }
+    Ok(())
+}
 
 pub async fn do_ins_cmd(cmd: GInsCmd) -> MainResult<()> {
     let current_dir = std::env::current_dir().expect("无法获取当前目录");
@@ -42,6 +161,12 @@ pub async fn do_ins_cmd(cmd: GInsCmd) -> MainResult<()> {
             let spec = OpsProject::load(&current_dir).err_conv()?;
             spec.ia_setting()?;
         }
+        GInsCmd::Mod(mod_cmd) => {
+            do_mod_cmd(mod_cmd).await?;
+        }
+        GInsCmd::Sys(sys_cmd) => {
+            do_sys_cmd(sys_cmd).await?;
+        }
     }
     Ok(())
 }
@@ -49,7 +174,7 @@ pub async fn do_ins_cmd(cmd: GInsCmd) -> MainResult<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::args::{GInsCmd, ImportArgs, LocalArgs, NewArgs, SettingArgs, UpdateArgs};
+    use crate::args::{GInsCmd, ImportArgs, NewArgs, SettingArgs, UpdateArgs};
     use tempfile::tempdir;
 
     #[tokio::test]

@@ -2,6 +2,212 @@ use clap::{ArgAction, Args, Parser};
 use derive_getters::Getters;
 use galaxy_ops::infra::DfxArgsGetter;
 
+// Mod子命令参数结构
+#[derive(Debug, Args, Getters)]
+pub struct ModExampleArgs {
+    /// Enable debug output with specified level (0-3)
+    #[arg(
+        short = 'd',
+        long = "debug",
+        default_value = "0",
+        help = "Debug level: 0=off, 1=basic, 2=verbose, 3=trace"
+    )]
+    pub debug: usize,
+    /// Set logging level and format
+    #[arg(long = "log", help = "Log level: error, warn, info, debug, trace")]
+    pub log: Option<String>,
+}
+
+#[derive(Debug, Args, Getters)]
+pub struct ModNewArgs {
+    /// Name of the new module to create
+    #[arg(
+        short,
+        long,
+        help = "Module name (alphanumeric with hyphens/underscores)"
+    )]
+    pub(crate) name: String,
+
+    /// Enable debug output with specified level (0-3)
+    #[arg(
+        short = 'd',
+        long = "debug",
+        default_value = "0",
+        help = "Debug level: 0=off, 1=basic, 2=verbose, 3=trace"
+    )]
+    pub debug: usize,
+    /// Set logging level and format
+    #[arg(long = "log", help = "Log level: error, warn, info, debug, trace")]
+    pub log: Option<String>,
+}
+
+#[derive(Debug, Args, Getters)]
+pub struct ModUpdateArgs {
+    /// Enable debug output with specified level (0-3)
+    #[arg(
+        short = 'd',
+        long = "debug",
+        default_value = "0",
+        help = "Debug level: 0=off, 1=basic, 2=verbose, 3=trace"
+    )]
+    pub debug: usize,
+    /// Set logging level and format
+    #[arg(long = "log", help = "Log level: error, warn, info, debug, trace")]
+    pub log: Option<String>,
+
+    /// Force update even if conflicts exist
+    #[arg(
+        short = 'f',
+        long = "force",
+        default_value = "0",
+        help = "Force update: skip confirmation, overwrite existing files"
+    )]
+    pub force: usize,
+}
+
+#[derive(Debug, Args, Getters)]
+pub struct ModLocalizeArgs {
+    /// Enable debug output with specified level (0-3)
+    #[arg(
+        short = 'd',
+        long = "debug",
+        default_value = "0",
+        help = "Debug level: 0=off, 1=basic, 2=verbose, 3=trace"
+    )]
+    pub debug: usize,
+    /// Set logging level and format
+    #[arg(long = "log", help = "Log level: error, warn, info, debug, trace")]
+    pub log: Option<String>,
+
+    /// Path to values file for localization
+    #[arg(
+        long = "value",
+        help = "Path to YAML/JSON file containing environment-specific values"
+    )]
+    pub value: Option<String>,
+    /// Use default values instead of user-provided value.yml
+    #[arg(long = "default", default_value = "false" , action = ArgAction::SetTrue, help = "Use default values instead of user-provided value.yml")]
+    pub use_default_value: bool,
+}
+
+#[derive(Debug, Parser)]
+pub enum ModCmd {
+    /// Create example module structure
+    #[command(
+        about = "Create example module structure",
+        long_about = "Create a complete example module structure with sample configurations and workflows to demonstrate module organization and best practices."
+    )]
+    Example(ModExampleArgs),
+    /// Define new module specification
+    #[command(
+        about = "Define new module operator ",
+        long_about = "Create a new module specification with the given name. This will initialize a new module directory structure with all necessary configuration files."
+    )]
+    New(ModNewArgs),
+    /// Update existing module
+    #[command(
+        about = "Update existing module operator dependency",
+        long_about = "Update an existing module's configuration, dependencies, or specifications. Supports force updates to override existing configurations."
+    )]
+    Update(ModUpdateArgs),
+    /// Localize module configuration
+    #[command(
+        about = "Localize module configuration",
+        long_about = "Generate localized configuration files for the module based on environment-specific values. Useful for adapting modules to different deployment environments."
+    )]
+    Localize(ModLocalizeArgs),
+}
+
+// Sys子命令参数结构
+#[derive(Debug, Args, Getters)]
+pub struct SysNewArgs {
+    /// Name of the new system to create
+    #[arg(
+        short,
+        long,
+        help = "System name (alphanumeric with hyphens/underscores)"
+    )]
+    pub(crate) name: String,
+}
+
+#[derive(Debug, Args, Getters)]
+pub struct SysUpdateArgs {
+    /// Enable debug output with specified level (0-4)
+    #[arg(
+        short = 'd',
+        long = "debug",
+        default_value = "0",
+        help = "Debug level: 0=off, 1=basic, 2=verbose, 3=trace, 4=full"
+    )]
+    pub debug: usize,
+    /// Configure logging output format and levels
+    #[arg(
+        long = "log",
+        help = "Configure logging: eg --log cmd=debug,parse=info"
+    )]
+    pub log: Option<String>,
+
+    /// Force update level (0-3)
+    #[arg(
+        short = 'f',
+        long = "force",
+        default_value = "0",
+        help = "Force update: 0=normal, 1=skip confirmation, 2=overwrite files, 3=force git pull"
+    )]
+    pub force: usize,
+}
+
+#[derive(Debug, Args, Getters)]
+pub struct SysLocalizeArgs {
+    /// Enable debug output with specified level (0-4)
+    #[arg(
+        short = 'd',
+        long = "debug",
+        default_value = "0",
+        help = "Debug level: 0=off, 1=basic, 2=verbose, 3=trace, 4=full"
+    )]
+    pub debug: usize,
+    /// Configure logging output format and levels
+    #[arg(
+        long = "log",
+        help = "Configure logging: eg --log cmd=debug,parse=info"
+    )]
+    pub log: Option<String>,
+
+    /// Path to values file for localization
+    #[arg(
+        long = "value",
+        help = "Path to YAML/JSON file containing environment-specific values"
+    )]
+    pub value: Option<String>,
+
+    /// Use default values instead of user-provided value.yml
+    #[arg(long = "default", default_value = "false" , action = ArgAction::SetTrue, help = "Use built-in default values instead of user-provided value.yml")]
+    pub use_default_value: bool,
+}
+
+#[derive(Debug, Parser)]
+pub enum SysCmd {
+    /// Create new system operator
+    #[command(
+        about = "Create new system operator ",
+        long_about = "Create a new system specification with the given name. This will initialize a new system directory structure with all necessary configuration files and templates."
+    )]
+    New(SysNewArgs),
+    /// Update existing system configuration
+    #[command(
+        about = "Update system configuration",
+        long_about = "Update an existing system's configuration, specifications, or dependencies. Supports force updates to override existing configurations without confirmation."
+    )]
+    Update(SysUpdateArgs),
+    /// Localize system configuration for environment
+    #[command(
+        about = "Localize system configuration",
+        long_about = "Generate localized configuration files for the system based on environment-specific values. Useful for adapting system configurations to different deployment environments."
+    )]
+    Localize(SysLocalizeArgs),
+}
+
 #[derive(Debug, Parser)] // requires `derive` feature
 #[command(name = "gops")]
 #[command(
@@ -28,6 +234,14 @@ pub enum GInsCmd {
     ///
     /// 管理系统级别的配置设置
     Setting(SettingArgs),
+
+    /// Module management commands
+    #[command(subcommand, about = "Module management commands")]
+    Mod(ModCmd),
+
+    /// System management commands
+    #[command(subcommand, about = "System management commands")]
+    Sys(SysCmd),
 }
 
 #[derive(Debug, Args, Getters)]
@@ -184,6 +398,79 @@ pub struct LocalArgs {
     pub use_default_value: bool,
 }
 impl DfxArgsGetter for LocalArgs {
+    fn debug_level(&self) -> usize {
+        self.debug
+    }
+
+    fn log_setting(&self) -> Option<String> {
+        self.log.clone()
+    }
+}
+
+// Mod命令参数的DfxArgsGetter实现
+impl DfxArgsGetter for ModExampleArgs {
+    fn debug_level(&self) -> usize {
+        self.debug
+    }
+
+    fn log_setting(&self) -> Option<String> {
+        self.log.clone()
+    }
+}
+
+impl DfxArgsGetter for ModNewArgs {
+    fn debug_level(&self) -> usize {
+        self.debug
+    }
+
+    fn log_setting(&self) -> Option<String> {
+        self.log.clone()
+    }
+}
+
+impl DfxArgsGetter for ModUpdateArgs {
+    fn debug_level(&self) -> usize {
+        self.debug
+    }
+
+    fn log_setting(&self) -> Option<String> {
+        self.log.clone()
+    }
+}
+
+impl DfxArgsGetter for ModLocalizeArgs {
+    fn debug_level(&self) -> usize {
+        self.debug
+    }
+
+    fn log_setting(&self) -> Option<String> {
+        self.log.clone()
+    }
+}
+
+// Sys命令参数的DfxArgsGetter实现
+impl DfxArgsGetter for SysNewArgs {
+    // SysNewArgs 没有debug和log字段，提供默认实现
+    fn debug_level(&self) -> usize {
+        0
+    }
+
+    fn log_setting(&self) -> Option<String> {
+        None
+    }
+}
+
+impl DfxArgsGetter for SysUpdateArgs {
+    fn debug_level(&self) -> usize {
+        self.debug
+    }
+
+    fn log_setting(&self) -> Option<String> {
+        self.log.clone()
+    }
+}
+
+impl DfxArgsGetter for SysLocalizeArgs {
     fn debug_level(&self) -> usize {
         self.debug
     }
@@ -389,11 +676,18 @@ mod tests {
 
     #[test]
     fn test_all_commands_parse() {
+        // Test that all commands can be parsed without error
         let commands = vec![
-            vec!["gops", "new", "--name", "test"],
-            vec!["gops", "import", "--path", "/test"],
+            vec!["gops", "new", "--name", "test-system"],
+            vec!["gops", "import", "--path", "/test/path"],
             vec!["gops", "update"],
-            vec!["gops", "localize"],
+            vec!["gops", "mod", "localize"],
+            vec!["gops", "sys", "localize"],
+            vec!["gops", "mod", "example"],
+            vec!["gops", "mod", "new", "--name", "test-module"],
+            vec!["gops", "mod", "update"],
+            vec!["gops", "sys", "new", "--name", "test-system"],
+            vec!["gops", "sys", "update"],
             vec!["gops", "setting"],
         ];
 
@@ -431,6 +725,19 @@ mod tests {
             ],
             vec![
                 "gops",
+                "mod",
+                "localize",
+                "--debug",
+                "1",
+                "--log",
+                "local=debug",
+                "--value",
+                "test.yml",
+                "--default",
+            ],
+            vec![
+                "gops",
+                "sys",
                 "localize",
                 "--debug",
                 "1",
