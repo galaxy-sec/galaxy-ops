@@ -5,6 +5,7 @@ use orion_common::serde::Configable;
 use orion_error::{ErrorOwe, ErrorWith, UvsConfFrom};
 use orion_infra::path::make_clean_path;
 use orion_variate::{
+    addr::Address,
     archive::decompress,
     types::ResourceDownloader,
     update::DownloadOptions,
@@ -13,7 +14,7 @@ use orion_variate::{
 
 use crate::{
     artifact::types::{PackageType, build_pkg, convert_addr},
-    error::{MainError, MainResult},
+    error::{MainReason, MainResult, ToErr},
     ops_prj::{proj::OpsProject, system::OpsSystem},
     system::spec::SysModelSpec,
     types::Accessor,
@@ -37,23 +38,28 @@ impl OpsProject {
                 .env_eval(&ValueDict::default()),
         );
 
-        let up_unit = accessor
-            .download_to_local(&addr, &work_path, up_opt)
-            .await
-            .owe_data()?;
+        let pkg_path = if let Address::Local(local) = addr.clone() {
+            PathBuf::from(local.path())
+        } else {
+            let up_unit = accessor
+                .download_to_local(&addr, &work_path, up_opt)
+                .await
+                .owe_data()?;
+            up_unit.position().clone()
+        };
         let package = build_pkg(path);
         let sys_src = match package {
             //tar.gz ,tgz
             PackageType::Bin(bin_package) => {
                 let out_path = work_path.join(bin_package.name());
                 make_clean_path(&out_path).owe_res()?;
-                decompress(up_unit.position(), out_path.clone())
+                decompress(&pkg_path, out_path.clone())
                     .owe_sys()
                     .want("decompress tar.gz")
-                    .with(up_unit.position().display().to_string())?;
+                    .with(pkg_path.display().to_string())?;
                 out_path
             }
-            PackageType::Git(_git_package) => up_unit.position().to_path_buf(),
+            PackageType::Git(_git_package) => pkg_path.to_path_buf(),
         };
         let sys_spec = SysModelSpec::load_from(&sys_src.join("sys"))?;
 
@@ -75,35 +81,22 @@ impl OpsProject {
             }
             move_dir(sys_src, sys_dst_root, &CopyOptions::new()).owe_res()?;
             std::fs::rename(sys_dst_path, sys_new_path).owe_res()?;
-            let value_path = self
-                .root_local()
-                .join("values")
-                .join(sys_spec.define().name());
-            let value_link = self
-                .root_local()
-                .join(sys_spec.define().name())
-                .join("values");
-            let value_file = value_path.join("value.yml");
-            if !value_file.exists() {
-                std::fs::create_dir(&value_path).owe_res()?;
-                ValueDict::default().save_conf(&value_file).owe_res()?;
-            }
-            if !value_link.exists() {
-                std::os::unix::fs::symlink(&value_path, &value_link)
-                    .owe_res()
-                    .with(&value_link)?;
-            }
         } else {
-            MainError::from_conf(format!(
+            MainReason::from_conf(format!(
                 "import package failed, bad path: {}",
                 sys_src.display()
-            ));
+            ))
+            .to_err();
         }
         self.save()?;
         // 5. 提供系统包的信息， 包组所有组件。
         Ok(sys_spec)
     }
-    pub fn ia_setting(&self) -> MainResult<()> {
+    pub fn ia_setting_interactive(&self) -> MainResult<()> {
+        self.ia_setting(true)
+    }
+
+    pub fn ia_setting(&self, interactive: bool) -> MainResult<()> {
         use inquire::{Confirm, Text};
 
         for i in self.ops_target().iter() {
@@ -113,6 +106,17 @@ impl OpsProject {
                 .join("values")
                 .join(i.sys().name())
                 .join("value.yml");
+
+            let value_link = self.root_local().join(i.sys().name()).join("values");
+            if value_path.exists() {
+                println!("value file exists ,use it");
+                if !value_link.exists() {
+                    std::os::unix::fs::symlink(&value_path, &value_link)
+                        .owe_res()
+                        .with(&value_link)?;
+                }
+                break;
+            }
             let vars_vec = VarCollection::from_conf(&vars_path).owe_res()?;
             let mut vals_dict = ValueDict::from_conf(&value_path).owe_res()?;
 
@@ -126,23 +130,38 @@ impl OpsProject {
                     var.name().to_string()
                 };
                 let mut default_value = var.value();
-                let value_str = Text::new(&prompt)
-                    .with_default(&var.value().to_string())
-                    .prompt()
-                    .owe_data()?;
+                let value_str = if interactive {
+                    Text::new(&prompt)
+                        .with_default(&var.value().to_string())
+                        .prompt()
+                        .owe_data()?
+                } else {
+                    // 非交互模式，使用默认值
+                    var.value().to_string()
+                };
                 default_value.update_by_str(value_str.as_str()).owe_data()?;
                 vals_dict.insert(var.name().to_string(), default_value);
             }
 
             // 如果用户确认保存更改
-            if Confirm::new("Do you want to save these changes?")
-                .prompt()
-                .owe_data()?
-            {
+            let should_save = if interactive {
+                Confirm::new("Do you want to save these changes?")
+                    .prompt()
+                    .owe_data()?
+            } else {
+                // 非交互模式，自动保存
+                true
+            };
+            if should_save {
                 // 保存修改后的vars到文件
                 // vars.save_to_file(&vars_path)?; // 假设的方法
                 println!("Changes saved to {}", vars_path.display());
                 vals_dict.save_conf(&value_path).owe_res()?;
+            }
+            if !value_link.exists() {
+                std::os::unix::fs::symlink(&value_path, &value_link)
+                    .owe_res()
+                    .with(&value_link)?;
             }
         }
         Ok(())
@@ -173,13 +192,5 @@ mod test {
             .await
             .assert();
         println!("{}", serde_json::to_string(&sys_spec).assert());
-    }
-    #[ignore = "need interactive run"]
-    #[tokio::test]
-    async fn ia_setting() {
-        test_init();
-        let prj_path = PathBuf::from(EXAMPLE_ROOT).join("dev-mac-env");
-        let project = OpsProject::load(&prj_path).assert();
-        project.ia_setting().assert();
     }
 }

@@ -1,16 +1,13 @@
-mod args;
-mod spec;
-//mod vault;
+mod commands;
 
 extern crate clap;
 extern crate log;
 
-use args::GInsCmd;
 use clap::Parser;
+use commands::{CommandDispatcher, GInsCmd};
 use galaxy_ops::error::{MainResult, report_error};
 use orion_error::ErrorOwe;
 use orion_variate::vars::setup_start_env_vars;
-use spec::do_ins_cmd;
 
 #[tokio::main]
 async fn main() {
@@ -25,12 +22,13 @@ async fn main() {
 }
 
 pub struct GxOps {}
+
 impl GxOps {
     pub async fn run() -> MainResult<()> {
         setup_start_env_vars().owe_res()?;
         let cmd = GInsCmd::parse();
         println!("gops: {}", env!("CARGO_PKG_VERSION"));
-        do_ins_cmd(cmd).await?;
+        CommandDispatcher::dispatch(cmd).await?;
         Ok(())
     }
 }
@@ -183,7 +181,7 @@ mod tests {
         // But we can verify the structure
 
         // Verify that GxOps::run can be called (even if it fails in test env)
-        let args = vec!["gops", "new", "--name", "test"];
+        let args = vec!["gops", "prj", "new", "--name", "test"];
         let cmd = GInsCmd::try_parse_from(args);
         assert!(cmd.is_ok());
     }
@@ -223,40 +221,59 @@ mod tests {
         // Test that all expected commands are available
         let app = GInsCmd::command();
         let subcommands = app.get_subcommands();
+        let subcommands_vec: Vec<&clap::Command> = subcommands.collect();
 
-        let mut found_new = false;
-        let mut found_import = false;
-        let mut found_update = false;
-        let mut found_localize = false;
-        let mut found_setting = false;
+        let mut found_mod = false;
+        let mut found_sys = false;
+        let mut found_prj = false;
 
-        for subcommand in subcommands {
+        for subcommand in &subcommands_vec {
             match subcommand.get_name() {
-                "new" => found_new = true,
-                "import" => found_import = true,
-                "update" => found_update = true,
-                "localize" => found_localize = true,
-                "setting" => found_setting = true,
+                "mod" => found_mod = true,
+                "sys" => found_sys = true,
+                "prj" => found_prj = true,
                 _ => {}
             }
         }
 
-        assert!(found_new, "New command should be available");
-        assert!(found_import, "Import command should be available");
-        assert!(found_update, "Update command should be available");
-        assert!(found_localize, "Localize command should be available");
-        assert!(found_setting, "Setting command should be available");
+        assert!(found_mod, "Mod subcommand should be available");
+        assert!(found_sys, "Sys subcommand should be available");
+        assert!(found_prj, "Prj subcommand should be available");
+
+        // Verify no other subcommands exist
+        let expected_commands = vec!["mod", "sys", "prj"];
+        let actual_commands: Vec<&str> = subcommands_vec.iter().map(|cmd| cmd.get_name()).collect();
+
+        for expected_cmd in &expected_commands {
+            assert!(
+                actual_commands.contains(expected_cmd),
+                "{} subcommand should be available",
+                expected_cmd
+            );
+        }
+
+        assert_eq!(
+            expected_commands.len(),
+            actual_commands.len(),
+            "No extra subcommands should exist"
+        );
     }
 
     #[tokio::test]
     async fn test_all_commands_parse() {
         // Test that all commands can be parsed without error
         let commands = vec![
-            vec!["gops", "new", "--name", "test-system"],
-            vec!["gops", "import", "--path", "/test/path"],
-            vec!["gops", "update"],
-            vec!["gops", "localize"],
-            vec!["gops", "setting"],
+            vec!["gops", "prj", "new", "--name", "test-project"],
+            vec!["gops", "prj", "import", "--path", "/test/path"],
+            vec!["gops", "prj", "update"],
+            vec!["gops", "prj", "setting"],
+            vec!["gops", "mod", "localize"],
+            vec!["gops", "sys", "localize"],
+            vec!["gops", "mod", "example"],
+            vec!["gops", "mod", "new", "--name", "test-module"],
+            vec!["gops", "mod", "update"],
+            vec!["gops", "sys", "new", "--name", "test-system"],
+            vec!["gops", "sys", "update"],
         ];
 
         for cmd_args in commands {
@@ -269,13 +286,40 @@ mod tests {
     async fn test_commands_with_options() {
         // Test commands with various options
         let commands = vec![
-            vec!["gops", "new", "--name", "test"],
+            vec!["gops", "prj", "new", "--name", "test"],
             vec![
-                "gops", "import", "--debug", "1", "--force", "2", "--path", "/test",
+                "gops", "prj", "import", "--debug", "1", "--force", "2", "--path", "/test",
             ],
-            vec!["gops", "update", "--debug", "2", "--log", "cmd=debug"],
-            vec!["gops", "localize", "--value", "test.yml", "--default"],
-            vec!["gops", "setting", "--debug", "1", "--log", "setting=debug"],
+            vec![
+                "gops",
+                "prj",
+                "update",
+                "--debug",
+                "2",
+                "--log",
+                "cmd=debug",
+            ],
+            vec![
+                "gops",
+                "prj",
+                "setting",
+                "--debug",
+                "1",
+                "--log",
+                "setting=debug",
+            ],
+            vec![
+                "gops",
+                "mod",
+                "localize",
+                "--debug",
+                "1",
+                "--log",
+                "local=debug",
+                "--value",
+                "test.yml",
+                "--default",
+            ],
         ];
 
         for cmd_args in commands {
