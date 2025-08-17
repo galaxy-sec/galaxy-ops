@@ -45,7 +45,7 @@ pub struct PrjSettingArgs {
     #[arg(
         short = 'i',
         long = "interactive",
-        default_value = "true",
+        default_value = "false",
         help = "启用交互模式设定变量值 (Enable interactive mode to set variable values)"
     )]
     pub interactive: bool,

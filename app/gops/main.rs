@@ -181,7 +181,7 @@ mod tests {
         // But we can verify the structure
 
         // Verify that GxOps::run can be called (even if it fails in test env)
-        let args = vec!["gops", "new", "--name", "test"];
+        let args = vec!["gops", "prj", "new", "--name", "test"];
         let cmd = GInsCmd::try_parse_from(args);
         assert!(cmd.is_ok());
     }
