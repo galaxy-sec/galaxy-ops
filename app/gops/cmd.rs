@@ -127,8 +127,8 @@ pub async fn do_prj_cmd(cmd: PrjCmd) -> MainResult<()> {
         }
         PrjCmd::Setting(args) => {
             configure_dfx_logging(&args);
-            let spec = OpsProject::load(&current_dir).err_conv()?;
-            spec.ia_setting()?;
+            let prj = OpsProject::load(&current_dir).err_conv()?;
+            prj.ia_setting()?;
         }
     }
     Ok(())
