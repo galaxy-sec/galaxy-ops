@@ -1,13 +1,10 @@
-mod args;
-mod cmd;
-//mod vault;
+mod commands;
 
 extern crate clap;
 extern crate log;
 
-use args::GInsCmd;
 use clap::Parser;
-use cmd::do_ins_cmd;
+use commands::{CommandDispatcher, GInsCmd};
 use galaxy_ops::error::{MainResult, report_error};
 use orion_error::ErrorOwe;
 use orion_variate::vars::setup_start_env_vars;
@@ -25,12 +22,13 @@ async fn main() {
 }
 
 pub struct GxOps {}
+
 impl GxOps {
     pub async fn run() -> MainResult<()> {
         setup_start_env_vars().owe_res()?;
         let cmd = GInsCmd::parse();
         println!("gops: {}", env!("CARGO_PKG_VERSION"));
-        do_ins_cmd(cmd).await?;
+        CommandDispatcher::dispatch(cmd).await?;
         Ok(())
     }
 }
