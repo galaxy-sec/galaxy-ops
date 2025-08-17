@@ -41,6 +41,14 @@ pub struct PrjUpdateArgs {
 pub struct PrjSettingArgs {
     #[clap(flatten)]
     pub debug_log: DebugLogArgs,
+
+    #[arg(
+        short = 'i',
+        long = "interactive",
+        default_value = "true",
+        help = "启用交互模式设定变量值 (Enable interactive mode to set variable values)"
+    )]
+    pub interactive: bool,
 }
 
 #[derive(Debug, Parser)]
@@ -135,7 +143,7 @@ impl PrjCommandHandler {
         galaxy_ops::infra::configure_dfx_logging(&args);
         let current_dir = std::env::current_dir().owe_res()?;
         let prj = OpsProject::load(&current_dir).err_conv()?;
-        prj.ia_setting()?;
+        prj.ia_setting(*args.interactive())?;
         Ok(())
     }
 

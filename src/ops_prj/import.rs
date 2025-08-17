@@ -104,7 +104,11 @@ impl OpsProject {
         // 5. 提供系统包的信息， 包组所有组件。
         Ok(sys_spec)
     }
-    pub fn ia_setting(&self) -> MainResult<()> {
+    pub fn ia_setting_interactive(&self) -> MainResult<()> {
+        self.ia_setting(true)
+    }
+
+    pub fn ia_setting(&self, interactive: bool) -> MainResult<()> {
         use inquire::{Confirm, Text};
 
         for i in self.ops_target().iter() {
@@ -127,19 +131,29 @@ impl OpsProject {
                     var.name().to_string()
                 };
                 let mut default_value = var.value();
-                let value_str = Text::new(&prompt)
-                    .with_default(&var.value().to_string())
-                    .prompt()
-                    .owe_data()?;
+                let value_str = if interactive {
+                    Text::new(&prompt)
+                        .with_default(&var.value().to_string())
+                        .prompt()
+                        .owe_data()?
+                } else {
+                    // 非交互模式，使用默认值
+                    var.value().to_string()
+                };
                 default_value.update_by_str(value_str.as_str()).owe_data()?;
                 vals_dict.insert(var.name().to_string(), default_value);
             }
 
             // 如果用户确认保存更改
-            if Confirm::new("Do you want to save these changes?")
-                .prompt()
-                .owe_data()?
-            {
+            let should_save = if interactive {
+                Confirm::new("Do you want to save these changes?")
+                    .prompt()
+                    .owe_data()?
+            } else {
+                // 非交互模式，自动保存
+                true
+            };
+            if should_save {
                 // 保存修改后的vars到文件
                 // vars.save_to_file(&vars_path)?; // 假设的方法
                 println!("Changes saved to {}", vars_path.display());
@@ -177,10 +191,19 @@ mod test {
     }
     #[ignore = "need interactive run"]
     #[tokio::test]
-    async fn ia_setting() {
+    async fn ia_setting_interactive() {
         test_init();
         let prj_path = PathBuf::from(EXAMPLE_ROOT).join("dev-mac-env");
         let project = OpsProject::load(&prj_path).assert();
-        project.ia_setting().assert();
+        project.ia_setting_interactive().assert();
+    }
+
+    #[tokio::test]
+    async fn ia_setting_non_interactive() {
+        test_init();
+        let prj_path = PathBuf::from(EXAMPLE_ROOT).join("dev-mac-env");
+        let project = OpsProject::load(&prj_path).assert();
+        // 非交互模式，使用默认值自动保存
+        project.ia_setting(false).assert();
     }
 }
