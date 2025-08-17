@@ -13,7 +13,7 @@ use orion_infra::path::make_new_path;
 use orion_variate::update::DownloadOptions;
 use orion_variate::vars::ValueDict;
 
-use crate::args::{GInsCmd, ModCmd, SysCmd};
+use crate::args::{GInsCmd, ModCmd, PrjCmd, SysCmd};
 use galaxy_ops::module::ModelSTD;
 use inquire::Select;
 
@@ -98,6 +98,42 @@ pub async fn do_mod_cmd(cmd: ModCmd) -> MainResult<()> {
     Ok(())
 }
 
+pub async fn do_prj_cmd(cmd: PrjCmd) -> MainResult<()> {
+    let current_dir = std::env::current_dir().expect("无法获取当前目录");
+    match cmd {
+        PrjCmd::New(args) => {
+            let new_prj = current_dir.join(args.name());
+            make_new_path(&new_prj).owe_res()?;
+            let spec = OpsProject::make_new(&new_prj, args.name()).err_conv()?;
+            spec.save().err_conv()?;
+        }
+        PrjCmd::Import(args) => {
+            configure_dfx_logging(&args);
+            let options = DownloadOptions::from((args.force, ValueDict::default()));
+            let mut prj = OpsProject::load(&current_dir).err_conv()?;
+            let accessor = accessor_for_default();
+            prj.import_sys(accessor, args.path(), &options)
+                .await
+                .err_conv()?;
+        }
+        PrjCmd::Update(args) => {
+            configure_dfx_logging(&args);
+            let options = DownloadOptions::from((args.force, ValueDict::default()));
+            let spec = OpsProject::load(&current_dir).err_conv()?;
+            let accessor = accessor_for_default();
+            spec.update_local(accessor, &current_dir, &options)
+                .await
+                .err_conv()?;
+        }
+        PrjCmd::Setting(args) => {
+            configure_dfx_logging(&args);
+            let spec = OpsProject::load(&current_dir).err_conv()?;
+            spec.ia_setting()?;
+        }
+    }
+    Ok(())
+}
+
 pub async fn do_sys_cmd(cmd: SysCmd) -> MainResult<()> {
     let current_dir = std::env::current_dir().expect("无法获取当前目录");
     match cmd {
@@ -163,6 +199,9 @@ pub async fn do_ins_cmd(cmd: GInsCmd) -> MainResult<()> {
         }
         GInsCmd::Mod(mod_cmd) => {
             do_mod_cmd(mod_cmd).await?;
+        }
+        GInsCmd::Prj(prj_cmd) => {
+            do_prj_cmd(prj_cmd).await?;
         }
         GInsCmd::Sys(sys_cmd) => {
             do_sys_cmd(sys_cmd).await?;

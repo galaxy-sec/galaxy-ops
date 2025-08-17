@@ -186,6 +186,127 @@ pub struct SysLocalizeArgs {
     pub use_default_value: bool,
 }
 
+#[derive(Debug, Args, Getters)]
+pub struct PrjNewArgs {
+    /// 工程配置名称
+    #[arg(short, long, help = "工程配置名称")]
+    pub(crate) name: String,
+
+    /// 调试输出级别
+    #[arg(
+        short = 'd',
+        long = "debug",
+        default_value = "0",
+        help = "调试级别: 0=关闭, 1=基础, 2=详细, 3=完整"
+    )]
+    pub debug: usize,
+
+    /// 日志配置
+    #[arg(long = "log", help = "日志配置")]
+    pub log: Option<String>,
+}
+
+#[derive(Debug, Args, Getters)]
+pub struct PrjImportArgs {
+    /// 系统导入路径
+    #[arg(short = 'p', long = "path", help = "系统导入路径")]
+    pub path: String,
+
+    /// 调试输出级别
+    #[arg(
+        short = 'd',
+        long = "debug",
+        default_value = "0",
+        help = "调试级别: 0=关闭, 1=基础, 2=详细, 3=完整"
+    )]
+    pub debug: usize,
+
+    /// 日志配置
+    #[arg(long = "log", help = "日志配置")]
+    pub log: Option<String>,
+
+    /// 强制更新级别
+    #[arg(
+        short = 'f',
+        long = "force",
+        default_value = "0",
+        help = "强制更新级别: 0=正常, 1=跳过确认, 2=覆盖文件, 3=强制拉取"
+    )]
+    pub force: usize,
+}
+
+#[derive(Debug, Args, Getters)]
+pub struct PrjUpdateArgs {
+    /// 调试输出级别
+    #[arg(
+        short = 'd',
+        long = "debug",
+        default_value = "0",
+        help = "调试级别: 0=关闭, 1=基础, 2=详细, 3=完整"
+    )]
+    pub debug: usize,
+
+    /// 日志配置
+    #[arg(long = "log", help = "日志配置")]
+    pub log: Option<String>,
+
+    /// 强制更新级别
+    #[arg(
+        short = 'f',
+        long = "force",
+        default_value = "0",
+        help = "强制更新级别: 0=正常, 1=跳过确认, 2=覆盖文件, 3=强制拉取"
+    )]
+    pub force: usize,
+}
+
+#[derive(Debug, Args, Getters)]
+pub struct PrjSettingArgs {
+    /// 调试输出级别
+    #[arg(
+        short = 'd',
+        long = "debug",
+        default_value = "0",
+        help = "调试级别: 0=关闭, 1=基础, 2=详细, 3=完整"
+    )]
+    pub debug: usize,
+
+    /// 日志配置
+    #[arg(long = "log", help = "日志配置")]
+    pub log: Option<String>,
+}
+
+#[derive(Debug, Parser)]
+pub enum PrjCmd {
+    /// 创建维护工程
+    #[command(
+        about = "创建维护工程",
+        long_about = "创建新的维护工程，包含所有必要的配置文件和目录结构。"
+    )]
+    New(PrjNewArgs),
+
+    /// 导入系统到工程
+    #[command(
+        about = "导入系统到工程",
+        long_about = "从指定路径导入系统到当前工程，集成到现有的项目结构中。"
+    )]
+    Import(PrjImportArgs),
+
+    /// 维护工程
+    #[command(
+        about = "维护工程",
+        long_about = "更新现有工程的配置、依赖关系和引用信息。支持强制更新。"
+    )]
+    Update(PrjUpdateArgs),
+
+    /// 为设置工程
+    #[command(
+        about = "为设置工程",
+        long_about = "管理系统级别的配置设置，提供交互式配置界面。"
+    )]
+    Setting(PrjSettingArgs),
+}
+
 #[derive(Debug, Parser)]
 pub enum SysCmd {
     /// Create new system operator
@@ -218,13 +339,9 @@ pub enum SysCmd {
 用于管理系统配置、导入模块、更新引用等操作的核心工具。"
 )]
 pub enum GInsCmd {
-    /// 创建新的系统配置
-    ///
-    /// 根据提供的参数创建新的系统配置模板
+    /// 创建新的维护工程
     New(NewArgs),
-    /// 导入外部模块到当前系统
-    ///
-    /// 从指定路径导入模块配置并集成到当前系统
+    /// 导入系统到当前工程
     Import(ImportArgs),
     /// 更新系统模块和引用
     ///
@@ -242,6 +359,10 @@ pub enum GInsCmd {
     /// System management commands
     #[command(subcommand, about = "System management commands")]
     Sys(SysCmd),
+
+    /// Project management commands
+    #[command(subcommand, about = "工程管理命令")]
+    Prj(PrjCmd),
 }
 
 #[derive(Debug, Args, Getters)]
@@ -439,6 +560,47 @@ impl DfxArgsGetter for ModUpdateArgs {
 }
 
 impl DfxArgsGetter for ModLocalizeArgs {
+    fn debug_level(&self) -> usize {
+        self.debug
+    }
+
+    fn log_setting(&self) -> Option<String> {
+        self.log.clone()
+    }
+}
+
+// Prj命令参数的DfxArgsGetter实现
+impl DfxArgsGetter for PrjNewArgs {
+    fn debug_level(&self) -> usize {
+        self.debug
+    }
+
+    fn log_setting(&self) -> Option<String> {
+        self.log.clone()
+    }
+}
+
+impl DfxArgsGetter for PrjImportArgs {
+    fn debug_level(&self) -> usize {
+        self.debug
+    }
+
+    fn log_setting(&self) -> Option<String> {
+        self.log.clone()
+    }
+}
+
+impl DfxArgsGetter for PrjUpdateArgs {
+    fn debug_level(&self) -> usize {
+        self.debug
+    }
+
+    fn log_setting(&self) -> Option<String> {
+        self.log.clone()
+    }
+}
+
+impl DfxArgsGetter for PrjSettingArgs {
     fn debug_level(&self) -> usize {
         self.debug
     }
