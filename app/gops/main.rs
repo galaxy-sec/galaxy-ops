@@ -223,60 +223,59 @@ mod tests {
         // Test that all expected commands are available
         let app = GInsCmd::command();
         let subcommands = app.get_subcommands();
+        let subcommands_vec: Vec<&clap::Command> = subcommands.collect();
 
-        let mut found_new = false;
-        let mut found_import = false;
-        let mut found_update = false;
-
-        let mut found_setting = false;
-
-        for subcommand in subcommands {
-            match subcommand.get_name() {
-                "new" => found_new = true,
-                "import" => found_import = true,
-                "update" => found_update = true,
-
-                "setting" => found_setting = true,
-                _ => {}
-            }
-        }
-
-        assert!(found_new, "New command should be available");
-        assert!(found_import, "Import command should be available");
-        assert!(found_update, "Update command should be available");
-        assert!(found_setting, "Setting command should be available");
-
-        // Check for new subcommands
         let mut found_mod = false;
         let mut found_sys = false;
+        let mut found_prj = false;
 
-        for subcommand in app.get_subcommands() {
+        for subcommand in &subcommands_vec {
             match subcommand.get_name() {
                 "mod" => found_mod = true,
                 "sys" => found_sys = true,
+                "prj" => found_prj = true,
                 _ => {}
             }
         }
 
         assert!(found_mod, "Mod subcommand should be available");
         assert!(found_sys, "Sys subcommand should be available");
+        assert!(found_prj, "Prj subcommand should be available");
+
+        // Verify no other subcommands exist
+        let expected_commands = vec!["mod", "sys", "prj"];
+        let actual_commands: Vec<&str> = subcommands_vec.iter().map(|cmd| cmd.get_name()).collect();
+
+        for expected_cmd in &expected_commands {
+            assert!(
+                actual_commands.contains(expected_cmd),
+                "{} subcommand should be available",
+                expected_cmd
+            );
+        }
+
+        assert_eq!(
+            expected_commands.len(),
+            actual_commands.len(),
+            "No extra subcommands should exist"
+        );
     }
 
     #[tokio::test]
     async fn test_all_commands_parse() {
         // Test that all commands can be parsed without error
         let commands = vec![
-            vec!["gops", "new", "--name", "test-system"],
-            vec!["gops", "import", "--path", "/test/path"],
-            vec!["gops", "update"],
-            vec!["gops", "setting"],
+            vec!["gops", "prj", "new", "--name", "test-project"],
+            vec!["gops", "prj", "import", "--path", "/test/path"],
+            vec!["gops", "prj", "update"],
+            vec!["gops", "prj", "setting"],
+            vec!["gops", "mod", "localize"],
+            vec!["gops", "sys", "localize"],
             vec!["gops", "mod", "example"],
             vec!["gops", "mod", "new", "--name", "test-module"],
             vec!["gops", "mod", "update"],
-            vec!["gops", "mod", "localize"],
             vec!["gops", "sys", "new", "--name", "test-system"],
             vec!["gops", "sys", "update"],
-            vec!["gops", "sys", "localize"],
         ];
 
         for cmd_args in commands {
@@ -289,28 +288,40 @@ mod tests {
     async fn test_commands_with_options() {
         // Test commands with various options
         let commands = vec![
-            vec!["gops", "new", "--name", "test"],
+            vec!["gops", "prj", "new", "--name", "test"],
             vec![
-                "gops", "import", "--debug", "1", "--force", "2", "--path", "/test",
+                "gops", "prj", "import", "--debug", "1", "--force", "2", "--path", "/test",
             ],
-            vec!["gops", "update", "--debug", "2", "--log", "cmd=debug"],
+            vec![
+                "gops",
+                "prj",
+                "update",
+                "--debug",
+                "2",
+                "--log",
+                "cmd=debug",
+            ],
+            vec![
+                "gops",
+                "prj",
+                "setting",
+                "--debug",
+                "1",
+                "--log",
+                "setting=debug",
+            ],
             vec![
                 "gops",
                 "mod",
                 "localize",
+                "--debug",
+                "1",
+                "--log",
+                "local=debug",
                 "--value",
                 "test.yml",
                 "--default",
             ],
-            vec![
-                "gops",
-                "sys",
-                "localize",
-                "--value",
-                "test.yml",
-                "--default",
-            ],
-            vec!["gops", "setting", "--debug", "1", "--log", "setting=debug"],
         ];
 
         for cmd_args in commands {

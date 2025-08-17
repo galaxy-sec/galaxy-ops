@@ -166,37 +166,7 @@ pub async fn do_sys_cmd(cmd: SysCmd) -> MainResult<()> {
 }
 
 pub async fn do_ins_cmd(cmd: GInsCmd) -> MainResult<()> {
-    let current_dir = std::env::current_dir().expect("无法获取当前目录");
     match cmd {
-        GInsCmd::New(args) => {
-            let new_prj = current_dir.join(args.name());
-            make_new_path(&new_prj).owe_res()?;
-            let spec = OpsProject::make_new(&new_prj, args.name()).err_conv()?;
-            spec.save().err_conv()?;
-        }
-        GInsCmd::Import(args) => {
-            configure_dfx_logging(&args);
-            let options = DownloadOptions::from((args.force, ValueDict::default()));
-            let mut prj = OpsProject::load(&current_dir).err_conv()?;
-            let accessor = accessor_for_default();
-            prj.import_sys(accessor, args.path(), &options)
-                .await
-                .err_conv()?;
-        }
-        GInsCmd::Update(dfx) => {
-            configure_dfx_logging(&dfx);
-            let options = DownloadOptions::from((dfx.force, ValueDict::default()));
-            let spec = OpsProject::load(&current_dir).err_conv()?;
-            let accessor = accessor_for_default();
-            spec.update_local(accessor, &current_dir, &options)
-                .await
-                .err_conv()?;
-        }
-        GInsCmd::Setting(args) => {
-            configure_dfx_logging(&args);
-            let spec = OpsProject::load(&current_dir).err_conv()?;
-            spec.ia_setting()?;
-        }
         GInsCmd::Mod(mod_cmd) => {
             do_mod_cmd(mod_cmd).await?;
         }
@@ -213,41 +183,43 @@ pub async fn do_ins_cmd(cmd: GInsCmd) -> MainResult<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::args::{GInsCmd, ImportArgs, NewArgs, SettingArgs, UpdateArgs};
+    use crate::args::{GInsCmd, PrjCmd, PrjImportArgs, PrjNewArgs, PrjSettingArgs, PrjUpdateArgs};
     use tempfile::tempdir;
 
     #[tokio::test]
-    async fn test_do_ins_cmd_new_success() {
+    async fn test_do_ins_cmd_prj_new_success() {
         let temp_dir = tempdir().unwrap();
         let project_path = temp_dir.path().join("test_project");
 
         // Create test command
-        let cmd = GInsCmd::New(NewArgs {
+        let cmd = GInsCmd::Prj(PrjCmd::New(PrjNewArgs {
             name: "test_project".to_string(),
-        });
+            debug: 0,
+            log: None,
+        }));
 
         // Set current directory
         std::env::set_current_dir(temp_dir.path()).unwrap();
 
-        // Execute the command
+        // Execute command
         let result = do_ins_cmd(cmd).await;
 
-        // Should create the project directory and files
+        // Should create project directory and files
         assert!(project_path.exists());
         assert!(result.is_ok());
     }
 
     #[tokio::test]
-    async fn test_do_ins_cmd_import_no_project() {
+    async fn test_do_ins_cmd_prj_import_no_project() {
         let temp_dir = tempdir().unwrap();
 
         // Create test command
-        let cmd = GInsCmd::Import(ImportArgs {
+        let cmd = GInsCmd::Prj(PrjCmd::Import(PrjImportArgs {
             debug: 0,
             log: None,
             force: 0,
             path: "/test/path".to_string(),
-        });
+        }));
 
         // Set current directory to empty temp directory
         std::env::set_current_dir(temp_dir.path()).unwrap();
@@ -258,133 +230,21 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_do_ins_cmd_import_with_force() {
-        let temp_dir = tempdir().unwrap();
-
-        // Create test command with force
-        let cmd = GInsCmd::Import(ImportArgs {
-            debug: 2,
-            log: Some("import=debug".to_string()),
-            force: 1,
-            path: "/test/path".to_string(),
-        });
-
-        std::env::set_current_dir(temp_dir.path()).unwrap();
-
-        // Should fail gracefully (no project exists)
-        let result = do_ins_cmd(cmd).await;
-        assert!(result.is_err());
-    }
-
-    #[tokio::test]
-    async fn test_do_ins_cmd_update_no_project() {
+    async fn test_do_ins_cmd_prj_update_no_project() {
         let temp_dir = tempdir().unwrap();
 
         // Create test command
-        let cmd = GInsCmd::Update(UpdateArgs {
-            debug: 1,
-            log: None,
-            force: 0,
-        });
-
-        // Set current directory to empty temp directory
-        std::env::set_current_dir(temp_dir.path()).unwrap();
-
-        // Should fail gracefully when no project exists
-        let result = do_ins_cmd(cmd).await;
-        assert!(result.is_err());
-    }
-
-    #[tokio::test]
-    async fn test_do_ins_cmd_update_with_force() {
-        let temp_dir = tempdir().unwrap();
-
-        // Create test command with force
-        let cmd = GInsCmd::Update(UpdateArgs {
+        let cmd = GInsCmd::Prj(PrjCmd::Update(PrjUpdateArgs {
             debug: 2,
             log: Some("all=info".to_string()),
             force: 3,
-        });
+        }));
 
         std::env::set_current_dir(temp_dir.path()).unwrap();
 
         // Should fail gracefully (no project exists)
         let result = do_ins_cmd(cmd).await;
         assert!(result.is_err());
-    }
-
-    #[tokio::test]
-    async fn test_do_ins_cmd_setting_no_project() {
-        let temp_dir = tempdir().unwrap();
-
-        // Create test command
-        let cmd = GInsCmd::Setting(SettingArgs {
-            debug: 1,
-            log: Some("setting=debug".to_string()),
-        });
-
-        // Set current directory to empty temp directory
-        std::env::set_current_dir(temp_dir.path()).unwrap();
-
-        // Should fail gracefully when no project exists
-        let result = do_ins_cmd(cmd).await;
-        assert!(result.is_err());
-    }
-
-    #[tokio::test]
-    async fn test_do_ins_cmd_setting_with_debug() {
-        let temp_dir = tempdir().unwrap();
-
-        // Create test command with debug
-        let cmd = GInsCmd::Setting(SettingArgs {
-            debug: 2,
-            log: Some("system=debug".to_string()),
-        });
-
-        std::env::set_current_dir(temp_dir.path()).unwrap();
-
-        // Should fail gracefully (no project exists)
-        let result = do_ins_cmd(cmd).await;
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_configure_dfx_logging_compiles() {
-        // Test that the logging configuration compiles
-        let args = UpdateArgs {
-            debug: 1,
-            log: Some("test=debug".to_string()),
-            force: 0,
-        };
-
-        // This should not panic
-        configure_dfx_logging(&args);
-    }
-
-    #[test]
-    fn test_configure_dfx_logging_with_import_args() {
-        // Test logging configuration with import args
-        let args = ImportArgs {
-            debug: 2,
-            log: Some("import=debug".to_string()),
-            force: 1,
-            path: "/test/path".to_string(),
-        };
-
-        // This should not panic
-        configure_dfx_logging(&args);
-    }
-
-    #[test]
-    fn test_configure_dfx_logging_with_setting_args() {
-        // Test logging configuration with setting args
-        let args = SettingArgs {
-            debug: 3,
-            log: Some("setting=debug".to_string()),
-        };
-
-        // This should not panic
-        configure_dfx_logging(&args);
     }
 
     #[tokio::test]
@@ -414,6 +274,18 @@ mod tests {
         std::env::set_current_dir(original_dir).unwrap();
     }
 
+    #[test]
+    fn test_configure_dfx_logging_with_prj_setting_args() {
+        // Test logging configuration with prj setting args
+        let args = PrjSettingArgs {
+            debug: 2,
+            log: Some("system=debug".to_string()),
+        };
+
+        // This should not panic
+        configure_dfx_logging(&args);
+    }
+
     #[tokio::test]
     async fn test_download_options_creation() {
         // Test DownloadOptions creation with different force levels
@@ -435,11 +307,11 @@ mod tests {
         std::env::set_current_dir(temp_dir.path()).unwrap();
 
         // Try to update in empty directory
-        let cmd = GInsCmd::Update(UpdateArgs {
-            debug: 0,
-            log: None,
-            force: 0,
-        });
+        let cmd = GInsCmd::Prj(PrjCmd::Update(PrjUpdateArgs {
+            debug: 2,
+            log: Some("all=info".to_string()),
+            force: 3,
+        }));
 
         let result = do_ins_cmd(cmd).await;
         assert!(result.is_err());
