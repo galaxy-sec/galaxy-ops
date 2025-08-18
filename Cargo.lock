@@ -1232,7 +1232,7 @@ dependencies = [
 
 [[package]]
 name = "galaxy-ops"
-version = "0.12.1"
+version = "0.12.2"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2405,8 +2405,8 @@ dependencies = [
 
 [[package]]
 name = "orion_variate"
-version = "0.7.6"
-source = "git+https://github.com/galaxy-sec/orion-variate.git?tag=v0.7.6#9f75e11d870210dfce92cecd64109b1ea090a10e"
+version = "0.7.7"
+source = "git+https://github.com/galaxy-sec/orion-variate.git?tag=v0.7.7#09c97fcc39d5385df98b015832785cc13a9674db"
 dependencies = [
  "anyhow",
  "async-stream",

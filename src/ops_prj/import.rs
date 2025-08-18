@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use fs_extra::dir::{CopyOptions, move_dir};
 use orion_common::serde::Configable;
 use orion_error::{ErrorOwe, ErrorWith, UvsConfFrom};
-use orion_infra::path::make_clean_path;
+use orion_infra::path::{ensure_path, make_clean_path};
 use orion_variate::{
     addr::Address,
     archive::decompress,
@@ -98,17 +98,17 @@ impl OpsProject {
 
     pub fn process_system_vars(
         vars_path: &Path,
-        value_path: &Path,
+        value_file: &Path,
         value_link: &Path,
         system_name: &str,
         interactive: bool,
     ) -> MainResult<()> {
         use inquire::{Confirm, Text};
 
-        if value_path.exists() {
+        if value_file.exists() {
             println!("value file exists ,use it");
             if !value_link.exists() {
-                std::os::unix::fs::symlink(value_path, value_link)
+                std::os::unix::fs::symlink(value_file, value_link)
                     .owe_res()
                     .with(value_link)?;
             }
@@ -116,8 +116,8 @@ impl OpsProject {
         }
 
         let vars_vec = VarCollection::from_conf(vars_path).owe_res()?;
-        let mut vals_dict = if value_path.exists() {
-            ValueDict::from_conf(value_path).owe_res()?
+        let mut vals_dict = if value_file.exists() {
+            ValueDict::from_conf(value_file).owe_res()?
         } else {
             ValueDict::default()
         };
@@ -161,10 +161,10 @@ impl OpsProject {
             // 保存修改后的vars到文件
             // vars.save_to_file(&vars_path)?; // 假设的方法
             println!("Changes saved to {}", vars_path.display());
-            vals_dict.save_conf(value_path).owe_res()?;
+            vals_dict.save_conf(value_file).owe_res()?;
         }
         if !value_link.exists() {
-            std::os::unix::fs::symlink(value_path, value_link)
+            std::os::unix::fs::symlink(value_file, value_link)
                 .owe_res()
                 .with(value_link)?;
         }
@@ -175,16 +175,16 @@ impl OpsProject {
     pub fn ia_setting(&self, interactive: bool) -> MainResult<()> {
         for i in self.ops_target().iter() {
             let vars_path = self.root_local().join(i.sys().name()).join("sys/vars.yml");
-            let value_path = self
-                .root_local()
-                .join("values")
-                .join(i.sys().name())
-                .join("value.yml");
+
+            let value_path = self.root_local().join("values").join(i.sys().name());
+            ensure_path(&value_path).owe_res()?;
+            let value_file = value_path.join("value.yml");
+
             let value_link = self.root_local().join(i.sys().name()).join("values");
 
             Self::process_system_vars(
                 &vars_path,
-                &value_path,
+                &value_file,
                 &value_link,
                 i.sys().name(),
                 interactive,
