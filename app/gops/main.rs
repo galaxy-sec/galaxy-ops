@@ -247,8 +247,7 @@ mod tests {
         for expected_cmd in &expected_commands {
             assert!(
                 actual_commands.contains(expected_cmd),
-                "{} subcommand should be available",
-                expected_cmd
+                "{expected_cmd} subcommand should be available"
             );
         }
 
@@ -259,8 +258,8 @@ mod tests {
         );
     }
 
-    #[tokio::test]
-    async fn test_all_commands_parse() {
+    #[test]
+    fn test_all_commands_parse() {
         // Test that all commands can be parsed without error
         let commands = vec![
             vec!["gops", "prj", "new", "--name", "test-project"],
@@ -278,7 +277,7 @@ mod tests {
 
         for cmd_args in commands {
             let result = GInsCmd::try_parse_from(cmd_args.clone());
-            assert!(result.is_ok(), "Failed to parse command: {:?}", cmd_args);
+            assert!(result.is_ok(), "Failed to parse command: {cmd_args:?}");
         }
     }
 
@@ -326,8 +325,7 @@ mod tests {
             let result = GInsCmd::try_parse_from(cmd_args.clone());
             assert!(
                 result.is_ok(),
-                "Failed to parse command with options: {:?}",
-                cmd_args
+                "Failed to parse command with options: {cmd_args:?}"
             );
         }
     }

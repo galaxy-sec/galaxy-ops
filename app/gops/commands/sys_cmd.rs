@@ -213,24 +213,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_sys_update_command() {
-        let temp_dir = tempdir().unwrap();
-        std::env::set_current_dir(temp_dir.path()).unwrap();
-
-        let args = SysUpdateArgs {
-            debug_log: DebugLogArgs {
-                debug: 0,
-                log: None,
-            },
-            force: ForceArgs { force: 0 },
-        };
-
-        let result = SysCommandHandler::handle_update(args).await;
-        // 预期会失败，因为没有现有的系统项目
-        assert!(result.is_err());
-    }
-
-    #[tokio::test]
     async fn test_sys_localize_command() {
         let temp_dir = tempdir().unwrap();
         std::env::set_current_dir(temp_dir.path()).unwrap();

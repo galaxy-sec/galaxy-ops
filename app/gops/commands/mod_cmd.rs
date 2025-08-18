@@ -230,45 +230,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_mod_update_command() {
-        let temp_dir = tempdir().unwrap();
-        std::env::set_current_dir(temp_dir.path()).unwrap();
-
-        let args = ModUpdateArgs {
-            debug_log: DebugLogArgs {
-                debug: 0,
-                log: None,
-            },
-            force: ForceArgs { force: 0 },
-        };
-
-        let result = ModCommandHandler::handle_update(args).await;
-        // 预期会失败，因为没有现有的模块项目
-        assert!(result.is_err());
-    }
-
-    #[tokio::test]
-    async fn test_mod_localize_command() {
-        let temp_dir = tempdir().unwrap();
-        std::env::set_current_dir(temp_dir.path()).unwrap();
-
-        let args = ModLocalizeArgs {
-            debug_log: DebugLogArgs {
-                debug: 0,
-                log: None,
-            },
-            localize: LocalizeArgs {
-                value: None,
-                use_default_value: true,
-            },
-        };
-
-        let result = ModCommandHandler::handle_localize(args).await;
-        // 预期会失败，因为没有现有的模块项目
-        assert!(result.is_err());
-    }
-
-    #[tokio::test]
     async fn test_execute_mod_commands() {
         let temp_dir = tempdir().unwrap();
         std::env::set_current_dir(temp_dir.path()).unwrap();

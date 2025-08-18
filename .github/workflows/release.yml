@@ -83,10 +83,11 @@ jobs:
         run: cargo llvm-cov --all-features --workspace --lcov --output-path lcov.info -- --test-threads=1
 
       - name: Upload to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           file: ./lcov.info
           flags: unittests
+          token: ${{ secrets.CODECOV_TOKEN }}
           name: codecov-release-${{ github.ref_name }}
           fail_ci_if_error: false
 

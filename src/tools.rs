@@ -194,7 +194,7 @@ mod tests {
     fn test_git_repo_clone_and_debug() {
         let repo = GitRepo::default();
         let cloned = repo.clone();
-        let debugged = format!("{:?}", cloned);
+        let debugged = format!("{cloned:?}");
         assert!(!debugged.is_empty());
     }
 
@@ -202,7 +202,7 @@ mod tests {
     fn test_gx_shell_clone_and_debug() {
         let shell = GxShell::default();
         let cloned = shell.clone();
-        let debugged = format!("{:?}", cloned);
+        let debugged = format!("{cloned:?}");
         assert!(!debugged.is_empty());
     }
 
@@ -210,7 +210,7 @@ mod tests {
     fn test_http_clone_and_debug() {
         let http = Http::default();
         let cloned = http.clone();
-        let debugged = format!("{:?}", cloned);
+        let debugged = format!("{cloned:?}");
         assert!(!debugged.is_empty());
     }
 
@@ -225,12 +225,7 @@ mod tests {
 
         for (url, expected) in test_cases {
             let result = get_repo_name(url);
-            assert_eq!(
-                result,
-                expected.map(String::from),
-                "Failed for URL: {}",
-                url
-            );
+            assert_eq!(result, expected.map(String::from), "Failed for URL: {url}");
         }
     }
 }
