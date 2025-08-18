@@ -1232,7 +1232,7 @@ dependencies = [
 
 [[package]]
 name = "galaxy-ops"
-version = "0.12.2"
+version = "0.12.3"
 dependencies = [
  "anyhow",
  "async-trait",
