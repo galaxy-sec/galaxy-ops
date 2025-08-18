@@ -258,8 +258,8 @@ mod tests {
         );
     }
 
-    #[tokio::test]
-    async fn test_all_commands_parse() {
+    #[test]
+    fn test_all_commands_parse() {
         // Test that all commands can be parsed without error
         let commands = vec![
             vec!["gops", "prj", "new", "--name", "test-project"],
