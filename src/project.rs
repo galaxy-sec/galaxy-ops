@@ -4,7 +4,7 @@ use log::info;
 use orion_common::serde::{Configable, ValueConfable, Yamlable};
 use orion_error::ErrorOwe;
 use orion_infra::path::ensure_path;
-use orion_variate::vars::{EnvDict, EnvEvalable, OriginDict, ValueDict, ValueType, VarCollection};
+use orion_variate::vars::{EnvEvalable, OriginDict, ValueDict, ValueType, VarCollection};
 
 use crate::{
     const_vars::{VALUE_DIR, VALUE_FILE},
@@ -35,18 +35,21 @@ pub fn mix_used_value(
     value_paths: &TargetValuePaths,
     vars: &VarCollection,
 ) -> MainResult<OriginDict> {
-    let mut used = OriginDict::from(options.raw_value().clone().env_eval(&EnvDict::default()));
-    used.set_source("global");
+    let mut used = OriginDict::default();
+    let mut default = OriginDict::from(vars.clone());
+    default.set_source("mod-default");
+    used.merge(&default);
     if value_paths.user_value_file().exists() && !options.use_default_value() {
         let user_dict = ValueDict::from_conf(value_paths.user_value_file()).owe_res()?;
-        let mut user_dict = OriginDict::from(user_dict.env_eval(&used.export_dict()));
-        user_dict.set_source("mod-cust");
-        used.merge(&user_dict);
+        let mut mod_cust = OriginDict::from(user_dict);
+        mod_cust.set_source("mod-cust");
+        used.merge(&mod_cust);
         info!(target:"mod/target", "use  model value : {}", value_paths.user_value_file().display());
     }
-    let mut default_dict = OriginDict::from(vars.value_dict().env_eval(&used.export_dict()));
-    default_dict.set_source("mod-default");
-    used.merge(&default_dict);
+    let mut global = OriginDict::from(options.raw_value().clone());
+    global.set_source("global");
+    used.merge(&global);
+    let used = used.clone().env_eval(&used.export_dict());
     Ok(used)
 }
 
@@ -84,7 +87,7 @@ mod tests {
         global_dict.insert("TEST_KEY".to_string(), ValueType::from("global_value"));
         global_dict.insert("PRJ_SPACE".to_string(), ValueType::from("galaxy"));
         let vars = VarCollection::define(vec![
-            VarDefinition::from(("TEST_KEY", "default_value")),
+            VarDefinition::from(("TEST_KEY", "default_value")).with_immutable(Some(true)),
             VarDefinition::from(("PRJ_SPACE", "${HOME}")),
             VarDefinition::from(("SVR_NAME", "gflow")),
             VarDefinition::from(("MOD_SPACE", "${PRJ_SPACE}/${SVR_NAME}")),
@@ -97,7 +100,11 @@ mod tests {
         let result = mix_used_value(options, &value_paths, &vars).unwrap();
         assert_eq!(
             result.get("TEST_KEY"),
-            Some(&OriginValue::from("global_value").with_origin("global"))
+            Some(
+                &OriginValue::from("default_value")
+                    .with_origin("mod-default")
+                    .with_immutable(Some(true))
+            )
         );
         assert_eq!(
             result.get("PRJ_SPACE"),

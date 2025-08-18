@@ -130,10 +130,10 @@ impl PrjCommandHandler {
 
         let current_dir = std::env::current_dir().owe_res()?;
         let options = DownloadOptions::from((*args.force.force(), ValueDict::default()));
-        let spec = OpsProject::load(&current_dir).err_conv()?;
+        let prj = OpsProject::load(&current_dir).err_conv()?;
         let accessor = galaxy_ops::accessor::accessor_for_default();
 
-        spec.update_local(accessor, &current_dir, &options)
+        prj.update_local(accessor, &current_dir, &options)
             .await
             .err_conv()?;
         Ok(())

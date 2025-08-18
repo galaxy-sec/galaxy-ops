@@ -159,20 +159,16 @@ impl Localizable for ModuleSpecRef {
                 let target_path = mod_path.join(self.model().to_string());
                 let spec =
                     ModModelSpec::load_from(&target_path).owe(MainReason::from(ModReason::Load))?;
-                //if let Some(dst) = &dst_path {
-                //    spec.save_main(dst.local(), None)?;
-                //}
                 let value = PathBuf::from(self.name());
-                //let local = PathBuf::from(self.name()).join("local");
                 let cur_dst_path = val_path.map(|x| x.join(value));
                 spec.localize(cur_dst_path.clone(), options.clone()).await?;
-                flag.mark_suc();
                 if let Some(setting) = &self.setting {
                     let used_value_file = ValuePath::new(spec.used_value_path()?);
                     let exe_setting =
                         LocalizeExecPath::from(setting.clone().env_eval(options.evaled_value()));
                     exe_setting.localize(Some(used_value_file), options).await?;
                 }
+                flag.mark_suc();
             }
             Ok(())
         } else {

@@ -124,12 +124,15 @@ impl OpsProject {
             println!("Setting variables for {}", i.sys().name());
 
             for var in vars_vec.vars() {
+                if !var.is_mutable() {
+                    continue;
+                }
                 let prompt = if let Some(desp) = var.desp() {
                     format!("{}\n{desp}", var.name())
                 } else {
                     var.name().to_string()
                 };
-                let mut default_value = var.value();
+                let mut default_value = var.value().clone();
                 let value_str = if interactive {
                     Text::new(&prompt)
                         .with_default(&var.value().to_string())
