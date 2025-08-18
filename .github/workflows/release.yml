@@ -87,7 +87,7 @@ jobs:
         with:
           file: ./lcov.info
           flags: unittests
-          #token: ${{ secrets.CODECOV_TOKEN }}
+          token: ${{ secrets.CODECOV_TOKEN }}
           name: codecov-release-${{ github.ref_name }}
           fail_ci_if_error: false
 
