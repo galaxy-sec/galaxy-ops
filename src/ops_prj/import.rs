@@ -96,9 +96,83 @@ impl OpsProject {
         self.ia_setting(true)
     }
 
-    pub fn ia_setting(&self, interactive: bool) -> MainResult<()> {
+    pub fn process_system_vars(
+        vars_path: &PathBuf,
+        value_path: &PathBuf,
+        value_link: &PathBuf,
+        system_name: &str,
+        interactive: bool,
+    ) -> MainResult<()> {
         use inquire::{Confirm, Text};
 
+        if value_path.exists() {
+            println!("value file exists ,use it");
+            if !value_link.exists() {
+                std::os::unix::fs::symlink(&value_path, &value_link)
+                    .owe_res()
+                    .with(&*value_link)?;
+            }
+            return Ok(());
+        }
+
+        let vars_vec = VarCollection::from_conf(&vars_path).owe_res()?;
+        let mut vals_dict = if value_path.exists() {
+            ValueDict::from_conf(&value_path).owe_res()?
+        } else {
+            ValueDict::default()
+        };
+
+        // 通过交互模式设定vars的值
+        println!("Setting variables for {}", system_name);
+
+        for var in vars_vec.vars() {
+            if !var.is_mutable() {
+                continue;
+            }
+            let prompt = if let Some(desp) = var.desp() {
+                format!("{}\n{desp}", var.name())
+            } else {
+                var.name().to_string()
+            };
+            let mut default_value = var.value().clone();
+            let value_str = if interactive {
+                Text::new(&prompt)
+                    .with_default(&var.value().to_string())
+                    .prompt()
+                    .owe_data()?
+            } else {
+                // 非交互模式，使用默认值
+                var.value().to_string()
+            };
+            default_value.update_by_str(value_str.as_str()).owe_data()?;
+            vals_dict.insert(var.name().to_string(), default_value);
+        }
+
+        // 如果用户确认保存更改
+        let should_save = if interactive {
+            Confirm::new("Do you want to save these changes?")
+                .prompt()
+                .owe_data()?
+        } else {
+            // 非交互模式，自动保存
+            true
+        };
+        if should_save {
+            // 保存修改后的vars到文件
+            // vars.save_to_file(&vars_path)?; // 假设的方法
+            println!("Changes saved to {}", vars_path.display());
+            vals_dict.save_conf(&value_path).owe_res()?;
+        }
+        if !value_link.exists() {
+            std::os::unix::fs::symlink(&value_path, &value_link)
+                .owe_res()
+                .with(&*value_link)?;
+        }
+
+        Ok(())
+    }
+
+    pub fn ia_setting(&self, interactive: bool) -> MainResult<()> {
         for i in self.ops_target().iter() {
             let vars_path = self.root_local().join(i.sys().name()).join("sys/vars.yml");
             let value_path = self
@@ -106,66 +180,15 @@ impl OpsProject {
                 .join("values")
                 .join(i.sys().name())
                 .join("value.yml");
-
             let value_link = self.root_local().join(i.sys().name()).join("values");
-            if value_path.exists() {
-                println!("value file exists ,use it");
-                if !value_link.exists() {
-                    std::os::unix::fs::symlink(&value_path, &value_link)
-                        .owe_res()
-                        .with(&value_link)?;
-                }
-                break;
-            }
-            let vars_vec = VarCollection::from_conf(&vars_path).owe_res()?;
-            let mut vals_dict = ValueDict::from_conf(&value_path).owe_res()?;
 
-            // 通过交互模式设定vars的值
-            println!("Setting variables for {}", i.sys().name());
-
-            for var in vars_vec.vars() {
-                if !var.is_mutable() {
-                    continue;
-                }
-                let prompt = if let Some(desp) = var.desp() {
-                    format!("{}\n{desp}", var.name())
-                } else {
-                    var.name().to_string()
-                };
-                let mut default_value = var.value().clone();
-                let value_str = if interactive {
-                    Text::new(&prompt)
-                        .with_default(&var.value().to_string())
-                        .prompt()
-                        .owe_data()?
-                } else {
-                    // 非交互模式，使用默认值
-                    var.value().to_string()
-                };
-                default_value.update_by_str(value_str.as_str()).owe_data()?;
-                vals_dict.insert(var.name().to_string(), default_value);
-            }
-
-            // 如果用户确认保存更改
-            let should_save = if interactive {
-                Confirm::new("Do you want to save these changes?")
-                    .prompt()
-                    .owe_data()?
-            } else {
-                // 非交互模式，自动保存
-                true
-            };
-            if should_save {
-                // 保存修改后的vars到文件
-                // vars.save_to_file(&vars_path)?; // 假设的方法
-                println!("Changes saved to {}", vars_path.display());
-                vals_dict.save_conf(&value_path).owe_res()?;
-            }
-            if !value_link.exists() {
-                std::os::unix::fs::symlink(&value_path, &value_link)
-                    .owe_res()
-                    .with(&value_link)?;
-            }
+            Self::process_system_vars(
+                &vars_path,
+                &value_path,
+                &value_link,
+                i.sys().name(),
+                interactive,
+            )?;
         }
         Ok(())
     }
@@ -174,7 +197,9 @@ impl OpsProject {
 #[cfg(test)]
 mod test {
     use orion_error::TestAssert;
-    use orion_variate::{tools::test_init, update::DownloadOptions};
+    use orion_variate::{tools::test_init, update::DownloadOptions, vars::ValueDict};
+    use std::path::PathBuf;
+    use tempfile::TempDir;
 
     use crate::{accessor::accessor_for_test, const_vars::EXAMPLE_ROOT};
 
@@ -195,5 +220,166 @@ mod test {
             .await
             .assert();
         println!("{}", serde_json::to_string(&sys_spec).assert());
+    }
+
+    #[test]
+    fn test_process_system_vars_non_interactive() {
+        test_init();
+        let temp_dir = TempDir::new().unwrap();
+        let root = temp_dir.path();
+
+        // Create test paths
+        let vars_path = root.join("sys/vars.yml");
+        let value_path = root.join("values/test/value.yml");
+        let value_link = root.join("test/values");
+
+        // Create necessary directories
+        std::fs::create_dir_all(vars_path.parent().unwrap()).unwrap();
+        std::fs::create_dir_all(value_path.parent().unwrap()).unwrap();
+        std::fs::create_dir_all(value_link.parent().unwrap()).unwrap();
+
+        // Create a sample vars.yml file
+        let vars_content = r#"
+vars:
+  - name: "test_var"
+    value: "default_value"
+    mutable: true
+    desp: "A test variable"
+  - name: "immutable_var"
+    value: "immutable_value"
+    mutable: false
+    desp: "An immutable variable"
+"#;
+        std::fs::write(&vars_path, vars_content).unwrap();
+
+        // Create a sample value.yml file
+        let value_content = r#"
+test_var: "existing_value"
+immutable_var: "existing_immutable"
+"#;
+        std::fs::write(&value_path, value_content).unwrap();
+
+        // Test the function in non-interactive mode
+        let result = super::OpsProject::process_system_vars(
+            &vars_path,
+            &value_path,
+            &value_link,
+            "test_system",
+            false,
+        );
+
+        // Verify the function succeeds
+        result.assert();
+
+        // Verify the symlink was created
+        assert!(value_link.exists());
+
+        // Read and verify the value file was not modified (since we used the existing one)
+        let updated_vals = ValueDict::from_conf(&value_path).unwrap();
+        assert_eq!(
+            updated_vals.get("test_var").unwrap().to_string(),
+            "existing_value"
+        );
+        assert_eq!(
+            updated_vals.get("immutable_var").unwrap().to_string(),
+            "existing_immutable"
+        );
+    }
+
+    #[test]
+    fn test_process_system_vars_no_existing_file() {
+        test_init();
+        let temp_dir = TempDir::new().unwrap();
+        let root = temp_dir.path();
+
+        // Create test paths
+        let vars_path = root.join("sys/vars.yml");
+        let value_path = root.join("values/test/value.yml");
+        let value_link = root.join("test/values");
+
+        // Create necessary directories
+        std::fs::create_dir_all(vars_path.parent().unwrap()).unwrap();
+        std::fs::create_dir_all(value_path.parent().unwrap()).unwrap();
+        std::fs::create_dir_all(value_link.parent().unwrap()).unwrap();
+
+        // Create a sample vars.yml file
+        let vars_content = r#"
+vars:
+  - name: "test_var"
+    value: "default_value"
+    mutable: true
+    desp: "A test variable"
+  - name: "immutable_var"
+    value: "immutable_value"
+    mutable: false
+    desp: "An immutable variable"
+"#;
+        std::fs::write(&vars_path, vars_content).unwrap();
+
+        // DO NOT create the value file initially to test variable processing
+
+        // Test the function in non-interactive mode with no existing value file
+        let _result = super::OpsProject::process_system_vars(
+            &vars_path,
+            &value_path,
+            &value_link,
+            "test_system",
+            false,
+        )
+        .unwrap();
+
+        // The value file should be created by the function
+        assert!(value_path.exists());
+        // The symlink should be created
+        assert!(value_link.exists());
+
+        // Read and verify the value file has default values
+        let updated_vals = ValueDict::from_conf(&value_path).unwrap();
+        assert_eq!(
+            updated_vals.get("test_var").unwrap().to_string(),
+            "default_value"
+        );
+        assert_eq!(
+            updated_vals.get("immutable_var").unwrap().to_string(),
+            "immutable_value"
+        );
+    }
+
+    #[test]
+    fn test_process_system_vars_existing_value_file() {
+        test_init();
+        let temp_dir = TempDir::new().unwrap();
+        let root = temp_dir.path();
+
+        // Create test paths
+        let vars_path = root.join("sys/vars.yml");
+        let value_path = root.join("values/test/value.yml");
+        let value_link = root.join("test/values");
+
+        // Create necessary directories
+        std::fs::create_dir_all(vars_path.parent().unwrap()).unwrap();
+        std::fs::create_dir_all(value_path.parent().unwrap()).unwrap();
+        std::fs::create_dir_all(value_link.parent().unwrap()).unwrap();
+
+        // Create existing value file
+        std::fs::write(&value_path, "test_key: test_value").unwrap();
+
+        // Test the function - it should return early due to existing value file
+        let result = super::OpsProject::process_system_vars(
+            &vars_path,
+            &value_path,
+            &value_link,
+            "test_system",
+            false,
+        );
+
+        // Verify the function succeeds
+        result.assert();
+
+        // Verify the symlink was created
+        assert!(value_link.exists());
+
+        // Verify vars.yml wasn't created (since we returned early)
+        assert!(!vars_path.exists());
     }
 }
