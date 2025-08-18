@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use fs_extra::dir::{CopyOptions, move_dir};
 use orion_common::serde::Configable;
@@ -97,9 +97,9 @@ impl OpsProject {
     }
 
     pub fn process_system_vars(
-        vars_path: &PathBuf,
-        value_path: &PathBuf,
-        value_link: &PathBuf,
+        vars_path: &Path,
+        value_path: &Path,
+        value_link: &Path,
         system_name: &str,
         interactive: bool,
     ) -> MainResult<()> {
@@ -108,22 +108,22 @@ impl OpsProject {
         if value_path.exists() {
             println!("value file exists ,use it");
             if !value_link.exists() {
-                std::os::unix::fs::symlink(&value_path, &value_link)
+                std::os::unix::fs::symlink(value_path, value_link)
                     .owe_res()
-                    .with(&*value_link)?;
+                    .with(value_link)?;
             }
             return Ok(());
         }
 
-        let vars_vec = VarCollection::from_conf(&vars_path).owe_res()?;
+        let vars_vec = VarCollection::from_conf(vars_path).owe_res()?;
         let mut vals_dict = if value_path.exists() {
-            ValueDict::from_conf(&value_path).owe_res()?
+            ValueDict::from_conf(value_path).owe_res()?
         } else {
             ValueDict::default()
         };
 
         // 通过交互模式设定vars的值
-        println!("Setting variables for {}", system_name);
+        println!("Setting variables for {system_name}");
 
         for var in vars_vec.vars() {
             if !var.is_mutable() {
@@ -161,12 +161,12 @@ impl OpsProject {
             // 保存修改后的vars到文件
             // vars.save_to_file(&vars_path)?; // 假设的方法
             println!("Changes saved to {}", vars_path.display());
-            vals_dict.save_conf(&value_path).owe_res()?;
+            vals_dict.save_conf(value_path).owe_res()?;
         }
         if !value_link.exists() {
-            std::os::unix::fs::symlink(&value_path, &value_link)
+            std::os::unix::fs::symlink(value_path, value_link)
                 .owe_res()
-                .with(&*value_link)?;
+                .with(value_link)?;
         }
 
         Ok(())
@@ -319,7 +319,7 @@ vars:
         // DO NOT create the value file initially to test variable processing
 
         // Test the function in non-interactive mode with no existing value file
-        let _result = super::OpsProject::process_system_vars(
+        super::OpsProject::process_system_vars(
             &vars_path,
             &value_path,
             &value_link,

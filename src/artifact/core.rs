@@ -162,7 +162,7 @@ mod tests {
             match addr {
                 Address::Http(http_addr) => {
                     // Use Debug trait to compare HTTP resources
-                    let addr_debug = format!("{:?}", http_addr);
+                    let addr_debug = format!("{http_addr:?}");
                     assert!(addr_debug.contains("example.com"));
                 }
                 _ => panic!("Expected HTTP address"),
