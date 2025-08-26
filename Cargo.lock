@@ -1170,7 +1170,7 @@ dependencies = [
  "log",
  "mockall",
  "once_cell",
- "orion-error 0.5.2",
+ "orion-error 0.5.3",
  "orion_conf",
  "orion_infra 0.3.1",
  "orion_variate",
@@ -2224,9 +2224,9 @@ dependencies = [
 
 [[package]]
 name = "orion-error"
-version = "0.5.2"
+version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c3dd8dd8a9b1c17d9f93907d3e3ab67717949d3a0be45d84a5dbe0115d4e5f5e"
+checksum = "cd756cd69dcbd7fe76af86e9d3e775cc767876d6203ea4c8a2afa06d0ca34ba3"
 dependencies = [
  "derive-getters",
  "derive_more",
@@ -2243,7 +2243,7 @@ dependencies = [
  "chrono",
  "derive-getters",
  "derive_more",
- "orion-error 0.5.2",
+ "orion-error 0.5.3",
  "serde",
  "serde_derive",
  "serde_ini",
@@ -2280,7 +2280,7 @@ dependencies = [
  "derive_more",
  "flexi_logger",
  "log",
- "orion-error 0.5.2",
+ "orion-error 0.5.3",
  "scopeguard",
  "serde",
  "serde_derive",
@@ -2291,8 +2291,8 @@ dependencies = [
 
 [[package]]
 name = "orion_variate"
-version = "0.8.0"
-source = "git+https://github.com/galaxy-sec/orion-variate.git?tag=v0.8.0#127a4111a62efb856e93162a3cd80707d87f78ec"
+version = "0.8.1"
+source = "git+https://github.com/galaxy-sec/orion-variate.git?tag=v0.8.1#ff9b901f67a3f5abe1f78b547acfb42871323126"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2313,7 +2313,7 @@ dependencies = [
  "indexmap",
  "indicatif",
  "log",
- "orion-error 0.5.2",
+ "orion-error 0.5.3",
  "orion_conf",
  "orion_infra 0.3.2",
  "os_info",

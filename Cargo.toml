@@ -29,7 +29,7 @@ orion-error = "~0.5"
 #orion_infra = { path = "../orion_infra" }
 orion_conf = { git = "https://github.com/galaxy-sec/orion-conf.git", tag = "v0.1.3" }
 orion_infra = { git = "https://github.com/galaxy-sec/orion-infra.git", tag = "v0.3.1" }
-orion_variate = { git = "https://github.com/galaxy-sec/orion-variate.git", tag = "v0.8.0" }
+orion_variate = { git = "https://github.com/galaxy-sec/orion-variate.git", tag = "v0.8.1" }
 #orion_variate = { git = "https://github.com/galaxy-sec/orion-variate.git", tag = "v0.7.4" }
 thiserror = "~2.0"
 log = "~0.4"
