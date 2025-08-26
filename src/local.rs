@@ -195,7 +195,7 @@ impl Localizable for LocalizeExecPath {
                 .render_path(self.src(), &self.dst, value_file.path(), &tpl_path)
                 .with(&ctx)?;
         } else {
-            return MainReason::from_res("sys value file miss".into()).err_result();
+            return MainReason::from_res("sys value file miss").err_result();
         }
 
         flag.mark_suc();
@@ -207,7 +207,7 @@ impl Localizable for LocalizeExecPath {
 mod tests {
     use super::*;
     use crate::module::setting::Setting;
-    use orion_common::serde::{Configable, JsonAble};
+    use orion_conf::{Configable, JsonAble};
     use orion_error::TestAssert;
     use orion_variate::vars::{ValueDict, ValueType};
     // serde_json not currently used

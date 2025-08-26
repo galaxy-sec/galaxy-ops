@@ -48,7 +48,7 @@ pub struct SysLocalizeArgs {
 pub enum SysCmd {
     /// 创建新的系统操作符 (Create New System Operator)
     #[command(
-        about = "创建新的系统操作符 (Create New System Operator)",
+        about = "创建新的系统维护器 (Create New System Operator)",
         long_about = "使用给定的名称创建新的系统规范。这将初始化一个新的系统目录结构，其中包含所有必要的配置文件和模板。\n\
                      Create a new system specification with the given name. This will initialize a new system directory structure with all necessary configuration files and templates."
     )]

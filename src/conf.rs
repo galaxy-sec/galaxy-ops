@@ -10,7 +10,7 @@ use crate::{
     types::{Accessor, RefUpdateable},
 };
 use async_trait::async_trait;
-use orion_common::serde::Configable;
+use orion_conf::Configable;
 use orion_error::ErrorConv;
 use orion_infra::auto_exit_log;
 use orion_variate::{

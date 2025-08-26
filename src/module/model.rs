@@ -1,3 +1,6 @@
+use orion_conf::{Configable, error::SerdeResult};
+use orion_error::{ContextRecord, OperationContext};
+
 use super::prelude::*;
 use crate::{
     artifact::ArtifactPackage,
@@ -153,25 +156,37 @@ impl Persistable<ModModelSpec> for ModModelSpec {
     fn save_to(&self, root: &Path, name: Option<String>) -> SerdeResult<()> {
         let target_path = root.join(name.unwrap_or(self.model().to_string()));
 
-        let mut flag = auto_exit_log!(
-            info!(target: "spec/mod/target", "save target  success!:{}", target_path.display()),
-            error!(target: "spec/mod/target", "save target failed!:{}", target_path.display())
-        );
+        let mut ctx = OperationContext::want("save target").with_exit_log();
+        ctx.record("target", &target_path);
         let paths = ModTargetPaths::from(&target_path);
         std::fs::create_dir_all(paths.spec_path())
             .owe_conf()
+            .with(&ctx)
             .with(format!("path: {}", paths.spec_path().display()))?;
 
         if let Some(setting) = &self.setting {
-            setting.save_conf(paths.setting_path()).owe_logic()?;
+            setting
+                .save_conf(paths.setting_path())
+                .owe_logic()
+                .with(&ctx)?;
         }
         self.workflow.save_to(paths.workflow_path(), None)?;
-        self.artifact.save_conf(paths.artifact_path()).owe_logic()?;
+        self.artifact
+            .save_conf(paths.artifact_path())
+            .owe_logic()
+            .with(&ctx)?;
 
-        self.depends.save_conf(paths.depends_path()).owe_logic()?;
-        self.vars.save_conf(paths.vars_path()).owe_logic()?;
-        self.gxl_prj.save_to(&paths.target_root, None)?;
-        flag.mark_suc();
+        self.depends
+            .save_conf(paths.depends_path())
+            .owe_logic()
+            .with(&ctx)?;
+        self.vars
+            .save_conf(paths.vars_path())
+            .owe_logic()
+            .with(&ctx)?;
+        self.gxl_prj.save_to(&paths.target_root, None).with(&ctx)?;
+        //flag.mark_suc();
+        ctx.mark_suc();
         Ok(())
     }
 

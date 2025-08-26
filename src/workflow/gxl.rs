@@ -1,8 +1,11 @@
 use std::path::Path;
 
 use derive_getters::Getters;
-use orion_common::serde::{Persistable, SerdeReason, SerdeResult};
-use orion_error::{ErrorOwe, UvsConfFrom};
+use orion_conf::{
+    Persistable, UvsConfFrom,
+    error::{SerdeReason, SerdeResult},
+};
+use orion_error::ErrorOwe;
 use serde::Serialize;
 
 #[derive(Getters, Clone, Debug, PartialEq, Serialize)]

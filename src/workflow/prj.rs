@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use derive_getters::Getters;
-use orion_common::serde::{Persistable, SerdeResult};
+use orion_conf::{Persistable, error::SerdeResult};
 use orion_error::{ErrorOwe, ErrorWith};
 use serde::Serialize;
 

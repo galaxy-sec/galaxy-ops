@@ -6,7 +6,7 @@ use galaxy_ops::module::proj::ModProject;
 use galaxy_ops::module::spec::make_mod_spec_example;
 use galaxy_ops::project::load_project_global_value;
 use galaxy_ops::types::{Localizable, LocalizeOptions, RefUpdateable};
-use orion_common::serde::Persistable;
+use orion_conf::Persistable;
 use orion_error::{ErrorConv, ErrorOwe};
 use orion_variate::update::DownloadOptions;
 use orion_variate::vars::ValueDict;

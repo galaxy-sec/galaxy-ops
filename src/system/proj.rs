@@ -16,7 +16,7 @@ use super::{
 };
 use crate::types::{Accessor, LocalizeOptions, RefUpdateable, ValuePath};
 use async_trait::async_trait;
-use orion_common::serde::{Configable, Persistable};
+use orion_conf::{Configable, Persistable};
 use orion_infra::auto_exit_log;
 use orion_infra::path::{ensure_path, make_clean_path};
 use orion_variate::update::DownloadOptions;

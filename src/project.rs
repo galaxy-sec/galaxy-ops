@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use log::info;
-use orion_common::serde::{Configable, ValueConfable, Yamlable};
+use orion_conf::{Configable, ValueConfable, Yamlable};
 use orion_error::ErrorOwe;
 use orion_infra::path::ensure_path;
 use orion_variate::vars::{EnvEvalable, OriginDict, ValueDict, ValueType, VarCollection};

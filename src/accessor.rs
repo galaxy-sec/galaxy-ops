@@ -1,5 +1,5 @@
 use log::error;
-use orion_common::serde::Yamlable;
+use orion_conf::Yamlable;
 use orion_variate::{
     addr::{
         access_ctrl::serv::NetAccessCtrl,

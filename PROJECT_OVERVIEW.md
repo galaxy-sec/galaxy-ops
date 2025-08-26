@@ -81,7 +81,7 @@ galaxy-ops/
 ## 技术栈
 
 ### 核心依赖
-- **orion_common**: 公共库
+- **orion_conf**: 公共库
 - **orion_infra**: 基础设施库
 - **orion_variate**: 变量管理库
 - **serde**: 序列化/反序列化

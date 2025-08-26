@@ -32,7 +32,7 @@ mod tests {
     use std::env::temp_dir;
 
     use super::*;
-    use orion_common::serde::Configable;
+    use orion_conf::Configable;
     use orion_error::TestAssert;
     use orion_variate::vars::{EnvDict, EnvEvalable, ValueType};
 

@@ -3,7 +3,7 @@ use crate::error::OpsReason;
 use crate::predule::*;
 use crate::system::refs::SysModelSpecRef;
 use crate::{error::MainResult, module::depend::DependencySet};
-use orion_common::serde::Configable;
+use orion_conf::Configable;
 
 use crate::types::{Accessor, InsUpdateable, RefUpdateable};
 use async_trait::async_trait;

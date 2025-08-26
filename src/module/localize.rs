@@ -133,7 +133,7 @@ impl LocalizeTemplate<'_> {
 
                 return Ok(());
             }
-            return Err(MainReason::from_res("path not parent".into()).to_err()).with(dst_path);
+            return Err(MainReason::from_res("path not parent").to_err()).with(dst_path);
         }
         err_ctx.with("dst", dst_path.to_string_lossy());
 
