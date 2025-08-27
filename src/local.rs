@@ -10,7 +10,7 @@ use crate::{
 use async_trait::async_trait;
 use derive_more::Deref;
 use getset::Getters;
-use orion_error::{ToStructError, UvsResFrom};
+use orion_error::{ContextRecord, ToStructError, UvsResFrom};
 use orion_infra::auto_exit_log;
 use orion_variate::{update::DownloadOptions, vars::EnvEvalable};
 
@@ -159,8 +159,8 @@ impl Localizable for LocalizeExecPath {
             std::fs::create_dir_all(parent).owe_res()?;
         }
         let mut ctx = WithContext::want("sys-path localize");
-        ctx.with_path("dst", &self.dst);
-        ctx.with_path("src", &self.src);
+        ctx.record("dst", &self.dst);
+        ctx.record("src", &self.src);
 
         // Handle template configuration if available
         if let (Some(setting), Some(value_file)) =

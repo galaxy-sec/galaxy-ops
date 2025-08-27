@@ -156,7 +156,7 @@ impl Persistable<ModModelSpec> for ModModelSpec {
     fn save_to(&self, root: &Path, name: Option<String>) -> SerdeResult<()> {
         let target_path = root.join(name.unwrap_or(self.model().to_string()));
 
-        let mut ctx = OperationContext::want("save target").with_exit_log();
+        let mut ctx = OperationContext::want("save target").with_auto_log();
         ctx.record("target", &target_path);
         let paths = ModTargetPaths::from(&target_path);
         std::fs::create_dir_all(paths.spec_path())
@@ -198,7 +198,7 @@ impl Persistable<ModModelSpec> for ModModelSpec {
             error!(target: "spec/mod/target", "load target failed!:{}", target_root.display())
         );
         let paths = ModTargetPaths::from(&target_root.to_path_buf());
-        ctx.with_path("root", target_root);
+        ctx.record("root", target_root);
         let target = ModelSTD::from_str(path_file_name(target_root).owe_logic()?.as_str())
             .owe_res()
             .with(&ctx)?;
@@ -209,19 +209,19 @@ impl Persistable<ModModelSpec> for ModModelSpec {
         } else {
             None
         };
-        ctx.with_path("artifact", paths.artifact_path());
+        ctx.record("artifact", paths.artifact_path());
         let artifact = ArtifactPackage::from_conf(paths.artifact_path())
             .with(&ctx)
             .owe_logic()?;
 
-        //ctx.with_path("conf_spec", paths.conf_path());
+        //ctx.record("conf_spec", paths.conf_path());
         //let conf_spec = ConfSpec::from_conf(paths.conf_path()).with(&ctx)?;
 
-        ctx.with_path("depends", paths.depends_path());
+        ctx.record("depends", paths.depends_path());
         let depends = DependencySet::from_conf(paths.depends_path())
             .with(&ctx)
             .owe_logic()?;
-        ctx.with_path("vars", paths.vars_path());
+        ctx.record("vars", paths.vars_path());
         //let vars = VarCollection::eval_from_file(&ValueDict::default(), paths.vars_path())
         let vars = VarCollection::from_conf(paths.vars_path())
             .with(&ctx)
@@ -309,7 +309,7 @@ impl Localizable for ModModelSpec {
         let local_path = local.join(LOCAL_DIR);
         debug!( target:"spec/mod/target", "localize mod-target begin: {}" ,local_path.display() );
         make_clean_path(&local_path).owe_logic()?;
-        ctx.with_path("dst", &local_path);
+        ctx.record("dst", &local_path);
         self.crate_sample_value_file(&value_paths)?;
         debug!(target : "/mod/target/loc", "value export");
         let used = self.build_used_value(options, &value_paths)?;

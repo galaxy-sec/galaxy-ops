@@ -101,7 +101,7 @@ impl SysModelSpec {
         );
         let paths = SysTargetPaths::from(&root.to_path_buf());
 
-        ctx.with_path("mod_list", paths.modlist_path());
+        ctx.record("mod_list", paths.modlist_path());
         let define = if !paths.define_path().exists() {
             return MainReason::from_logic(format!(
                 "miss define file : {}",
