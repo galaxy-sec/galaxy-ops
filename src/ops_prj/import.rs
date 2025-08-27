@@ -126,7 +126,7 @@ impl OpsProject {
         // 通过交互模式设定vars的值
         println!("Setting variables for {system_name}");
 
-        for var in vars_vec.public_vars() {
+        for var in vars_vec.vars() {
             if !var.is_mutable() {
                 continue;
             }
