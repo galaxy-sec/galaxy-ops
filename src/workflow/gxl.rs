@@ -1,8 +1,11 @@
 use std::path::Path;
 
 use derive_getters::Getters;
-use orion_common::serde::{Persistable, SerdeReason, SerdeResult};
-use orion_error::{ErrorOwe, ToStructError, UvsConfFrom};
+use orion_conf::{
+    Persistable, UvsConfFrom,
+    error::{SerdeReason, SerdeResult},
+};
+use orion_error::ErrorOwe;
 use serde::Serialize;
 
 #[derive(Getters, Clone, Debug, PartialEq, Serialize)]
@@ -36,7 +39,7 @@ impl Persistable<GxlAction> for GxlAction {
         let file_name = path
             .file_name()
             .and_then(|f| f.to_str())
-            .ok_or_else(|| SerdeReason::from_conf("bad file name".to_string()).to_err())?;
+            .ok_or_else(|| SerdeReason::from_conf("bad file name".to_string()))?;
 
         let code = std::fs::read_to_string(path).owe_res()?;
         Ok(Self {

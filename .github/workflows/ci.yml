@@ -67,18 +67,20 @@ jobs:
       - uses: taiki-e/install-action@cargo-llvm-cov
       - run: cargo llvm-cov --all-features --workspace --lcov --output-path lcov.info  -- --test-threads=1
 
-      # 选项1: 使用 Coveralls
-      - name: Upload to Coveralls
-        uses: coverallsapp/github-action@v2
+      # 上传到 Codecov，支持多分支和tag的coverage报告
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v4
         with:
-          file: lcov.info
-          format: lcov
+          file: ./lcov.info
+          flags: unittests
+          name: codecov-${{ github.ref_name }}
+          fail_ci_if_error: false
 
-      # 选项2: 使用 GitHub Artifacts 作为备选
+      # 备选方案：上传 coverage artifact
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
-        if: failure() # 如果Coveralls失败，保留lcov文件
+        if: failure() # 如果Codecov失败，保留lcov文件
         with:
-          name: coverage-lcov
+          name: coverage-lcov-${{ github.ref_name }}
           path: lcov.info
           retention-days: 30

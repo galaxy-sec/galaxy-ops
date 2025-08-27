@@ -13,7 +13,7 @@ use crate::{
 };
 use async_trait::async_trait;
 use getset::{Getters, WithSetters};
-use orion_common::serde::{Configable, Persistable, Yamlable};
+use orion_conf::{Configable, Persistable, Yamlable};
 use orion_error::{ErrorOwe, ErrorWith, UvsConfFrom, UvsLogicFrom, WithContext};
 use orion_infra::auto_exit_log;
 use orion_variate::{
@@ -101,7 +101,7 @@ impl SysModelSpec {
         );
         let paths = SysTargetPaths::from(&root.to_path_buf());
 
-        ctx.with_path("mod_list", paths.modlist_path());
+        ctx.record("mod_list", paths.modlist_path());
         let define = if !paths.define_path().exists() {
             return MainReason::from_logic(format!(
                 "miss define file : {}",

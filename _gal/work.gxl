@@ -76,8 +76,6 @@ mod main   {
     gx.cmd (  "mkdir -p ${MAIN_USR_BINS}" );
     gx.cmd (  "mkdir -p ${MAIN_PRJ_BINS}" );
     gx.cmd  (  "rm -f ${MAIN_PRJ_BINS}/r*"  );
-    gx.cmd (  "cp ${MAIN_BLD_BINS}/gmod  ${MAIN_PRJ_BINS}/${AP}mod"  );
-    gx.cmd (  "cp ${MAIN_BLD_BINS}/gsys  ${MAIN_PRJ_BINS}/${AP}sys"  );
     gx.cmd (  "cp ${MAIN_BLD_BINS}/gops  ${MAIN_PRJ_BINS}/${AP}ops"  );
     gx.cmd (  "cp ${MAIN_PRJ_BINS}/${AP}* ${MAIN_USR_BINS}/"  );
   }

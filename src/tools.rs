@@ -225,11 +225,7 @@ mod tests {
 
         for (url, expected) in test_cases {
             let result = get_repo_name(url);
-            assert_eq!(
-                result,
-                expected.map(String::from),
-                "Failed for URL: {url}",
-            );
+            assert_eq!(result, expected.map(String::from), "Failed for URL: {url}");
         }
     }
 }

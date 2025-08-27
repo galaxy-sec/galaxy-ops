@@ -10,7 +10,7 @@ use crate::{
 use async_trait::async_trait;
 use derive_more::Deref;
 use getset::Getters;
-use orion_error::{ToStructError, UvsResFrom};
+use orion_error::{ContextRecord, ToStructError, UvsResFrom};
 use orion_infra::auto_exit_log;
 use orion_variate::{update::DownloadOptions, vars::EnvEvalable};
 
@@ -159,8 +159,8 @@ impl Localizable for LocalizeExecPath {
             std::fs::create_dir_all(parent).owe_res()?;
         }
         let mut ctx = WithContext::want("sys-path localize");
-        ctx.with_path("dst", &self.dst);
-        ctx.with_path("src", &self.src);
+        ctx.record("dst", &self.dst);
+        ctx.record("src", &self.src);
 
         // Handle template configuration if available
         if let (Some(setting), Some(value_file)) =
@@ -195,7 +195,7 @@ impl Localizable for LocalizeExecPath {
                 .render_path(self.src(), &self.dst, value_file.path(), &tpl_path)
                 .with(&ctx)?;
         } else {
-            return MainReason::from_res("sys value file miss".into()).err_result();
+            return MainReason::from_res("sys value file miss").err_result();
         }
 
         flag.mark_suc();
@@ -207,7 +207,7 @@ impl Localizable for LocalizeExecPath {
 mod tests {
     use super::*;
     use crate::module::setting::Setting;
-    use orion_common::serde::{Configable, JsonAble};
+    use orion_conf::{Configable, JsonAble};
     use orion_error::TestAssert;
     use orion_variate::vars::{ValueDict, ValueType};
     // serde_json not currently used

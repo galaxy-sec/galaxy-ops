@@ -3,16 +3,14 @@ use std::path::{Path, PathBuf};
 use fs_extra::dir::CopyOptions;
 use handlebars::Handlebars;
 use log::{debug, info};
-use orion_error::{
-    ErrorOwe, ErrorWith, ToStructError, UvsConfFrom, UvsResFrom, WithContext,
-};
+use orion_error::{ContextRecord, ErrorOwe, ErrorWith, UvsConfFrom, UvsResFrom, WithContext};
+use orion_variate::tpl::{CommentFmt, CustTmplLabel, LabelCoverter};
 use serde::Serialize;
 
 use crate::{
-    error::{MainReason, MainResult, ModReason},
+    error::{MainReason, MainResult, ModReason, ToErr},
     module::setting::TemplatePath,
 };
-use orion_variate::tpl::{CommentFmt, CustTmplLabel, LabelCoverter};
 
 use super::setting::TemplateConfig;
 
@@ -63,9 +61,9 @@ impl LocalizeTemplate<'_> {
     ) -> MainResult<()> {
         let mut err_ctx = WithContext::want("render tpl path");
         // 处理目录模板
-        err_ctx.with_path("data", data);
+        err_ctx.record("data", data);
         let content = std::fs::read_to_string(data).owe_data().with(&err_ctx)?;
-        err_ctx.with("need-fmt", "json");
+        err_ctx.record("need-fmt", "json");
         let data: serde_json::Value = serde_json::from_str(content.as_str())
             .owe_data()
             .with(&err_ctx)?;
@@ -115,7 +113,7 @@ impl LocalizeTemplate<'_> {
         debug!("dst:{}", dst_path.display());
 
         let mut err_ctx = WithContext::want("render tpl");
-        err_ctx.with("tpl", tpl_path.to_string_lossy());
+        err_ctx.record("tpl", tpl_path);
         // 2. 验证模板文件
         if !tpl_path.exists() {
             return Err(MainReason::from_conf("tpl path not exists".to_string()).to_err())
@@ -135,9 +133,9 @@ impl LocalizeTemplate<'_> {
 
                 return Ok(());
             }
-            return Err(MainReason::from_res("path not parent".into()).to_err()).with(dst_path);
+            return Err(MainReason::from_res("path not parent").to_err()).with(dst_path);
         }
-        err_ctx.with("dst", dst_path.to_string_lossy());
+        err_ctx.record("dst", dst_path);
 
         // 3. 准备目标文件
         let dst_path = Path::new(&dst_path);

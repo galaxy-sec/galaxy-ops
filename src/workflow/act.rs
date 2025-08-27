@@ -3,11 +3,14 @@ use std::path::Path;
 use super::gxl::GxlAction;
 use derive_getters::Getters;
 use log::warn;
-use orion_common::serde::{Persistable, SerdeReason, SerdeResult};
-use orion_error::{ErrorOwe, ErrorWith, ToStructError, UvsConfFrom};
+use orion_conf::{
+    Persistable,
+    error::{SerdeReason, SerdeResult},
+};
+use orion_error::{ErrorOwe, ErrorWith, UvsConfFrom};
 use serde::Serialize;
 
-use crate::const_vars::WORKFLOWS_DIR;
+use crate::{const_vars::WORKFLOWS_DIR, error::ToErr};
 
 #[derive(Getters, Clone, Debug, Default, Serialize)]
 pub struct Workflows {

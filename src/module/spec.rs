@@ -17,6 +17,7 @@ const POSTGRESQL_MD5_ARCHIVE: &str = "postgresql-17.4.tar.gz.md5";
 use crate::artifact::{Artifact, ArtifactPackage};
 use async_trait::async_trait;
 use indexmap::IndexMap;
+use orion_conf::error::SerdeResult;
 use orion_variate::{addr::HttpResource, vars::VarDefinition};
 
 use super::{
