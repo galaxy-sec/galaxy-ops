@@ -11,12 +11,6 @@ pub trait DfxArgsGetter {
 static LOGGING_INITIALIZED: Once = Once::new();
 static LOGGING_STATE: Mutex<Option<LogConf>> = Mutex::new(None);
 
-pub fn configure_run_logging(_log_conf: Option<String>, debug: usize) {
-    let setting = level_setting(debug);
-    let conf = LogConf::new_console(setting);
-    configure_logging(&conf).unwrap();
-}
-
 pub fn configure_dfx_logging(dfx: &impl DfxArgsGetter) {
     // Check if logging has already been configured
     if LOGGING_INITIALIZED.is_completed() {
