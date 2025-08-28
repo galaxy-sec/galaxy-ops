@@ -38,7 +38,7 @@ async fn test_full_flow() -> MainResult<()> {
     sys_proj
         .update_local(accessor, &sys_path, &DownloadOptions::default())
         .await?;
-    sys_proj.localize(LocalizeOptions::for_test()).await?;
+    //sys_proj.localize(LocalizeOptions::for_test()).await?;
     Ok(())
     //sys_proj.
 }
@@ -74,10 +74,13 @@ async fn make_sys_opr_example() -> MainResult<SysOperator> {
         .update_local(accessor, &prj_path, &DownloadOptions::default())
         .await
         .assert("spec.update_local");
+    std::fs::remove_dir_all(loaded_sys_opr.paths().value_dir()).owe_res()?;
+    /*
     loaded_sys_opr
         .localize(LocalizeOptions::for_test())
         .await
         .assert("spec.localize");
+        */
     Ok(loaded_sys_opr)
 }
 

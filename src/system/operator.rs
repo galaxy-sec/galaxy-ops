@@ -44,7 +44,7 @@ impl SysOperator {
         }
     }
     pub fn load(root_local: &Path) -> MainResult<Self> {
-        let mut ctx = OperationContext::want("load sys-prj")
+        let mut ctx = OperationContext::want("load sys-operator")
             .with_auto_log()
             .with_mod_path("sys/prj");
 
