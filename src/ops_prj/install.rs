@@ -155,13 +155,10 @@ mod tests {
         let project_paths = ProjectPath::new(root);
         let installer = PackageInstaller::new(project_paths);
 
-        let sys_src = Path::new("/"); // Use root path with no components
+        let sys_src = PathBuf::new(); // Use empty path with no components
         let sys_spec = create_test_system_spec("test_system");
 
         let result = installer.prepare_paths(&sys_src, &sys_spec);
-
-        // Debug: print actual result
-        println!("Result: {:?}", result);
 
         // Should fail with appropriate error
         assert!(result.is_err());
