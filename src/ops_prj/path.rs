@@ -6,6 +6,14 @@ use orion_infra::path::ensure_path;
 
 use crate::{error::MainResult, types::ValuePath};
 
+#[derive(Debug, Clone)]
+pub struct InstallPaths {
+    pub source_path: PathBuf,
+    pub temp_target_path: PathBuf,
+    pub final_target_path: PathBuf,
+    pub project_root: PathBuf,
+}
+
 #[derive(Getters, Clone, Debug)]
 pub struct ProjectPath {
     #[getset(get = "pub")]
