@@ -13,6 +13,7 @@ pub const RESOURCE_YML: &str = "resource.yml";
 pub const NET_RES_YML: &str = "net_res.yml";
 pub const SYS_MODLE_DEF_YML: &str = "sys_model.yml";
 pub const VARS_YML: &str = "vars.yml";
+pub const SYS_VARS_YML: &str = "sys_vars.yml";
 pub const SPEC_YML: &str = "spec.yml";
 pub const VALUE_FILE: &str = "value.yml";
 pub const DEFAULT_VALUE_FILE: &str = "_default.yml";

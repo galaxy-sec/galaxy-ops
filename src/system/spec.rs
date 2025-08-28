@@ -1,4 +1,5 @@
 use crate::{
+    const_vars::SYS_VARS_YML,
     error::SysReason,
     local::LocalizeVarPath,
     predule::*,
@@ -150,7 +151,7 @@ impl RefUpdateable<()> for SysModelSpec {
     ) -> MainResult<()> {
         if let Some(local) = &self.local {
             let value = self.mod_list.update_local(accessor, local, options).await?;
-            let path = local.join("vars.yml");
+            let path = local.join(SYS_VARS_YML);
             if path.exists() {
                 std::fs::remove_file(&path).owe_sys()?;
             }

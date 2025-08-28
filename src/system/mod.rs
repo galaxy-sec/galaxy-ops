@@ -64,7 +64,7 @@ impl RefUpdateable<SysUpdateValue> for ModulesList {
             if m.is_enable() {
                 let update_v = m.update_local(accessor.clone(), sys_root, options).await?;
                 if let Some(v) = update_v.vars {
-                    vars = vars.merge(v);
+                    vars = vars.merge_system(v);
                 }
             }
         }

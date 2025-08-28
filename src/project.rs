@@ -58,7 +58,7 @@ mod tests {
     use crate::const_vars::USER_VALUE_FILE;
 
     use super::*;
-    use orion_variate::vars::{OriginValue, VarDefinition};
+    use orion_variate::vars::{Mutability, OriginValue, VarDefinition};
     use tempfile::tempdir;
 
     fn test_init() {
@@ -87,7 +87,8 @@ mod tests {
         global_dict.insert("TEST_KEY".to_string(), ValueType::from("global_value"));
         global_dict.insert("PRJ_SPACE".to_string(), ValueType::from("galaxy"));
         let vars = VarCollection::define(vec![
-            VarDefinition::from(("TEST_KEY", "default_value")).with_immutable(Some(true)),
+            VarDefinition::from(("TEST_KEY", "default_value"))
+                .with_mutability(Mutability::Immutable),
             VarDefinition::from(("PRJ_SPACE", "${HOME}")),
             VarDefinition::from(("SVR_NAME", "gflow")),
             VarDefinition::from(("MOD_SPACE", "${PRJ_SPACE}/${SVR_NAME}")),
@@ -103,7 +104,7 @@ mod tests {
             Some(
                 &OriginValue::from("default_value")
                     .with_origin("mod-default")
-                    .with_immutable(Some(true))
+                    .with_mutability(Mutability::Immutable),
             )
         );
         assert_eq!(

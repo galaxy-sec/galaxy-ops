@@ -14,7 +14,7 @@ pub struct SysTargetPaths {
     //net_path: PathBuf,
     //res_path: PathBuf,
     #[allow(dead_code)]
-    vars_path: PathBuf,
+    sys_vars_path: PathBuf,
     modlist_path: PathBuf,
     workflow_path: PathBuf,
 }
@@ -26,7 +26,7 @@ impl From<&PathBuf> for SysTargetPaths {
             define_path: target_root.join(SYS_MODLE_DEF_YML),
             //net_path: target_root.join(NET_RES_YML),
             //res_path: target_root.join(RESOURCE_YML),
-            vars_path: target_root.join(VARS_YML),
+            sys_vars_path: target_root.join(VARS_YML),
             modlist_path: target_root.join(MOD_LIST_YML),
             workflow_path: target_root.to_path_buf(),
             spec_path: target_root.clone(),
