@@ -51,14 +51,16 @@ impl SysOperator {
         let paths = SysOperatorPath::new(root_local);
 
         // 执行配置文件迁移
-        paths.migrate_conf_file().with(&ctx)?;
+        paths.migrate_conf_file().with(&ctx).want("migrate conf")?;
 
+        ctx.record("sys-conf", &paths.conf_file_v2());
         let conf = SysConf::from_conf(&paths.conf_file_v2())
             .owe_res()
             .with(&ctx)?;
         let sys_path = paths.sys_dir();
         ctx.record("sys_path", &sys_path);
         let sys_spec = SysModelSpec::load_from(&sys_path).with(&ctx)?;
+        
         let project = GxlProject::load_from(paths.root())
             .owe(SysReason::Load.into())
             .with(&ctx)?;

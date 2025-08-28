@@ -68,6 +68,7 @@ impl OpsProject {
         self.import_ops_sys(ops_sys);
         // 3.获得sys pakage
 
+        //self.paths().value_dir().join(path)
         // 4. 导入到 工作目录
         let sys_dst_root = self.root_local();
         //if let Some(last_name) = sys_src.iter().last() {
