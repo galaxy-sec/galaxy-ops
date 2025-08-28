@@ -2,7 +2,7 @@ use clap::{Args, Parser};
 use derive_getters::Getters;
 use galaxy_ops::error::MainResult;
 use galaxy_ops::infra::DfxArgsGetter;
-use galaxy_ops::ops_prj::proj::OpsProject;
+use galaxy_ops::ops_prj::project::OpsProject;
 use galaxy_ops::types::InsUpdateable;
 use orion_error::{ErrorConv, ErrorOwe};
 use orion_infra::path::make_new_path;

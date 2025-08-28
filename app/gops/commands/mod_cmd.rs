@@ -2,7 +2,7 @@ use clap::{Args, Parser};
 use derive_getters::Getters;
 use galaxy_ops::error::MainResult;
 use galaxy_ops::infra::DfxArgsGetter;
-use galaxy_ops::module::proj::ModProject;
+use galaxy_ops::module::operator::ModOperator;
 use galaxy_ops::module::spec::make_mod_spec_example;
 use galaxy_ops::project::load_project_global_value;
 use galaxy_ops::types::{Localizable, LocalizeOptions, RefUpdateable};
@@ -145,7 +145,7 @@ impl ModCommandHandler {
         std::fs::create_dir(&project_dir).owe_res()?;
 
         galaxy_ops::infra::configure_dfx_logging(&args);
-        let spec = ModProject::make_new(&project_dir, args.name.as_str()).err_conv()?;
+        let spec = ModOperator::make_new(&project_dir, args.name.as_str()).err_conv()?;
         spec.save().err_conv()?;
         Ok(())
     }
@@ -154,7 +154,7 @@ impl ModCommandHandler {
         let current_dir = std::env::current_dir().expect("无法获取当前目录");
         galaxy_ops::infra::configure_dfx_logging(&args);
 
-        let spec = ModProject::load(&current_dir).err_conv()?;
+        let spec = ModOperator::load(&current_dir).err_conv()?;
         let options = DownloadOptions::from((*args.force.force(), ValueDict::default()));
         let accessor = galaxy_ops::accessor::accessor_for_default();
 
@@ -168,7 +168,7 @@ impl ModCommandHandler {
         let current_dir = std::env::current_dir().expect("无法获取当前目录");
         galaxy_ops::infra::configure_dfx_logging(&args);
 
-        let spec = ModProject::load(&current_dir).err_conv()?;
+        let spec = ModOperator::load(&current_dir).err_conv()?;
         let dict = load_project_global_value(spec.root_local(), args.localize.value())?;
         spec.localize(
             None,

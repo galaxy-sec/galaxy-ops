@@ -9,7 +9,7 @@ use crate::{
 use std::path::{Path, PathBuf};
 
 use crate::{
-    const_vars::MODULES_SPC_ROOT, error::ElementReason, module::proj::ModProject,
+    const_vars::MODULES_SPC_ROOT, error::ElementReason, module::operator::ModOperator,
     types::Localizable, workflow::act::SysWorkflows,
 };
 use async_trait::async_trait;
@@ -180,8 +180,8 @@ impl Localizable for SysModelSpec {
 }
 impl SysModelSpec {
     pub fn for_example(name: &str) -> MainResult<SysModelSpec> {
-        ModProject::make_test_prj("redis2_mock")?;
-        ModProject::make_test_prj("mysql2_mock")?;
+        ModOperator::make_test_prj("redis2_mock")?;
+        ModOperator::make_test_prj("mysql2_mock")?;
         make_sys_spec_test(
             SysDefine::new(name, ModelSTD::from_cur_sys()),
             vec!["redis2_mock", "mysql2_mock"],
@@ -255,7 +255,7 @@ pub mod tests {
     use orion_variate::tools::test_init;
 
     use crate::{
-        accessor::accessor_for_test, const_vars::SYS_MODEL_SPC_ROOT, module::proj::ModProject,
+        accessor::accessor_for_test, const_vars::SYS_MODEL_SPC_ROOT, module::operator::ModOperator,
     };
 
     use super::*;
@@ -264,8 +264,8 @@ pub mod tests {
     async fn build_example_sys_spec() -> MainResult<()> {
         test_init();
         let sys_name = "example_sys";
-        ModProject::make_test_prj("redis_mock")?;
-        ModProject::make_test_prj("mysql_mock")?;
+        ModOperator::make_test_prj("redis_mock")?;
+        ModOperator::make_test_prj("mysql_mock")?;
         let spec = make_sys_spec_test(
             SysDefine::new(sys_name, ModelSTD::from_cur_sys()),
             vec!["redis_mock", "mysql_mock"],

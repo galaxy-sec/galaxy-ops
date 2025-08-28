@@ -140,7 +140,7 @@ pub mod tests {
 
     use crate::{
         accessor::accessor_for_test, const_vars::WORKINS_PRJ_ROOT, error::MainResult,
-        ops_prj::proj::OpsProject, types::InsUpdateable,
+        ops_prj::project::OpsProject, types::InsUpdateable,
     };
 
     #[tokio::test]

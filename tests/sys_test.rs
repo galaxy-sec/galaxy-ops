@@ -5,8 +5,8 @@ use galaxy_ops::{
     const_vars::{SYS_MODEL_PRJ_ROOT, WORKINS_PRJ_ROOT},
     error::MainResult,
     module::depend::{Dependency, DependencySet},
-    ops_prj::proj::OpsProject,
-    system::{proj::SysOperator, spec::SysModelSpec},
+    ops_prj::project::OpsProject,
+    system::{operator::SysOperator, spec::SysModelSpec},
     types::{InsUpdateable, LocalizeOptions, RefUpdateable},
 };
 use orion_error::{ErrorOwe, TestAssertWithMsg};

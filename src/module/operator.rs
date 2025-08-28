@@ -25,7 +25,7 @@ pub struct ModConf {
 }
 
 #[derive(Getters, Clone, Debug)]
-pub struct ModProject {
+pub struct ModOperator {
     conf: ModConf,
     mod_spec: ModuleSpec,
     project: GxlProject,
@@ -38,7 +38,7 @@ impl ModConf {
         }
     }
 }
-impl ModProject {
+impl ModOperator {
     pub fn new(spec: ModuleSpec, local_res: DependencySet, root_local: PathBuf) -> Self {
         let conf = ModConf::new(local_res);
         let mut val_dict = ValueDict::default();
@@ -120,7 +120,7 @@ impl RefUpdateable<()> for ModConf {
 }
 
 #[async_trait]
-impl RefUpdateable<()> for ModProject {
+impl RefUpdateable<()> for ModOperator {
     async fn update_local(
         &self,
         accessor: Accessor,
@@ -150,7 +150,7 @@ impl Localizable for ModConf {
 }
 
 #[async_trait]
-impl Localizable for ModProject {
+impl Localizable for ModOperator {
     async fn localize(
         &self,
         dst_path: Option<ValuePath>,
@@ -164,22 +164,22 @@ impl Localizable for ModProject {
         Ok(())
     }
 }
-impl ModProject {
+impl ModOperator {
     pub fn make_new(prj_path: &Path, name: &str) -> MainResult<Self> {
         let mod_spec = ModuleSpec::make_new(name)?;
         let res = DependencySet::default();
-        Ok(ModProject::new(mod_spec, res, prj_path.to_path_buf()))
+        Ok(ModOperator::new(mod_spec, res, prj_path.to_path_buf()))
     }
     pub fn make_test_prj(name: &str) -> MainResult<Self> {
         let prj_path = PathBuf::from(MODULES_SPC_ROOT).join(name);
         make_clean_path(&prj_path).owe_logic()?;
-        let proj = ModProject::make_new(&prj_path, name)?;
+        let proj = ModOperator::make_new(&prj_path, name)?;
         proj.save()?;
         Ok(proj)
     }
 }
 
-pub fn make_mod_prj_testins(prj_path: &Path) -> MainResult<ModProject> {
+pub fn make_mod_prj_testins(prj_path: &Path) -> MainResult<ModOperator> {
     let mod_spec = ModuleSpec::for_example();
     let mut res = DependencySet::default();
     res.push(
@@ -189,7 +189,7 @@ pub fn make_mod_prj_testins(prj_path: &Path) -> MainResult<ModProject> {
         )
         .with_rename("bit-common"),
     );
-    Ok(ModProject::new(mod_spec, res, prj_path.to_path_buf()))
+    Ok(ModOperator::new(mod_spec, res, prj_path.to_path_buf()))
 }
 
 #[cfg(test)]
@@ -207,7 +207,7 @@ pub mod tests {
 
     use crate::{
         const_vars::MODULES_SPC_ROOT,
-        module::proj::{ModProject, make_mod_prj_testins},
+        module::operator::{ModOperator, make_mod_prj_testins},
         types::Localizable,
     };
     #[tokio::test]
@@ -215,7 +215,7 @@ pub mod tests {
         test_init();
         let prj_path = PathBuf::from(MODULES_SPC_ROOT).join("mod-new");
         make_clean_path(&prj_path).owe_logic()?;
-        let proj = ModProject::make_new(&prj_path, "mod_new")?;
+        let proj = ModOperator::make_new(&prj_path, "mod_new")?;
         proj.save()?;
         Ok(())
     }
@@ -231,7 +231,7 @@ pub mod tests {
         }
         std::fs::create_dir_all(&prj_path).assert("yes");
         project.save().assert("save dss_prj");
-        let project = ModProject::load(&prj_path).assert("dss-project");
+        let project = ModOperator::load(&prj_path).assert("dss-project");
         let accessor = accessor_for_test();
         project
             .update_local(accessor, &prj_path, &DownloadOptions::default())

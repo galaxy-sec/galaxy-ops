@@ -1,7 +1,7 @@
 mod conf;
 pub mod init;
+pub mod operator;
 mod path;
-pub mod proj;
 pub mod refs;
 pub mod spec;
 use crate::predule::*;

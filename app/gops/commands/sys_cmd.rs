@@ -4,7 +4,7 @@ use galaxy_ops::error::MainResult;
 use galaxy_ops::infra::DfxArgsGetter;
 use galaxy_ops::module::ModelSTD;
 use galaxy_ops::project::load_project_global_value;
-use galaxy_ops::system::proj::SysOperator;
+use galaxy_ops::system::operator::SysOperator;
 use galaxy_ops::types::{LocalizeOptions, RefUpdateable};
 use inquire::Select;
 use orion_error::{ErrorConv, ErrorOwe};

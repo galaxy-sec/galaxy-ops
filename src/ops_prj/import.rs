@@ -16,7 +16,7 @@ use crate::{
     artifact::types::{PackageType, build_pkg, convert_addr},
     const_vars::{SYS_VALUE_FILE, SYS_VARS_YML},
     error::{MainReason, MainResult, ToErr},
-    ops_prj::{proj::OpsProject, system::OpsSystem},
+    ops_prj::{project::OpsProject, system::OpsSystem},
     system::spec::SysModelSpec,
     types::Accessor,
 };

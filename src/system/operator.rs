@@ -1,4 +1,3 @@
-use crate::const_vars::{SYS_PRJ_CONF_FILE_V1, SYS_PRJ_CONF_FILE_V2, SYS_VALUE_FILE, VALUE_DIR};
 use crate::error::SysReason;
 use crate::module::ModelSTD;
 use crate::predule::*;
@@ -10,6 +9,7 @@ use crate::{
 };
 
 use super::conf::SysConf;
+use super::path::SysOperatorPath;
 use super::{
     init::{SYS_PRJ_ADM, SYS_PRJ_WORK, sys_init_gitignore},
     spec::SysModelSpec,
@@ -26,7 +26,7 @@ pub struct SysOperator {
     conf: SysConf,
     sys_spec: SysModelSpec,
     project: GxlProject,
-    root_local: PathBuf,
+    paths: SysOperatorPath,
     val_dict: ValueDict,
 }
 
@@ -39,7 +39,7 @@ impl SysOperator {
             conf,
             sys_spec: spec,
             project: GxlProject::from((SYS_PRJ_WORK, SYS_PRJ_ADM)),
-            root_local,
+            paths: SysOperatorPath::new(root_local),
             val_dict,
         }
     }
@@ -48,24 +48,22 @@ impl SysOperator {
             .with_auto_log()
             .with_mod_path("sys/prj");
 
-        let conf_file_v1 = root_local.join(SYS_PRJ_CONF_FILE_V1);
-        let conf_file_v2 = root_local.join(SYS_PRJ_CONF_FILE_V2);
-        if conf_file_v1.exists() {
-            std::fs::rename(&conf_file_v1, &conf_file_v2).owe_res()?;
-        }
-        ctx.record("conf_file", &conf_file_v2);
-        let conf = SysConf::from_conf(&conf_file_v2).owe_res().with(&ctx)?;
-        let root_local = root_local.to_path_buf();
-        let sys_path = root_local.join("sys");
+        let paths = SysOperatorPath::new(root_local);
+
+        // 执行配置文件迁移
+        paths.migrate_conf_file().with(&ctx)?;
+
+        let conf = SysConf::from_conf(&paths.conf_file_v2())
+            .owe_res()
+            .with(&ctx)?;
+        let sys_path = paths.sys_dir();
         ctx.record("sys_path", &sys_path);
         let sys_spec = SysModelSpec::load_from(&sys_path).with(&ctx)?;
-        let project = GxlProject::load_from(&root_local)
+        let project = GxlProject::load_from(paths.root())
             .owe(SysReason::Load.into())
             .with(&ctx)?;
-        let value_root = ensure_path(root_local.join(VALUE_DIR))
-            .owe_logic()
-            .with(&ctx)?;
-        let value_file = value_root.join(SYS_VALUE_FILE);
+        ensure_path(paths.value_dir()).owe_logic().with(&ctx)?;
+        let value_file = paths.sys_value_file();
         let val_dict = if value_file.exists() {
             ValueDict::from_conf(&value_file).owe_data().with(&ctx)?
         } else {
@@ -76,7 +74,7 @@ impl SysOperator {
             conf,
             sys_spec,
             project,
-            root_local,
+            paths,
             val_dict,
         })
     }
@@ -84,23 +82,21 @@ impl SysOperator {
         let mut ctx = OperationContext::want("save sys-prj")
             .with_auto_log()
             .with_mod_path("sys/prj");
-        ctx.record("root", self.root_local());
-        let conf_file_v2 = self.root_local().join("sys-prj.yml");
+        ctx.record("root", self.paths.root());
+        let conf_file_v2 = self.paths.conf_file_v2();
         self.conf.save_conf(&conf_file_v2).owe_res().with(&ctx)?;
-        self.sys_spec.save_local(self.root_local(), "sys")?;
+        self.sys_spec.save_local(self.paths.root(), "sys")?;
         self.project
-            .save_to(self.root_local(), None)
+            .save_to(self.paths.root(), None)
             .owe(SysReason::Save.into())
             .with(&ctx)?;
 
         // 保存 sys_local 配置
 
-        let value_root = ensure_path(self.root_local().join(VALUE_DIR))
-            .owe_logic()
-            .with(&ctx)?;
-        let value_file = value_root.join(SYS_VALUE_FILE);
+        ensure_path(self.paths.value_dir()).owe_logic().with(&ctx)?;
+        let value_file = self.paths.sys_value_file();
         self.val_dict.save_conf(&value_file).owe_res().with(&ctx)?;
-        sys_init_gitignore(self.root_local()).with(&ctx)?;
+        sys_init_gitignore(self.paths.root()).with(&ctx)?;
         ctx.mark_suc();
         Ok(())
     }
@@ -135,11 +131,16 @@ impl SysOperator {
         Ok(())
     }
     pub fn value_path(&self) -> ValuePath {
-        let value_root = self.root_local().join(VALUE_DIR);
-        ValuePath::from_root(value_root)
+        self.paths.to_value_path()
     }
 }
+
 impl SysOperator {
+    /// 获取项目根路径，保持与原有 API 的兼容性
+    pub fn root_local(&self) -> &Path {
+        self.paths.root()
+    }
+
     pub fn make_new(prj_path: &Path, name: &str, model: ModelSTD) -> MainResult<Self> {
         let mod_spec = SysModelSpec::make_new(SysDefine::new(name, model))?;
         let res = DependencySet::default();
@@ -174,7 +175,7 @@ pub mod tests {
             ModelSTD,
             depend::{Dependency, DependencySet},
         },
-        system::{proj::SysOperator, spec::SysModelSpec},
+        system::{operator::SysOperator, spec::SysModelSpec},
         types::{LocalizeOptions, RefUpdateable},
     };
     #[tokio::test]
