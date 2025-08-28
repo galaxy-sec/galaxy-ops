@@ -85,7 +85,7 @@ impl SysOperatorPath {
     /// 执行配置文件迁移（如果需要）
     pub fn migrate_conf_file(&self) -> MainResult<()> {
         if self.needs_conf_migration() {
-            std::fs::rename(&self.conf_file_v1(), &self.conf_file_v2()).owe_res()?;
+            std::fs::rename(self.conf_file_v1(), self.conf_file_v2()).owe_res()?;
         }
         Ok(())
     }

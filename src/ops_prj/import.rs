@@ -16,10 +16,113 @@ use crate::{
     artifact::types::{PackageType, build_pkg, convert_addr},
     const_vars::{SYS_VALUE_FILE, SYS_VARS_YML},
     error::{MainReason, MainResult, ToErr},
-    ops_prj::{project::OpsProject, system::OpsSystem},
+    ops_prj::{path::ProjectPath, project::OpsProject, system::OpsSystem},
     system::spec::SysModelSpec,
     types::Accessor,
 };
+
+#[derive(Debug, Clone)]
+pub struct InstallationPaths {
+    pub source_path: PathBuf,
+    pub temp_target_path: PathBuf,
+    pub final_target_path: PathBuf,
+    pub project_root: PathBuf,
+}
+
+#[derive(Debug, Clone)]
+pub struct OpsTargetSystem {
+    pub installation_path: PathBuf,
+    pub system_spec: SysModelSpec,
+}
+
+impl OpsTargetSystem {
+    pub fn new(installation_path: PathBuf, system_spec: SysModelSpec) -> Self {
+        Self {
+            installation_path,
+            system_spec,
+        }
+    }
+
+    pub fn path(&self) -> &Path {
+        &self.installation_path
+    }
+
+    pub fn spec(&self) -> &SysModelSpec {
+        &self.system_spec
+    }
+
+    pub fn system_name(&self) -> &str {
+        self.system_spec.define().name()
+    }
+}
+
+#[derive(Clone)]
+pub struct SystemPackageInstaller {
+    project_paths: ProjectPath,
+    copy_options: CopyOptions,
+}
+
+impl SystemPackageInstaller {
+    pub fn new(project_paths: ProjectPath) -> Self {
+        Self {
+            project_paths,
+            copy_options: CopyOptions::new(),
+        }
+    }
+
+    pub fn install_system_package(
+        &self,
+        sys_src: PathBuf,
+        sys_spec: &SysModelSpec,
+    ) -> MainResult<OpsTargetSystem> {
+        let paths = self.prepare_installation_paths(&sys_src, sys_spec)?;
+        self.cleanup_existing_paths(&paths)?;
+        self.move_and_rename_system(&sys_src, &paths)?;
+        Ok(OpsTargetSystem::new(
+            paths.final_target_path,
+            sys_spec.clone(),
+        ))
+    }
+
+    fn prepare_installation_paths(
+        &self,
+        sys_src: &Path,
+        sys_spec: &SysModelSpec,
+    ) -> MainResult<InstallationPaths> {
+        if let Some(last_name) = sys_src.iter().next_back() {
+            let sys_dst_path = self.project_paths.root().join(last_name);
+            let sys_new_path = self.project_paths.root().join(sys_spec.define().name());
+            Ok(InstallationPaths {
+                source_path: sys_src.to_path_buf(),
+                temp_target_path: sys_dst_path,
+                final_target_path: sys_new_path,
+                project_root: self.project_paths.root().to_path_buf(),
+            })
+        } else {
+            Err(MainReason::from_conf(format!(
+                "import package failed, bad path: {}",
+                sys_src.display()
+            ))
+            .to_err())
+        }
+    }
+
+    fn cleanup_existing_paths(&self, paths: &InstallationPaths) -> MainResult<()> {
+        if paths.temp_target_path.exists() {
+            std::fs::remove_dir_all(&paths.temp_target_path).owe_res()?;
+        }
+        if paths.final_target_path.exists() {
+            std::fs::remove_dir_all(&paths.final_target_path).owe_res()?;
+        }
+        Ok(())
+    }
+
+    fn move_and_rename_system(&self, sys_src: &Path, paths: &InstallationPaths) -> MainResult<()> {
+        move_dir(sys_src, &paths.project_root, &self.copy_options).owe_res()?;
+        std::fs::rename(&paths.temp_target_path, &paths.final_target_path).owe_res()?;
+        Ok(())
+    }
+}
 
 impl OpsProject {
     pub async fn import_sys(
@@ -70,26 +173,8 @@ impl OpsProject {
 
         //self.paths().value_dir().join(path)
         // 4. 导入到 工作目录
-        let sys_dst_root = self.root_local();
-        //if let Some(last_name) = sys_src.iter().last() {
-        if let Some(last_name) = sys_src.iter().next_back() {
-            let sys_dst_path = sys_dst_root.join(last_name);
-            let sys_new_path = sys_dst_root.join(sys_spec.define().name());
-            if sys_dst_path.exists() {
-                std::fs::remove_dir_all(&sys_dst_path).owe_res()?;
-            }
-            if sys_new_path.exists() {
-                std::fs::remove_dir_all(&sys_new_path).owe_res()?;
-            }
-            move_dir(sys_src, sys_dst_root, &CopyOptions::new()).owe_res()?;
-            std::fs::rename(sys_dst_path, sys_new_path).owe_res()?;
-        } else {
-            MainReason::from_conf(format!(
-                "import package failed, bad path: {}",
-                sys_src.display()
-            ))
-            .to_err();
-        }
+        let installer = SystemPackageInstaller::new(self.paths().clone());
+        installer.install_system_package(sys_src, &sys_spec)?;
         self.save()?;
         // 5. 提供系统包的信息， 包组所有组件。
         Ok(sys_spec)
@@ -108,10 +193,8 @@ impl OpsProject {
         use inquire::{Confirm, Text};
 
         let value_file = value_path.join(SYS_VALUE_FILE);
-        if value_file.exists() {
-            if value_link.exists() {
-                std::fs::remove_file(value_link).owe_res()?;
-            }
+        if value_file.exists() && value_link.exists() {
+            std::fs::remove_file(value_link).owe_res()?;
         }
 
         let vars_vec = VarCollection::from_conf(vars_path).owe_res()?;
@@ -370,11 +453,28 @@ system:
         std::fs::create_dir_all(value_link.parent().unwrap()).unwrap();
 
         // Create a sample vars.yml file
-        // Create existing value file
-        let value_file = root.join("values/test").join(SYS_VALUE_FILE);
-        std::fs::write(&value_file, "test_key: test_value").unwrap();
+        let vars_content = r#"
+vars:
+  - name: "test_var"
+    value: "default_value"
+    mutable: true
+    desp: "A test variable"
+  - name: "immutable_var"
+    value: "immutable_value"
+    mutable: false
+    desp: "An immutable variable"
+"#;
+        std::fs::write(&vars_path, vars_content).unwrap();
 
-        // Test the function - it should return early due to existing value file
+        // Create existing value file with some initial values
+        let value_file = root.join("values/test").join(SYS_VALUE_FILE);
+        let initial_value_content = r#"
+test_var: "existing_value"
+immutable_var: "existing_immutable"
+"#;
+        std::fs::write(&value_file, initial_value_content).unwrap();
+
+        // Test function in non-interactive mode
         let result = super::OpsProject::process_system_vars(
             &vars_path,
             &value_path,
@@ -383,14 +483,26 @@ system:
             false,
         );
 
-        // Verify the function succeeds
+        // Verify function succeeds
         result.assert();
 
-        // Verify the symlink was created
+        // Verify symlink was created
         assert!(value_link.exists());
 
-        // Verify vars.yml wasn't created (since we returned early)
-        assert!(!vars_path.exists());
+        // Verify value file still exists and contains expected values
+        assert!(value_file.exists());
+        let updated_vals = ValueDict::from_conf(&value_file).unwrap();
+
+        // Both mutable and immutable variables should retain their existing values
+        // because in non-interactive mode, we use the existing values from value file
+        assert_eq!(
+            updated_vals.get("test_var").unwrap().to_string(),
+            "existing_value"
+        );
+        assert_eq!(
+            updated_vals.get("immutable_var").unwrap().to_string(),
+            "existing_immutable"
+        );
     }
 
     #[test]

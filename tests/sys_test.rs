@@ -7,7 +7,7 @@ use galaxy_ops::{
     module::depend::{Dependency, DependencySet},
     ops_prj::project::OpsProject,
     system::{operator::SysOperator, spec::SysModelSpec},
-    types::{InsUpdateable, LocalizeOptions, RefUpdateable},
+    types::{InsUpdateable, RefUpdateable},
 };
 use orion_error::{ErrorOwe, TestAssertWithMsg};
 use orion_infra::path::make_clean_path;
