@@ -130,7 +130,7 @@ impl RefUpdateable<UpdateUnit> for ModuleSpecRef {
             flag.mark_suc();
             return Ok(unit);
         } else {
-            Err(MainReason::from_logic("no local value in ModuleSpecRef ".into()).to_err())
+            Err(MainReason::from_logic("no local value in ModuleSpecRef ").to_err())
         }
     }
 }

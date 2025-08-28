@@ -1,5 +1,5 @@
 pub use async_trait::async_trait;
-pub use orion_common::serde::{Persistable, SerdeResult};
+pub use orion_conf::Persistable;
 pub use orion_infra::auto_exit_log;
 pub use orion_infra::path::{ensure_path, get_sub_dirs, make_clean_path};
 pub use orion_variate::{
@@ -17,7 +17,7 @@ pub use orion_variate::addr::Address;
 pub use orion_variate::addr::types::PathTemplate;
 pub use orion_variate::vars::ValueType;
 
-pub use orion_common::serde::{Configable, JsonAble, ValueConfable};
+pub use orion_conf::{Configable, JsonAble, ValueConfable};
 
 pub use crate::types::{Accessor, InsUpdateable, RefUpdateable};
 pub use orion_variate::vars::{ValueDict, VarCollection};

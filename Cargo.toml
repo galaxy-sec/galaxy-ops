@@ -1,6 +1,6 @@
 [package]
 name = "galaxy-ops"
-version = "0.12.4"
+version = "0.12.5"
 edition = "2024"
 
 
@@ -22,12 +22,15 @@ edition = "2024"
 license = "Apache-2.0"
 
 [workspace.dependencies]
-orion-error = { git = "https://github.com/galaxy-sec/orion-error.git", tag = "v0.4.0" }
-orion_common = { git = "https://github.com/galaxy-sec/orion-common.git", tag = "v0.3.0" }
-orion_infra = { git = "https://github.com/galaxy-sec/orion-infra.git", tag = "v0.3.0" }
-orion_variate = { git = "https://github.com/galaxy-sec/orion-variate.git", tag = "v0.7.8" }
-#orion_variate = { git = "https://github.com/galaxy-sec/orion-variate.git", tag = "v0.7.4" }
+#orion-error = { git = "https://github.com/galaxy-sec/orion-error.git", tag = "v0.4.0" }
+#orion-error = { path = "../orion-error" }
+orion-error = "~0.5"
 #orion_variate = { path = "../orion_variate" }
+#orion_infra = { path = "../orion_infra" }
+orion_conf = { git = "https://github.com/galaxy-sec/orion-conf.git", tag = "v0.1.5" }
+orion_infra = { git = "https://github.com/galaxy-sec/orion-infra.git", tag = "v0.3.1" }
+orion_variate = { git = "https://github.com/galaxy-sec/orion-variate.git", tag = "v0.8.1" }
+#orion_variate = { git = "https://github.com/galaxy-sec/orion-variate.git", tag = "v0.7.4" }
 thiserror = "~2.0"
 log = "~0.4"
 git2 = "0.20"
@@ -66,7 +69,7 @@ clap = { version = "4.5", features = ["derive"] }
 
 [dependencies]
 
-orion_common = { workspace = true }
+orion_conf = { workspace = true }
 orion_infra = { workspace = true }
 orion_variate = { workspace = true }
 

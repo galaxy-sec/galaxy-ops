@@ -1,10 +1,10 @@
 use std::path::{Path, PathBuf};
 
 use log::info;
-use orion_common::serde::{Configable, ValueConfable, Yamlable};
+use orion_conf::{Configable, ValueConfable, Yamlable};
 use orion_error::ErrorOwe;
 use orion_infra::path::ensure_path;
-use orion_variate::vars::{EnvEvalable, OriginDict, ValueDict, ValueType, VarCollection};
+use orion_variate::vars::{EnvDict, EnvEvalable, OriginDict, ValueDict, ValueType, VarCollection};
 
 use crate::{
     const_vars::{VALUE_DIR, VALUE_FILE},
@@ -49,7 +49,7 @@ pub fn mix_used_value(
     let mut global = OriginDict::from(options.raw_value().clone());
     global.set_source("global");
     used.merge(&global);
-    let used = used.clone().env_eval(&used.export_dict());
+    let used = used.clone().env_eval(&EnvDict::default());
     Ok(used)
 }
 

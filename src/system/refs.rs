@@ -107,7 +107,7 @@ impl Localizable for SysModelSpecRef {
             spec.localize(dst_path, options).await?;
             Ok(())
         } else {
-            MainReason::from(UvsReason::from_logic("miss spec from spec-ref".into())).err_result()
+            MainReason::from(UvsReason::from_logic("miss spec from spec-ref")).err_result()
         }
     }
 }

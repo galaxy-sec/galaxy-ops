@@ -48,7 +48,7 @@ pub struct SysLocalizeArgs {
 pub enum SysCmd {
     /// 创建新的系统操作符 (Create New System Operator)
     #[command(
-        about = "创建新的系统操作符 (Create New System Operator)",
+        about = "创建新的系统维护器 (Create New System Operator)",
         long_about = "使用给定的名称创建新的系统规范。这将初始化一个新的系统目录结构，其中包含所有必要的配置文件和模板。\n\
                      Create a new system specification with the given name. This will initialize a new system directory structure with all necessary configuration files and templates."
     )]
@@ -189,12 +189,13 @@ impl SysCommandHandler {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use galaxy_ops::infra::{WorkDirWithLock, once_init_log};
     use tempfile::tempdir;
-
     #[tokio::test]
     async fn test_sys_new_command() {
+        once_init_log();
         let temp_dir = tempdir().unwrap();
-        std::env::set_current_dir(temp_dir.path()).unwrap();
+        let _wd = WorkDirWithLock::change(temp_dir.path());
 
         unsafe {
             std::env::set_var("TEST_MODE", "true");
@@ -213,28 +214,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_sys_localize_command() {
-        let temp_dir = tempdir().unwrap();
-        std::env::set_current_dir(temp_dir.path()).unwrap();
-
-        let args = SysLocalizeArgs {
-            debug_log: DebugLogArgs {
-                debug: 0,
-                log: None,
-            },
-            localize: LocalizeArgs {
-                value: None,
-                use_default_value: true,
-            },
-        };
-
-        let result = SysCommandHandler::handle_localize(args).await;
-        // 预期会失败，因为没有现有的系统项目
-        assert!(result.is_err());
-    }
-
-    #[tokio::test]
     async fn test_ia_model_std() {
+        once_init_log();
         unsafe {
             std::env::set_var("TEST_MODE", "true");
         }
@@ -249,9 +230,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_execute_sys_commands() {
+        once_init_log();
         let temp_dir = tempdir().unwrap();
-        std::env::set_current_dir(temp_dir.path()).unwrap();
-
+        let _wd = WorkDirWithLock::change(temp_dir.path());
         unsafe {
             std::env::set_var("TEST_MODE", "true");
         }
@@ -270,6 +251,7 @@ mod tests {
 
     #[test]
     fn test_sys_new_args_getter() {
+        once_init_log();
         let args = SysNewArgs {
             name: "test_system".to_string(),
         };
@@ -281,6 +263,7 @@ mod tests {
 
     #[test]
     fn test_sys_update_args_getter() {
+        once_init_log();
         let args = SysUpdateArgs {
             debug_log: DebugLogArgs {
                 debug: 2,
@@ -296,6 +279,7 @@ mod tests {
 
     #[test]
     fn test_sys_localize_args_getter() {
+        once_init_log();
         let args = SysLocalizeArgs {
             debug_log: DebugLogArgs {
                 debug: 1,

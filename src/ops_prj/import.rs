@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use fs_extra::dir::{CopyOptions, move_dir};
-use orion_common::serde::Configable;
+use orion_conf::Configable;
 use orion_error::{ErrorOwe, ErrorWith, UvsConfFrom};
 use orion_infra::path::{ensure_path, make_clean_path};
 use orion_variate::{

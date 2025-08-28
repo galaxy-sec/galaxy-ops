@@ -16,8 +16,7 @@ use super::{
 };
 use crate::types::{Accessor, LocalizeOptions, RefUpdateable, ValuePath};
 use async_trait::async_trait;
-use orion_common::serde::{Configable, Persistable};
-use orion_infra::auto_exit_log;
+use orion_conf::{Configable, Persistable};
 use orion_infra::path::{ensure_path, make_clean_path};
 use orion_variate::update::DownloadOptions;
 use orion_variate::vars::{ValueDict, ValueType};
@@ -45,35 +44,34 @@ impl SysProject {
         }
     }
     pub fn load(root_local: &Path) -> MainResult<Self> {
-        let mut flag = auto_exit_log!(
-            info!(
-                target : "ops-prj",
-                "load project from {} success!", root_local.display()
-            ),
-            error!(
-                target : "ops-prj",
-                "load project  from {} fail!", root_local.display()
-            )
-        );
+        let mut ctx = OperationContext::want("load sys-prj")
+            .with_auto_log()
+            .with_mod_path("sys/prj");
 
         let conf_file_v1 = root_local.join(SYS_PRJ_CONF_FILE_V1);
         let conf_file_v2 = root_local.join(SYS_PRJ_CONF_FILE_V2);
         if conf_file_v1.exists() {
             std::fs::rename(&conf_file_v1, &conf_file_v2).owe_res()?;
         }
-        let conf = SysConf::from_conf(&conf_file_v2).owe_res()?;
+        ctx.record("conf_file", &conf_file_v2);
+        let conf = SysConf::from_conf(&conf_file_v2).owe_res().with(&ctx)?;
         let root_local = root_local.to_path_buf();
         let sys_path = root_local.join("sys");
-        let sys_spec = SysModelSpec::load_from(&sys_path)?;
-        let project = GxlProject::load_from(&root_local).owe(SysReason::Load.into())?;
-        let value_root = ensure_path(root_local.join(VALUE_DIR)).owe_logic()?;
+        ctx.record("sys_path", &sys_path);
+        let sys_spec = SysModelSpec::load_from(&sys_path).with(&ctx)?;
+        let project = GxlProject::load_from(&root_local)
+            .owe(SysReason::Load.into())
+            .with(&ctx)?;
+        let value_root = ensure_path(root_local.join(VALUE_DIR))
+            .owe_logic()
+            .with(&ctx)?;
         let value_file = value_root.join(VALUE_FILE);
         let val_dict = if value_file.exists() {
-            ValueDict::from_conf(&value_file).owe_data()?
+            ValueDict::from_conf(&value_file).owe_data().with(&ctx)?
         } else {
             ValueDict::new()
         };
-        flag.mark_suc();
+        ctx.mark_suc();
         Ok(Self {
             conf,
             sys_spec,
@@ -83,30 +81,27 @@ impl SysProject {
         })
     }
     pub fn save(&self) -> MainResult<()> {
-        let mut flag = auto_exit_log!(
-            info!(
-                target : "sysprj",
-                "save project to {} success!", self.root_local().display()
-            ),
-            error!(
-                target : "sysprj",
-                "save project to {} fail!", self.root_local().display()
-            )
-        );
+        let mut ctx = OperationContext::want("save sys-prj")
+            .with_auto_log()
+            .with_mod_path("sys/prj");
+        ctx.record("root", self.root_local());
         let conf_file_v2 = self.root_local().join("sys-prj.yml");
-        self.conf.save_conf(&conf_file_v2).owe_res()?;
+        self.conf.save_conf(&conf_file_v2).owe_res().with(&ctx)?;
         self.sys_spec.save_local(self.root_local(), "sys")?;
         self.project
             .save_to(self.root_local(), None)
-            .owe(SysReason::Save.into())?;
+            .owe(SysReason::Save.into())
+            .with(&ctx)?;
 
         // 保存 sys_local 配置
 
-        let value_root = ensure_path(self.root_local().join(VALUE_DIR)).owe_logic()?;
+        let value_root = ensure_path(self.root_local().join(VALUE_DIR))
+            .owe_logic()
+            .with(&ctx)?;
         let value_file = value_root.join(VALUE_FILE);
-        self.val_dict.save_conf(&value_file).owe_res()?;
-        sys_init_gitignore(self.root_local())?;
-        flag.mark_suc();
+        self.val_dict.save_conf(&value_file).owe_res().with(&ctx)?;
+        sys_init_gitignore(self.root_local()).with(&ctx)?;
+        ctx.mark_suc();
         Ok(())
     }
 }
