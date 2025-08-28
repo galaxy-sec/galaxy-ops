@@ -14,7 +14,7 @@ use orion_variate::{
 
 use crate::{
     artifact::types::{PackageType, build_pkg, convert_addr},
-    const_vars::SYS_VALUE_FILE,
+    const_vars::{SYS_VALUE_FILE, SYS_VARS_YML},
     error::{MainReason, MainResult, ToErr},
     ops_prj::{proj::OpsProject, system::OpsSystem},
     system::spec::SysModelSpec,
@@ -108,13 +108,9 @@ impl OpsProject {
 
         let value_file = value_path.join(SYS_VALUE_FILE);
         if value_file.exists() {
-            println!("value file exists ,use it");
-            if !value_link.exists() {
-                std::os::unix::fs::symlink(value_path, value_link)
-                    .owe_res()
-                    .with(value_link)?;
+            if value_link.exists() {
+                std::fs::remove_file(value_link).owe_res()?;
             }
-            return Ok(());
         }
 
         let vars_vec = VarCollection::from_conf(vars_path).owe_res()?;
@@ -176,7 +172,11 @@ impl OpsProject {
 
     pub fn ia_setting(&self, interactive: bool) -> MainResult<()> {
         for i in self.ops_target().iter() {
-            let vars_path = self.root_local().join(i.sys().name()).join("sys/vars.yml");
+            let vars_path = self
+                .root_local()
+                .join(i.sys().name())
+                .join("sys")
+                .join(SYS_VARS_YML);
 
             let value_path = self.root_local().join("values").join(i.sys().name());
             ensure_path(&value_path).owe_res()?;

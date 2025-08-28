@@ -4,7 +4,7 @@ use galaxy_ops::error::MainResult;
 use galaxy_ops::infra::DfxArgsGetter;
 use galaxy_ops::module::ModelSTD;
 use galaxy_ops::project::load_project_global_value;
-use galaxy_ops::system::proj::SysProject;
+use galaxy_ops::system::proj::SysOperator;
 use galaxy_ops::types::{LocalizeOptions, RefUpdateable};
 use inquire::Select;
 use orion_error::{ErrorConv, ErrorOwe};
@@ -141,7 +141,7 @@ impl SysCommandHandler {
         make_new_path(&new_prj).owe_res()?;
 
         let model_in = Self::ia_model_std()?;
-        let spec = SysProject::make_new(&new_prj, args.name(), model_in).err_conv()?;
+        let spec = SysOperator::make_new(&new_prj, args.name(), model_in).err_conv()?;
         spec.save().err_conv()?;
         Ok(())
     }
@@ -151,7 +151,7 @@ impl SysCommandHandler {
         galaxy_ops::infra::configure_dfx_logging(&args);
 
         let options = DownloadOptions::from((*args.force.force(), ValueDict::default()));
-        let spec = SysProject::load(&current_dir).err_conv()?;
+        let spec = SysOperator::load(&current_dir).err_conv()?;
         let accessor = galaxy_ops::accessor::accessor_for_default();
 
         spec.update_local(accessor, &current_dir, &options)
@@ -164,7 +164,7 @@ impl SysCommandHandler {
         let current_dir = std::env::current_dir().expect("无法获取当前目录");
         galaxy_ops::infra::configure_dfx_logging(&args);
 
-        let spec = SysProject::load(&current_dir).err_conv()?;
+        let spec = SysOperator::load(&current_dir).err_conv()?;
         let dict = load_project_global_value(spec.root_local(), args.localize.value())?;
         spec.localize(LocalizeOptions::new(
             dict,

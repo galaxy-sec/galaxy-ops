@@ -22,7 +22,7 @@ use orion_variate::update::DownloadOptions;
 use orion_variate::vars::{ValueDict, ValueType};
 
 #[derive(Getters, Clone, Debug)]
-pub struct SysProject {
+pub struct SysOperator {
     conf: SysConf,
     sys_spec: SysModelSpec,
     project: GxlProject,
@@ -30,7 +30,7 @@ pub struct SysProject {
     val_dict: ValueDict,
 }
 
-impl SysProject {
+impl SysOperator {
     pub fn new(spec: SysModelSpec, local_res: DependencySet, root_local: PathBuf) -> Self {
         let conf = SysConf::new(local_res);
         let mut val_dict = ValueDict::default();
@@ -107,7 +107,7 @@ impl SysProject {
 }
 
 #[async_trait]
-impl RefUpdateable<()> for SysProject {
+impl RefUpdateable<()> for SysOperator {
     async fn update_local(
         &self,
         accessor: Accessor,
@@ -121,7 +121,7 @@ impl RefUpdateable<()> for SysProject {
     }
 }
 
-impl SysProject {
+impl SysOperator {
     pub async fn localize(&self, options: LocalizeOptions) -> MainResult<()> {
         let value_path = self.value_path().ensure_exist().owe_res()?;
         let dst_path = Some(value_path);
@@ -139,16 +139,16 @@ impl SysProject {
         ValuePath::from_root(value_root)
     }
 }
-impl SysProject {
+impl SysOperator {
     pub fn make_new(prj_path: &Path, name: &str, model: ModelSTD) -> MainResult<Self> {
         let mod_spec = SysModelSpec::make_new(SysDefine::new(name, model))?;
         let res = DependencySet::default();
-        Ok(SysProject::new(mod_spec, res, prj_path.to_path_buf()))
+        Ok(SysOperator::new(mod_spec, res, prj_path.to_path_buf()))
     }
     pub fn make_test_prj(name: &str) -> MainResult<Self> {
         let prj_path = PathBuf::from(SYS_MODEL_SPC_ROOT).join(name);
         make_clean_path(&prj_path).owe_logic()?;
-        let proj = SysProject::make_new(&prj_path, name, ModelSTD::from_cur_sys())?;
+        let proj = SysOperator::make_new(&prj_path, name, ModelSTD::from_cur_sys())?;
         proj.save()?;
         Ok(proj)
     }
@@ -174,7 +174,7 @@ pub mod tests {
             ModelSTD,
             depend::{Dependency, DependencySet},
         },
-        system::{proj::SysProject, spec::SysModelSpec},
+        system::{proj::SysOperator, spec::SysModelSpec},
         types::{LocalizeOptions, RefUpdateable},
     };
     #[tokio::test]
@@ -182,7 +182,7 @@ pub mod tests {
         test_init();
         let prj_path = PathBuf::from(SYS_MODEL_PRJ_ROOT).join("sys_new");
         make_clean_path(&prj_path).owe_logic()?;
-        let proj = SysProject::make_new(&prj_path, "sys_new", ModelSTD::from_cur_sys())?;
+        let proj = SysOperator::make_new(&prj_path, "sys_new", ModelSTD::from_cur_sys())?;
         proj.save()?;
         Ok(())
     }
@@ -199,7 +199,7 @@ pub mod tests {
         }
         std::fs::create_dir_all(&prj_path).assert("yes");
         project.save().assert("save dss_prj");
-        let project = SysProject::load(&prj_path).assert("dss-project");
+        let project = SysOperator::load(&prj_path).assert("dss-project");
         let accessor = accessor_for_test();
         project
             .update_local(accessor, &prj_path, &DownloadOptions::default())
@@ -212,7 +212,7 @@ pub mod tests {
         Ok(())
     }
 
-    fn make_sys_prj_testins(prj_path: &Path) -> MainResult<SysProject> {
+    fn make_sys_prj_testins(prj_path: &Path) -> MainResult<SysOperator> {
         let mod_spec = SysModelSpec::for_example("exmaple_sys2")?;
         let mut res = DependencySet::default();
         res.push(
@@ -224,6 +224,6 @@ pub mod tests {
             )
             .with_rename("bit-common"),
         );
-        Ok(SysProject::new(mod_spec, res, prj_path.to_path_buf()))
+        Ok(SysOperator::new(mod_spec, res, prj_path.to_path_buf()))
     }
 }
