@@ -1,11 +1,12 @@
 use orion_conf::{Configable, error::SerdeResult};
 use orion_error::{ContextRecord, OperationContext};
+use orion_variate::vars::VarToValue;
 
 use super::prelude::*;
 use crate::{
     artifact::ArtifactPackage,
     const_vars::{
-        DEFAULT_VALUE_FILE, LOCAL_DIR, SAMPLE_VALUE_FILE, USED_JSON, USED_READABLE_FILE,
+        DEFAULT_VALUE_FILE, LOCAL_DIR, MOD_VALUE_FILE, USED_JSON, USED_READABLE_FILE,
         USER_VALUE_FILE, VALUE_DIR,
     },
     predule::*,
@@ -46,20 +47,20 @@ impl ModModelSpec {
         crate::project::mix_used_value(options, value_paths, &self.vars)
     }
 
-    fn crate_sample_value_file(
+    fn crate_mod_value_file(
         &self,
         value_paths: &TargetValuePaths,
     ) -> Result<(), StructError<MainReason>> {
-        if !(value_paths.sample_value_file().exists() || value_paths.user_value_file().exists()) {
+        if !(value_paths.mod_value_file().exists() || value_paths.user_value_file().exists()) {
             value_paths
-                .sample_value_file()
+                .mod_value_file()
                 .parent()
                 .map(std::fs::create_dir_all);
-            let vars_dict = self.vars.value_dict();
+            let vars_dict = self.vars.module_vars().to_val();
             vars_dict
-                .save_valconf(value_paths.sample_value_file())
+                .save_valconf(value_paths.mod_value_file())
                 .owe_res()?;
-            info!( target:"mod/target", "crate  value.yml at : {}" ,value_paths.sample_value_file().display() );
+            info!( target:"mod/target", "crate  value.yml at : {}" ,value_paths.mod_value_file().display() );
         }
         Ok(())
     }
@@ -137,7 +138,7 @@ pub struct TargetValuePaths {
     used_readable: PathBuf,
     default_value_file: PathBuf,
     user_value_file: PathBuf,
-    sample_value_file: PathBuf,
+    mod_value_file: PathBuf,
     used_json_path: PathBuf,
 }
 impl From<&PathBuf> for TargetValuePaths {
@@ -146,7 +147,7 @@ impl From<&PathBuf> for TargetValuePaths {
             used_readable: value_root.join(USED_READABLE_FILE),
             default_value_file: value_root.join(DEFAULT_VALUE_FILE),
             user_value_file: value_root.join(USER_VALUE_FILE),
-            sample_value_file: value_root.join(SAMPLE_VALUE_FILE),
+            mod_value_file: value_root.join(MOD_VALUE_FILE),
             used_json_path: value_root.join(crate::const_vars::USED_JSON),
         }
     }
@@ -289,28 +290,26 @@ impl Localizable for ModModelSpec {
         dst_path: Option<ValuePath>,
         options: LocalizeOptions,
     ) -> MainResult<()> {
-        let mut flag = auto_exit_log!(
-            info!(target : "/mod/target", "mod-target localize {} success!", self.model()),
-            error!(target: "/mod/target", "mod-target localize {} fail!",
-                self.local.clone().unwrap_or(PathBuf::from("unknow")).display())
-        );
-        let mut ctx = WithContext::want("modul localize");
-        let local = self.local.clone().ok_or(
-            MainReason::from(ElementReason::Miss("local-path".into()))
-                .to_err()
-                .with(&ctx),
-        )?;
+        let mut ctx = OperationContext::want("mod1 localize")
+            .with_auto_log()
+            .with_mod_path("mod");
+        let local = self
+            .local
+            .clone()
+            .ok_or(MainReason::from(ElementReason::Miss("local-path".into())).to_err())?;
+        ctx.record("model", self.model().to_string());
         let tpl = local.join(crate::const_vars::SPEC_DIR);
         let localize_path = dst_path.unwrap_or(ValuePath::new(local.join(VALUE_DIR)));
 
         let value_root = localize_path.path(); //.join(VALUE_DIR);
         let value_paths = TargetValuePaths::from(value_root);
         let used_value_file = self.used_value_path()?;
+        ctx.record("value_file", &used_value_file);
         let local_path = local.join(LOCAL_DIR);
         debug!( target:"spec/mod/target", "localize mod-target begin: {}" ,local_path.display() );
         make_clean_path(&local_path).owe_logic()?;
         ctx.record("dst", &local_path);
-        self.crate_sample_value_file(&value_paths)?;
+        self.crate_mod_value_file(&value_paths)?;
         debug!(target : "/mod/target/loc", "value export");
         let used = self.build_used_value(options, &value_paths)?;
         used.export_origin()
@@ -342,7 +341,7 @@ impl Localizable for ModModelSpec {
         localizer
             .render_path(&tpl, &local_path, &used_value_file, &tpl_path)
             .with(&ctx)?;
-        flag.mark_suc();
+        ctx.mark_suc();
         Ok(())
     }
 }

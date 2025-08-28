@@ -30,3 +30,6 @@ report
 example/targets
 example/workins-prj
 example/sys-model-prj
+example/sys-operators
+example/mod-operators
+postgresql

@@ -150,6 +150,14 @@ impl Localizable for ModuleSpec {
     }
 }
 
+fn pg_var_init() -> VarCollection {
+    VarCollection::define(vec![
+        VarDefinition::from(("app_name", "postgresql")).with_mut_immutable(),
+        VarDefinition::from(("sys_domain", "http://test.galaxy.org/alpha")).with_mut_system(),
+        VarDefinition::from(("cpu", 1000)).with_mut_module(),
+        VarDefinition::from(("mem", 1048)).with_mut_module(),
+    ])
+}
 impl ModuleSpec {
     pub fn for_example() -> Self {
         let name = "postgresql";
@@ -164,7 +172,7 @@ impl ModuleSpec {
             ModWorkflows::mod_k8s_tpl_init(),
             GxlProject::spec_k8s_tpl(),
             //conf.clone(),
-            VarCollection::define(vec![VarDefinition::from(("SPEED_LIMIT", 1000))]),
+            pg_var_init(),
             Some(Setting::example()),
         )
         .with_depends(DependencySet::example());
@@ -179,8 +187,7 @@ impl ModuleSpec {
             )]),
             ModWorkflows::mod_host_tpl_init(),
             GxlProject::spec_host_tpl(),
-            //conf.clone(),
-            VarCollection::define(vec![VarDefinition::from(("SPEED_LIMIT", 1000))]),
+            pg_var_init(),
             Some(Setting::example()),
         )
         .with_depends(DependencySet::example());
@@ -193,8 +200,11 @@ impl ModuleSpec {
             ConfFile::new("example.conf").with_addr(HttpResource::from(POSTGRESQL_README_URL)),
         );
         let vars = VarCollection::define(vec![
-            VarDefinition::from(("EXAMPLE_SIZE", 1000)),
-            VarDefinition::from(("ART_CACHE_REPO", "")),
+            VarDefinition::from(("app_name", name)).with_mut_immutable(),
+            VarDefinition::from(("sys_domain", "http://test.galaxy.org/alpha")).with_mut_system(),
+            VarDefinition::from(("ART_CACHE_REPO", "http://unknow.net")).with_mut_system(),
+            VarDefinition::from(("cpu", 1000)).with_mut_module(),
+            VarDefinition::from(("mem", 1048)).with_mut_module(),
         ]);
 
         let x86_ubu22_k8s = ModModelSpec::init(
@@ -279,7 +289,7 @@ pub fn make_mod_spec_4test() -> MainResult<ModuleSpec> {
         ModWorkflows::mod_k8s_tpl_init(),
         GxlProject::spec_k8s_tpl(),
         //conf.clone(),
-        VarCollection::define(vec![VarDefinition::from(("SPEED_LIMIT", 1000))]),
+        pg_var_init(),
         Some(Setting::example()),
     )
     .with_depends(DependencySet::for_test());
@@ -295,7 +305,7 @@ pub fn make_mod_spec_4test() -> MainResult<ModuleSpec> {
         ModWorkflows::mod_host_tpl_init(),
         GxlProject::spec_host_tpl(),
         //conf.clone(),
-        VarCollection::define(vec![VarDefinition::from(("SPEED_LIMIT", 1000))]),
+        pg_var_init(),
         Some(Setting::example()),
     )
     .with_depends(DependencySet::for_test());

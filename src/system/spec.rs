@@ -1,4 +1,5 @@
 use crate::{
+    const_vars::SYS_VARS_YML,
     error::SysReason,
     local::LocalizeVarPath,
     predule::*,
@@ -150,7 +151,7 @@ impl RefUpdateable<()> for SysModelSpec {
     ) -> MainResult<()> {
         if let Some(local) = &self.local {
             let value = self.mod_list.update_local(accessor, local, options).await?;
-            let path = local.join("vars.yml");
+            let path = local.join(SYS_VARS_YML);
             if path.exists() {
                 std::fs::remove_file(&path).owe_sys()?;
             }
@@ -263,8 +264,6 @@ pub mod tests {
     async fn build_example_sys_spec() -> MainResult<()> {
         test_init();
         let sys_name = "example_sys";
-        let spec_root = PathBuf::from(SYS_MODEL_SPC_ROOT).join(sys_name);
-        make_clean_path(&spec_root).owe_logic()?;
         ModProject::make_test_prj("redis_mock")?;
         ModProject::make_test_prj("mysql_mock")?;
         let spec = make_sys_spec_test(
@@ -273,6 +272,7 @@ pub mod tests {
         )
         .assert("make spec");
         let spec_root = PathBuf::from(SYS_MODEL_SPC_ROOT);
+        make_clean_path(&spec_root).owe_logic()?;
         let spec_path = spec_root.join(spec.define().name());
         make_clean_path(&spec_path).owe_logic()?;
         let accessor = accessor_for_test();

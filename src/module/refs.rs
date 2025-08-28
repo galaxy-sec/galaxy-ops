@@ -151,24 +151,26 @@ impl Localizable for ModuleSpecRef {
     ) -> MainResult<()> {
         if self.enable.is_none_or(|x| x) {
             if let Some(local) = &self.local {
-                let mut flag = auto_exit_log!(
-                    info!(target: "spec/mod/", "localize mod {} success!", self.name ),
-                    error!(target: "spec/mod/", "localize mod {} fail!", self.name )
-                );
+                let mut ctx = OperationContext::want("mod ref localize")
+                    .with_auto_log()
+                    .with_mod_path("mod");
+                ctx.record("name", self.name.as_str());
                 let mod_path = local.join(self.name.as_str());
                 let target_path = mod_path.join(self.model().to_string());
                 let spec =
                     ModModelSpec::load_from(&target_path).owe(MainReason::from(ModReason::Load))?;
                 let value = PathBuf::from(self.name());
                 let cur_dst_path = val_path.map(|x| x.join(value));
-                spec.localize(cur_dst_path.clone(), options.clone()).await?;
+                spec.localize(cur_dst_path.clone(), options.clone())
+                    .await
+                    .with(&ctx)?;
                 if let Some(setting) = &self.setting {
                     let used_value_file = ValuePath::new(spec.used_value_path()?);
                     let exe_setting =
                         LocalizeExecPath::from(setting.clone().env_eval(options.evaled_value()));
                     exe_setting.localize(Some(used_value_file), options).await?;
                 }
-                flag.mark_suc();
+                ctx.mark_suc();
             }
             Ok(())
         } else {

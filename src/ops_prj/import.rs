@@ -14,6 +14,7 @@ use orion_variate::{
 
 use crate::{
     artifact::types::{PackageType, build_pkg, convert_addr},
+    const_vars::SYS_VALUE_FILE,
     error::{MainReason, MainResult, ToErr},
     ops_prj::{proj::OpsProject, system::OpsSystem},
     system::spec::SysModelSpec,
@@ -105,7 +106,7 @@ impl OpsProject {
     ) -> MainResult<()> {
         use inquire::{Confirm, Text};
 
-        let value_file = value_path.join("value.yml");
+        let value_file = value_path.join(SYS_VALUE_FILE);
         if value_file.exists() {
             println!("value file exists ,use it");
             if !value_link.exists() {
@@ -126,7 +127,7 @@ impl OpsProject {
         // 通过交互模式设定vars的值
         println!("Setting variables for {system_name}");
 
-        for var in vars_vec.public_vars() {
+        for var in vars_vec.system_vars() {
             if !var.is_mutable() {
                 continue;
             }
@@ -179,7 +180,6 @@ impl OpsProject {
 
             let value_path = self.root_local().join("values").join(i.sys().name());
             ensure_path(&value_path).owe_res()?;
-            //let value_file = value_path.join("value.yml");
 
             let value_link = self.root_local().join(i.sys().name()).join("values");
             //.join("value.yml");
@@ -203,7 +203,10 @@ mod test {
     use std::path::PathBuf;
     use tempfile::TempDir;
 
-    use crate::{accessor::accessor_for_test, const_vars::EXAMPLE_ROOT};
+    use crate::{
+        accessor::accessor_for_test,
+        const_vars::{EXAMPLE_ROOT, SYS_VARS_YML},
+    };
 
     use super::*;
 
@@ -233,7 +236,7 @@ mod test {
         // Create test paths
         let vars_path = root.join("sys/vars.yml");
         let value_path = root.join("values/test");
-        let value_file = root.join("values/test/value.yml");
+        let value_file = root.join("values/test/").join(SYS_VALUE_FILE);
         let value_link = root.join("test/values");
 
         // Create necessary directories
@@ -296,9 +299,9 @@ immutable_var: "existing_immutable"
         let root = temp_dir.path();
 
         // Create test paths
-        let vars_path = root.join("sys/vars.yml");
+        let vars_path = root.join("sys").join(SYS_VARS_YML);
         let value_path = root.join("values/test");
-        let value_file = root.join("values/test/value.yml");
+        let value_file = root.join("values/test").join(SYS_VALUE_FILE);
         let value_link = root.join("test/values");
 
         // Create necessary directories
@@ -308,7 +311,7 @@ immutable_var: "existing_immutable"
 
         // Create a sample vars.yml file
         let vars_content = r#"
-vars:
+system:
   - name: "test_var"
     value: "default_value"
     mutable: true
@@ -356,9 +359,8 @@ vars:
         let root = temp_dir.path();
 
         // Create test paths
-        let vars_path = root.join("sys/vars.yml");
+        let vars_path = root.join("sys").join(SYS_VARS_YML);
         let value_path = root.join("values/test");
-        let _value_file = root.join("values/test/value.yml");
         let value_link = root.join("test/values");
 
         // Create necessary directories
@@ -368,7 +370,7 @@ vars:
 
         // Create a sample vars.yml file
         // Create existing value file
-        let value_file = root.join("values/test/value.yml");
+        let value_file = root.join("values/test").join(SYS_VALUE_FILE);
         std::fs::write(&value_file, "test_key: test_value").unwrap();
 
         // Test the function - it should return early due to existing value file
@@ -397,9 +399,9 @@ vars:
         let root = temp_dir.path();
 
         // Create test paths
-        let vars_path = root.join("sys/vars.yml");
+        let vars_path = root.join("sys/sys_vars.yml");
         let value_path = root.join("values/test");
-        let value_file = root.join("values/test/value.yml");
+        let value_file = root.join("values/test").join(SYS_VALUE_FILE);
         let value_link = root.join("test/values");
 
         // Create necessary directories
@@ -426,6 +428,7 @@ vars:
 test_var: "existing_value"
 immutable_var: "existing_immutable"
 "#;
+        println!("path:{}", value_file.display());
         std::fs::write(&value_file, value_content).unwrap();
 
         // Test function
@@ -455,7 +458,6 @@ immutable_var: "existing_immutable"
         // Create test paths
         let vars_path = root.join("sys/vars.yml");
         let value_path = root.join("values/test");
-        let _value_file = root.join("values/test/value.yml");
         let value_link = root.join("test/values");
 
         // Create necessary directories
@@ -505,14 +507,12 @@ vars: []
         // Create a sample vars.yml file
         // Create vars.yml file with only immutable variables
         let vars_content = r#"
-vars:
+system:
   - name: "immutable_var_1"
     value: "immutable_value_1"
-    mutable: false
     desp: "An immutable variable"
   - name: "immutable_var_2"
     value: "immutable_value_2"
-    mutable: false
     desp: "Another immutable variable"
 "#;
         std::fs::write(&vars_path, vars_content).unwrap();
@@ -528,7 +528,7 @@ vars:
         .unwrap();
 
         // Verify value file was created with default values
-        let value_file = root.join("values/test/value.yml");
+        let value_file = root.join("values/test").join(SYS_VALUE_FILE);
         assert!(value_file.exists());
         let vals_dict = ValueDict::from_conf(&value_file).unwrap();
 
@@ -551,7 +551,7 @@ vars:
 
         // Create test paths
         let vars_path = root.join("sys/vars.yml");
-        let value_path = root.join("values/test/value.yml");
+        let value_path = root.join("values/test");
         let value_link = root.join("test/values");
 
         // Create only parent directories
@@ -581,7 +581,7 @@ vars:
         // Create test paths
         let vars_path = root.join("sys/vars.yml");
         let value_path = root.join("values/test");
-        let value_file = root.join("values/test/value.yml");
+        let value_file = root.join("values/test").join(SYS_VALUE_FILE);
         let value_link = root.join("test/values");
 
         // Create necessary directories

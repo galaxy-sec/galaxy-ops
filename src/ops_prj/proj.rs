@@ -1,4 +1,4 @@
-use crate::const_vars::{VALUE_DIR, VALUE_FILE, WORKINS_PRJ_ROOT};
+use crate::const_vars::{VALUE_DIR, MOD_VALUE_FILE, WORKINS_PRJ_ROOT};
 use crate::error::OpsReason;
 use crate::ops_prj::system::{OpsSystem, OpsTarget};
 use crate::predule::*;
@@ -65,7 +65,7 @@ impl OpsProject {
         let root_local = root_local.to_path_buf();
         let project = GxlProject::load_from(&root_local).owe(OpsReason::Load.into())?;
         let value_root = ensure_path(root_local.join(VALUE_DIR)).owe_logic()?;
-        let value_file = value_root.join(VALUE_FILE);
+        let value_file = value_root.join(MOD_VALUE_FILE);
         let val_dict = if value_file.exists() {
             ValueDict::from_conf(&value_file).owe_data()?
         } else {
@@ -98,7 +98,7 @@ impl OpsProject {
         self.project.save_to(self.root_local(), None).owe_logic()?;
 
         let value_root = ensure_path(self.root_local().join(VALUE_DIR)).owe_logic()?;
-        let value_file = value_root.join(VALUE_FILE);
+        let value_file = value_root.join(MOD_VALUE_FILE);
         self.val_dict.save_conf(&value_file).owe_res()?;
         workins_init_gitignore(self.root_local())?;
         flag.mark_suc();

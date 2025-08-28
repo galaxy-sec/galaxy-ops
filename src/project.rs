@@ -7,7 +7,7 @@ use orion_infra::path::ensure_path;
 use orion_variate::vars::{EnvEvalable, OriginDict, ValueDict, ValueType, VarCollection};
 
 use crate::{
-    const_vars::{VALUE_DIR, VALUE_FILE},
+    const_vars::{MOD_VALUE_FILE, VALUE_DIR},
     error::MainResult,
     module::model::TargetValuePaths,
     types::LocalizeOptions,
@@ -18,7 +18,7 @@ pub fn load_project_global_value(root: &Path, options: &Option<String>) -> MainR
     let value_file = if let Some(v_file) = options {
         PathBuf::from(v_file)
     } else {
-        let v_file = value_root.join(VALUE_FILE);
+        let v_file = value_root.join(MOD_VALUE_FILE);
         if !v_file.exists() {
             let mut dict = ValueDict::new();
             dict.insert("SAMPLE_KEY", ValueType::from("SAMPLE_VAL"));
@@ -58,7 +58,7 @@ mod tests {
     use crate::const_vars::USER_VALUE_FILE;
 
     use super::*;
-    use orion_variate::vars::{OriginValue, VarDefinition};
+    use orion_variate::vars::{Mutability, OriginValue, VarDefinition};
     use tempfile::tempdir;
 
     fn test_init() {
@@ -87,7 +87,8 @@ mod tests {
         global_dict.insert("TEST_KEY".to_string(), ValueType::from("global_value"));
         global_dict.insert("PRJ_SPACE".to_string(), ValueType::from("galaxy"));
         let vars = VarCollection::define(vec![
-            VarDefinition::from(("TEST_KEY", "default_value")).with_scope(ChangeScope::Immutable),
+            VarDefinition::from(("TEST_KEY", "default_value"))
+                .with_mutability(Mutability::Immutable),
             VarDefinition::from(("PRJ_SPACE", "${HOME}")),
             VarDefinition::from(("SVR_NAME", "gflow")),
             VarDefinition::from(("MOD_SPACE", "${PRJ_SPACE}/${SVR_NAME}")),
@@ -103,7 +104,7 @@ mod tests {
             Some(
                 &OriginValue::from("default_value")
                     .with_origin("mod-default")
-                    .with_immutable(Some(true))
+                    .with_mutability(Mutability::Immutable),
             )
         );
         assert_eq!(
