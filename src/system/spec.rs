@@ -4,13 +4,13 @@ use crate::{
     local::LocalizeVarPath,
     predule::*,
     system::path::SysTargetPaths,
-    types::{Accessor, RefUpdateable, ValuePath},
+    types::{Accessor, RefUpdateable},
 };
 use std::path::{Path, PathBuf};
 
 use crate::{
-    const_vars::MODULES_SPC_ROOT, error::ElementReason, module::operator::ModOperator,
-    types::Localizable, workflow::act::SysWorkflows,
+    const_vars::MOD_OPERATORS_ROOT, error::ElementReason, module::operator::ModOperator,
+    types::SystemLocalizable, workflow::act::SysWorkflows,
 };
 use async_trait::async_trait;
 use getset::{Getters, WithSetters};
@@ -164,14 +164,10 @@ impl RefUpdateable<()> for SysModelSpec {
 }
 
 #[async_trait]
-impl Localizable for SysModelSpec {
-    async fn localize(
-        &self,
-        dst_path: Option<ValuePath>,
-        options: LocalizeOptions,
-    ) -> MainResult<()> {
+impl SystemLocalizable for SysModelSpec {
+    async fn sys_localize(&self, val_path: PathBuf, options: LocalizeOptions) -> MainResult<()> {
         if let Some(_local) = &self.local {
-            self.mod_list.localize(dst_path, options).await?;
+            self.mod_list.sys_localize(val_path, options).await?;
             Ok(())
         } else {
             MainReason::from(ElementReason::Miss("local path".into())).err_result()
@@ -234,7 +230,7 @@ pub fn make_sys_spec_test(define: SysDefine, mod_names: Vec<&str>) -> MainResult
         modul_spec.add_mod_ref(
             ModuleSpecRef::from(
                 mod_name,
-                LocalPath::from(format!("{MODULES_SPC_ROOT}/{mod_name}").as_str()),
+                LocalPath::from(format!("{MOD_OPERATORS_ROOT}/{mod_name}").as_str()),
                 model.clone(),
             )
             .with_setting(LocalizeVarPath::of_module(
@@ -282,7 +278,7 @@ pub mod tests {
         spec.update_local(accessor, &spec_path, &DownloadOptions::for_test())
             .await
             .assert("update");
-        spec.localize(None, LocalizeOptions::for_test())
+        spec.sys_localize(spec_root, LocalizeOptions::for_test())
             .await
             .assert("localize");
         Ok(())

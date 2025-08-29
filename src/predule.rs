@@ -1,4 +1,4 @@
-pub use derive_getters::Getters;
+pub use getset::{Getters, Setters, WithSetters};
 pub use log::{debug, error, info};
 pub use orion_error::{ContextRecord, OperationContext};
 pub use orion_error::{ErrorOwe, ErrorWith, StructError, UvsConfFrom, WithContext};

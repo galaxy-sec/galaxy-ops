@@ -8,7 +8,7 @@ use crate::predule::*;
 use std::{net::Ipv4Addr, path::PathBuf};
 
 use crate::types::{
-    Accessor, Localizable, LocalizeOptions, RefUpdateable, SysUpdateValue, ValuePath,
+    Accessor, LocalizeOptions, RefUpdateable, SysUpdateValue, SystemLocalizable, ValuePath,
 };
 use async_trait::async_trait;
 use derive_more::Deref;
@@ -20,6 +20,7 @@ use crate::module::refs::ModuleSpecRef;
 use crate::module::spec::ModuleSpec;
 
 #[derive(Getters, Clone, Debug, Default, Serialize, Deserialize, Deref)]
+#[getset(get = "pub")]
 #[serde(transparent)]
 pub struct ModulesList {
     mods: Vec<ModuleSpecRef>,
@@ -78,16 +79,12 @@ impl ModulesList {
     }
 }
 #[async_trait]
-impl Localizable for ModulesList {
-    async fn localize(
-        &self,
-        dst_path: Option<ValuePath>,
-        options: LocalizeOptions,
-    ) -> MainResult<()> {
-        let root = dst_path.map(|x| x.join_all("mods"));
+impl SystemLocalizable for ModulesList {
+    async fn sys_localize(&self, val_path: PathBuf, options: LocalizeOptions) -> MainResult<()> {
+        let root = val_path.join("mods");
         for m in &self.mods {
             if m.is_enable() {
-                m.localize(root.clone(), options.clone()).await?;
+                m.sys_localize(root.clone(), options.clone()).await?;
             }
         }
         Ok(())
@@ -121,6 +118,7 @@ impl SetupTaskBuilder for ModulesList {
 */
 
 #[derive(Getters, Clone, Debug, Serialize, Deserialize)]
+#[getset(get = "pub")]
 pub struct NetResSpace {
     master: Ipv4Addr,
     node_scope: (Ipv4Addr, Ipv4Addr),

@@ -19,6 +19,7 @@ use orion_variate::{
 };
 // 由于 `crate::tools::log_flag` 未定义，移除该导入
 #[derive(Clone, Debug, Getters, Deserialize, Serialize)]
+#[getset(get = "pub")]
 pub struct ConfSpec {
     version: String,
     #[serde(default = "default_local_root")]
@@ -30,6 +31,7 @@ fn default_local_root() -> String {
 }
 
 #[derive(Clone, Debug, Getters, Deserialize, Serialize)]
+#[getset(get = "pub")]
 pub struct ConfFile {
     path: String,
     addr: Option<Address>,

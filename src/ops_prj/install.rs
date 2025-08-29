@@ -144,9 +144,9 @@ impl SystemPackageInstaller {
 }
 #[cfg(test)]
 mod tests {
-    use crate::ops_prj::path::InstallationPaths;
-    use orion_conf::JsonAble;
     use tempfile::TempDir;
+
+    use crate::ops_prj::path::InstallationPaths;
 
     #[test]
     fn test_installation_paths() {

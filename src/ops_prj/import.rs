@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use crate::ops_prj::install::SystemPackageInstaller;
 use orion_conf::Configable;
-use orion_error::{ErrorOwe, ErrorWith};
+use orion_error::ErrorOwe;
 use orion_infra::path::ensure_path;
 use orion_variate::{
     addr::Address,
@@ -132,12 +132,6 @@ impl OpsProject {
             println!("Changes saved to {}", value_file.display());
             vals_dict.save_conf(&value_file).owe_res()?;
         }
-        if !value_link.exists() {
-            std::os::unix::fs::symlink(value_path, value_link)
-                .owe_res()
-                .with(value_link)?;
-        }
-
         Ok(())
     }
 

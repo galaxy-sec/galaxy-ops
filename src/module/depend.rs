@@ -4,6 +4,7 @@ use crate::{
 };
 
 use async_trait::async_trait;
+use getset::Getters;
 use orion_error::ErrorConv;
 use orion_variate::{
     addr::{Address, GitRepository, LocalPath, types::PathTemplate},
@@ -12,6 +13,7 @@ use orion_variate::{
 };
 
 #[derive(Getters, Clone, Debug, Serialize, Deserialize)]
+#[getset(get = "pub")]
 pub struct Dependency {
     addr: Address,
     local: PathTemplate,
@@ -61,6 +63,7 @@ impl RefUpdateable<()> for Dependency {
 }
 
 #[derive(Getters, Clone, Debug, Serialize, Deserialize, Default)]
+#[getset(get = "pub")]
 pub struct DependencySet {
     dep_root: PathTemplate,
     deps: Vec<Dependency>,

@@ -5,7 +5,7 @@ use crate::{
         setting::{Setting, TemplateConfig},
     },
     predule::*,
-    types::{Accessor, Localizable, LocalizeOptions, RefUpdateable, ValuePath},
+    types::{Accessor, LocalizeOptions, ModuleLocalizable, RefUpdateable},
 };
 use async_trait::async_trait;
 use derive_more::Deref;
@@ -117,19 +117,15 @@ impl RefUpdateable<()> for LocalizeSet {
 }
 
 #[async_trait]
-impl Localizable for LocalizeSet {
-    async fn localize(
-        &self,
-        dst_path: Option<ValuePath>,
-        options: LocalizeOptions,
-    ) -> MainResult<()> {
+impl ModuleLocalizable<PathBuf> for LocalizeSet {
+    async fn mod_localize(&self, val_path: PathBuf, options: LocalizeOptions) -> MainResult<()> {
         let mut flag = auto_exit_log!(
             info!(target: "sys-localize", "Localizing {} paths for sys_local", self.items.len()),
             error!(target: "sys-localize", "Failed to localize sys_local paths")
         );
 
         for item in &self.items {
-            item.localize(dst_path.clone(), options.clone()).await?;
+            item.mod_localize(val_path.clone(), options.clone()).await?;
         }
 
         flag.mark_suc();
@@ -138,38 +134,22 @@ impl Localizable for LocalizeSet {
 }
 
 #[async_trait]
-impl Localizable for LocalizeExecPath {
-    async fn localize(
-        &self,
-        val_path: Option<ValuePath>,
-        _options: LocalizeOptions,
-    ) -> MainResult<()> {
-        let mut flag = auto_exit_log!(
-            info!(target: "sys-localize", "sys-path localize {} success!", self.dst.display()),
-            error!(target: "sys-localize", "sys-path localize {} fail!", self.dst.display())
-        );
-        if !self.src.exists() {
-            info!(target: "sys-localize", "path localize ignore!\n src not exists : {}", self.dst.display());
-            flag.mark_suc();
-            return Ok(());
-        }
-
+impl ModuleLocalizable<PathBuf> for LocalizeExecPath {
+    async fn mod_localize(&self, value_file: PathBuf, _options: LocalizeOptions) -> MainResult<()> {
         // Ensure parent directory exists
         if let Some(parent) = self.dst.parent() {
             std::fs::create_dir_all(parent).owe_res()?;
         }
-        let mut ctx = WithContext::want("sys-path localize");
+        let mut ctx = WithContext::want("sys-path localize").with_auto_log();
         ctx.record("dst", &self.dst);
         ctx.record("src", &self.src);
 
         // Handle template configuration if available
-        if let (Some(setting), Some(value_file)) =
-            (self.setting.clone().or(Some(Setting::default())), val_path)
-        {
-            if !value_file.path().exists() {
+        if let Some(setting) = self.setting.clone().or(Some(Setting::default())) {
+            if !value_file.exists() {
                 return MainReason::from_res(format!(
                     "sys value file not exists: {}",
-                    value_file.path().display()
+                    value_file.display()
                 ))
                 .err_result();
             }
@@ -192,13 +172,13 @@ impl Localizable for LocalizeExecPath {
                 LocalizeTemplate::default()
             };
             localizer
-                .render_path(self.src(), &self.dst, value_file.path(), &tpl_path)
+                .render_path(self.src(), &self.dst, &value_file, &tpl_path)
                 .with(&ctx)?;
         } else {
             return MainReason::from_res("sys value file miss").err_result();
         }
 
-        flag.mark_suc();
+        ctx.mark_suc();
         Ok(())
     }
 }
@@ -361,10 +341,7 @@ Date: {{date}}"#;
 
         // Test basic file localization
         let result = localize_path
-            .localize(
-                Some(ValuePath::new(&value_path)),
-                LocalizeOptions::default(),
-            )
+            .mod_localize(value_path, LocalizeOptions::default())
             .await;
 
         assert!(result.is_ok(), "Localization should succeed");
@@ -389,10 +366,7 @@ Date: {{date}}"#;
 
         // 源文件不存在应该返回 Ok 并忽略处理
         let result = localize_path
-            .localize(
-                Some(ValuePath::new(&value_path)),
-                LocalizeOptions::default(),
-            )
+            .mod_localize(value_path, LocalizeOptions::default())
             .await;
 
         assert!(result.is_ok(), "Should succeed when src file not exists");
@@ -415,10 +389,7 @@ Date: {{date}}"#;
         );
 
         let result = localize_path
-            .localize(
-                Some(ValuePath::new(&value_path)),
-                LocalizeOptions::default(),
-            )
+            .mod_localize(value_path, LocalizeOptions::default())
             .await;
 
         // 暂时只验证操作成功，不验证具体内容（模板渲染需要额外配置）
@@ -445,10 +416,7 @@ Date: {{date}}"#;
         };
 
         let result = localize_path
-            .localize(
-                Some(ValuePath::new(&value_path)),
-                LocalizeOptions::default(),
-            )
+            .mod_localize(value_path, LocalizeOptions::default())
             .await;
 
         assert!(
@@ -488,10 +456,7 @@ Date: {{date}}"#;
         let value_path = temp_dir.path().join("used.json");
         ValueDict::default().save_json(&value_path).assert();
         let result = localize_set
-            .localize(
-                Some(ValuePath::new(&value_path)),
-                LocalizeOptions::default(),
-            )
+            .mod_localize(value_path, LocalizeOptions::default())
             .await;
         assert!(result.is_ok());
 
@@ -501,43 +466,6 @@ Date: {{date}}"#;
 
         assert_file_content(&temp_dir.path().join("dest1.txt"), "content1");
         assert_file_content(&temp_dir.path().join("dest2.txt"), "content2");
-    }
-
-    // 错误层测试：缺少值文件参数
-    #[tokio::test]
-    async fn test_localize_path_missing_value_file() {
-        let (localize_path, _source_file, _temp_dir) = create_test_localize_path();
-
-        // 不提供值文件参数，应该返回错误
-        let result = localize_path
-            .localize(
-                None, // 缺少值文件
-                LocalizeOptions::default(),
-            )
-            .await;
-
-        assert!(result.is_err(), "Should fail when value file is missing");
-        let error = result.err().unwrap();
-        assert!(error.to_string().contains("sys value file miss"));
-    }
-
-    // 错误层测试：值文件不存在
-    #[tokio::test]
-    async fn test_localize_path_value_file_not_exists() {
-        let (localize_path, _source_file, temp_dir) = create_test_localize_path();
-
-        let non_existent_value_path = temp_dir.path().join("non_existent_values.json");
-
-        let result = localize_path
-            .localize(
-                Some(ValuePath::new(&non_existent_value_path)),
-                LocalizeOptions::default(),
-            )
-            .await;
-
-        assert!(result.is_err(), "Should fail when value file not exists");
-        let error = result.err().unwrap();
-        assert!(error.to_string().contains("sys value file not exists"));
     }
 
     // 错误层测试：目录创建功能
@@ -561,10 +489,7 @@ Date: {{date}}"#;
         };
 
         let result = localize_path
-            .localize(
-                Some(ValuePath::new(&value_path)),
-                LocalizeOptions::default(),
-            )
+            .mod_localize(value_path, LocalizeOptions::default())
             .await;
 
         assert!(result.is_ok(), "Should create nested directories");

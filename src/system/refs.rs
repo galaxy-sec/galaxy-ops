@@ -1,7 +1,9 @@
 use crate::{
     error::{MainReason, SysReason, ToErr},
     predule::*,
-    types::{Accessor, InsUpdateable, Localizable, LocalizeOptions, RefUpdateable, ValuePath},
+    types::{
+        Accessor, InsUpdateable, LocalizeOptions, RefUpdateable, SystemLocalizable, ValuePath,
+    },
 };
 
 use async_trait::async_trait;
@@ -28,6 +30,7 @@ fn convert_syspec_addr(origin: Address) -> Address {
 }
 
 #[derive(Getters, Clone, Debug, Serialize, Deserialize)]
+#[getset(get = "pub")]
 pub struct SysModelSpecRef {
     name: String,
     addr: Address,
@@ -97,14 +100,10 @@ impl InsUpdateable<SysModelSpecRef> for SysModelSpecRef {
 }
 
 #[async_trait]
-impl Localizable for SysModelSpecRef {
-    async fn localize(
-        &self,
-        dst_path: Option<ValuePath>,
-        options: LocalizeOptions,
-    ) -> MainResult<()> {
+impl SystemLocalizable for SysModelSpecRef {
+    async fn sys_localize(&self, val_path: PathBuf, options: LocalizeOptions) -> MainResult<()> {
         if let Some(spec) = &self.spec {
-            spec.localize(dst_path, options).await?;
+            spec.sys_localize(val_path, options).await?;
             Ok(())
         } else {
             MainReason::from(UvsReason::from_logic("miss spec from spec-ref")).err_result()

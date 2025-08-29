@@ -1,7 +1,8 @@
 pub use async_trait::async_trait;
+pub use getset::{Getters, Setters, WithSetters};
 pub use orion_conf::Persistable;
 pub use orion_infra::auto_exit_log;
-pub use orion_infra::path::{ensure_path, get_sub_dirs, make_clean_path};
+pub use orion_infra::path::{get_sub_dirs, make_clean_path};
 pub use orion_variate::{
     addr::accessor::path_file_name, types::UpdateUnit, update::DownloadOptions, vars::OriginDict,
 };

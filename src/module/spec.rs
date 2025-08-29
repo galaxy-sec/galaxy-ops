@@ -1,5 +1,6 @@
 use super::prelude::*;
 use crate::conf::{ConfFile, ConfSpec};
+use crate::module::operator::ModValuePaths;
 use crate::predule::*;
 
 use crate::{
@@ -16,7 +17,9 @@ const POSTGRESQL_ARCHIVE: &str = "postgresql-17.4.tar.gz";
 const POSTGRESQL_MD5_ARCHIVE: &str = "postgresql-17.4.tar.gz.md5";
 use crate::artifact::{Artifact, ArtifactPackage};
 use async_trait::async_trait;
+use getset::Getters;
 use indexmap::IndexMap;
+use orion_conf::Yamlable;
 use orion_conf::error::SerdeResult;
 use orion_variate::{addr::HttpResource, vars::VarDefinition};
 
@@ -24,19 +27,20 @@ use super::{
     CpuArch, ModelSTD, OsCPE, RunSPC,
     depend::DependencySet,
     init::{ModIniter, ModPrjIniter, mod_init_gitignore},
-    model::ModModelSpec,
+    model::MMOperator,
     setting::Setting,
 };
-use crate::types::{Localizable, LocalizeOptions, ValuePath};
+use crate::types::{LocalizeOptions, ModuleLocalizable};
 
 #[derive(Getters, Clone, Debug)]
+#[getset(get = "pub")]
 pub struct ModuleSpec {
     name: String,
-    targets: IndexMap<ModelSTD, ModModelSpec>,
+    targets: IndexMap<ModelSTD, MMOperator>,
     local: Option<PathBuf>,
 }
 impl ModuleSpec {
-    pub fn init<S: Into<String>>(name: S, target_vec: Vec<ModModelSpec>) -> ModuleSpec {
+    pub fn init<S: Into<String>>(name: S, target_vec: Vec<MMOperator>) -> ModuleSpec {
         let mut targets = IndexMap::new();
         for node in target_vec {
             targets.insert(node.model().clone(), node);
@@ -121,7 +125,7 @@ impl Persistable<ModuleSpec> for ModuleSpec {
         let subs = get_sub_dirs(&src_path).owe_logic()?;
         let mut targets = IndexMap::new();
         for sub in subs {
-            let node = ModModelSpec::load_from(&sub).with(&sub)?;
+            let node = MMOperator::load_from(&sub).with(&sub)?;
             targets.insert(node.model().clone(), node);
         }
         flag.mark_suc();
@@ -134,17 +138,26 @@ impl Persistable<ModuleSpec> for ModuleSpec {
 }
 
 #[async_trait]
-impl Localizable for ModuleSpec {
-    async fn localize(
+impl ModuleLocalizable<ModValuePaths> for ModuleSpec {
+    async fn mod_localize(
         &self,
-        dst_path: Option<ValuePath>,
+        val_path: ModValuePaths,
         options: LocalizeOptions,
     ) -> MainResult<()> {
-        for target in self.targets.values() {
-            let target_dst_path = dst_path
-                .as_ref()
-                .map(|x| x.join_all(PathBuf::from(target.model().to_string())));
-            target.localize(target_dst_path, options.clone()).await?;
+        for model in self.targets.values() {
+            let model_path = val_path.clone().join(model.model().to_string());
+            //have sys_value.yml
+            let cur_options = if model_path.sys_value_file().exists() {
+                let mut sys_vars =
+                    OriginDict::from(ValueDict::from_yml(&model_path.sys_value_file()).owe_res()?);
+                sys_vars.set_source("sys-setting");
+                let mut cur_dict = options.raw_value().clone();
+                cur_dict.merge(&sys_vars);
+                LocalizeOptions::new(cur_dict)
+            } else {
+                options.clone()
+            };
+            model.mod_localize(model_path, cur_options).await?;
         }
         Ok(())
     }
@@ -161,7 +174,7 @@ fn pg_var_init() -> VarCollection {
 impl ModuleSpec {
     pub fn for_example() -> Self {
         let name = "postgresql";
-        let k8s = ModModelSpec::init(
+        let k8s = MMOperator::init(
             ModelSTD::new(CpuArch::X86, OsCPE::UBT22, RunSPC::K8S),
             ArtifactPackage::from(vec![Artifact::new(
                 name,
@@ -177,7 +190,7 @@ impl ModuleSpec {
         )
         .with_depends(DependencySet::example());
 
-        let host = ModModelSpec::init(
+        let host = MMOperator::init(
             ModelSTD::new(CpuArch::Arm, OsCPE::MAC14, RunSPC::Host),
             ArtifactPackage::from(vec![Artifact::new(
                 name,
@@ -207,7 +220,7 @@ impl ModuleSpec {
             VarDefinition::from(("mem", 1048)).with_mut_module(),
         ]);
 
-        let x86_ubu22_k8s = ModModelSpec::init(
+        let x86_ubu22_k8s = MMOperator::init(
             ModelSTD::x86_ubt22_k8s(),
             ArtifactPackage::from(vec![
                 Artifact::new(
@@ -227,7 +240,7 @@ impl ModuleSpec {
             None,
         );
 
-        let arm_mac_host = ModModelSpec::init(
+        let arm_mac_host = MMOperator::init(
             ModelSTD::arm_mac14_host(),
             ArtifactPackage::from(vec![
                 Artifact::new(
@@ -246,7 +259,7 @@ impl ModuleSpec {
             vars.clone(),
             None,
         );
-        let x86_ubt22_host = ModModelSpec::init(
+        let x86_ubt22_host = MMOperator::init(
             ModelSTD::arm_mac14_host(),
             ArtifactPackage::from(vec![
                 Artifact::new(
@@ -278,7 +291,7 @@ pub fn make_mod_spec_example() -> MainResult<ModuleSpec> {
 }
 pub fn make_mod_spec_4test() -> MainResult<ModuleSpec> {
     let name = "postgresql";
-    let k8s = ModModelSpec::init(
+    let k8s = MMOperator::init(
         ModelSTD::new(CpuArch::X86, OsCPE::UBT22, RunSPC::K8S),
         ArtifactPackage::from(vec![Artifact::new(
             name,
@@ -294,7 +307,7 @@ pub fn make_mod_spec_4test() -> MainResult<ModuleSpec> {
     )
     .with_depends(DependencySet::for_test());
 
-    let host = ModModelSpec::init(
+    let host = MMOperator::init(
         ModelSTD::new(CpuArch::Arm, OsCPE::MAC14, RunSPC::Host),
         ArtifactPackage::from(vec![Artifact::new(
             name,

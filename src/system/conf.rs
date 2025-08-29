@@ -1,9 +1,9 @@
 use crate::error::SysReason;
 use crate::predule::*;
 
-use crate::{error::MainResult, module::depend::DependencySet, types::Localizable};
+use crate::{error::MainResult, module::depend::DependencySet, types::SystemLocalizable};
 
-use crate::types::{Accessor, LocalizeOptions, RefUpdateable, ValuePath};
+use crate::types::{Accessor, LocalizeOptions, RefUpdateable};
 use async_trait::async_trait;
 use orion_variate::update::DownloadOptions;
 
@@ -34,12 +34,8 @@ impl RefUpdateable<()> for SysConf {
     }
 }
 #[async_trait]
-impl Localizable for SysConf {
-    async fn localize(
-        &self,
-        _val_path: Option<ValuePath>,
-        _options: LocalizeOptions,
-    ) -> MainResult<()> {
+impl SystemLocalizable for SysConf {
+    async fn sys_localize(&self, _val_path: PathBuf, _options: LocalizeOptions) -> MainResult<()> {
         Ok(())
     }
 }

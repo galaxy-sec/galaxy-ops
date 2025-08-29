@@ -5,7 +5,7 @@ use crate::predule::*;
 use crate::system::spec::SysDefine;
 use crate::{
     const_vars::SYS_MODEL_SPC_ROOT, error::MainResult, module::depend::DependencySet,
-    types::Localizable, workflow::prj::GxlProject,
+    types::SystemLocalizable, workflow::prj::GxlProject,
 };
 
 use super::conf::SysConf;
@@ -22,6 +22,7 @@ use orion_variate::update::DownloadOptions;
 use orion_variate::vars::{ValueDict, ValueType};
 
 #[derive(Getters, Clone, Debug)]
+#[getset(get = "pub")]
 pub struct SysOperator {
     conf: SysConf,
     sys_spec: SysModelSpec,
@@ -60,7 +61,7 @@ impl SysOperator {
         let sys_path = paths.sys_dir();
         ctx.record("sys_path", &sys_path);
         let sys_spec = SysModelSpec::load_from(&sys_path).with(&ctx)?;
-        
+
         let project = GxlProject::load_from(paths.root())
             .owe(SysReason::Load.into())
             .with(&ctx)?;
@@ -122,13 +123,12 @@ impl RefUpdateable<()> for SysOperator {
 impl SysOperator {
     pub async fn localize(&self, options: LocalizeOptions) -> MainResult<()> {
         let value_path = self.value_path().ensure_exist().owe_res()?;
-        let dst_path = Some(value_path);
 
         self.conf
-            .localize(dst_path.clone(), options.clone())
+            .sys_localize(value_path.path().clone(), options.clone())
             .await?;
         self.sys_spec()
-            .localize(dst_path.clone(), options.clone())
+            .sys_localize(value_path.path().clone(), options.clone())
             .await?;
         Ok(())
     }

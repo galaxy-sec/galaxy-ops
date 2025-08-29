@@ -22,6 +22,7 @@ use super::conf::ProjectConf;
 use super::init::workins_init_gitignore;
 
 #[derive(Getters, Clone, Debug, MutGetters)]
+#[getset(get = "pub")]
 pub struct OpsProject {
     conf: ProjectConf,
     project: GxlProject,

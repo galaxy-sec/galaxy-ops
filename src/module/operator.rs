@@ -1,17 +1,23 @@
+use core::str;
+
+use getset::Getters;
+use orion_infra::path::{PathResult, ensure_path};
 use orion_variate::addr::HttpResource;
+use orion_variate::vars::VarToValue;
 
 use super::prelude::*;
 use crate::const_vars::{
     BITNAMI_COMMON_GIT_URL, MOD_PRJ_CONF_FILE_V1, MOD_PRJ_CONF_FILE_V2, MOD_PRJ_TEST_ROOT,
+    MOD_VALUE_FILE, SYS_VALUE_FILE, USED_READABLE_FILE, VALUE_DIR,
 };
 use crate::error::ModReason;
 use crate::module::init::MOD_PRJ_ROOT_FILE;
 use crate::predule::*;
-use crate::types::{Localizable, RefUpdateable, ValuePath};
+use crate::types::{ModuleLocalizable, RefUpdateable};
 
 use super::init::{MOD_PRJ_ADM_GXL, MOD_PRJ_WORK_GXL, mod_init_gitignore};
 use crate::{
-    const_vars::MODULES_SPC_ROOT,
+    const_vars::MOD_OPERATORS_ROOT,
     module::{
         depend::{Dependency, DependencySet},
         spec::ModuleSpec,
@@ -24,7 +30,51 @@ pub struct ModConf {
     test_envs: DependencySet,
 }
 
+#[derive(Getters, Clone, Debug, Serialize, Deserialize)]
+#[getset(get = "pub")]
+pub struct ModCodePaths {
+    root: PathBuf,
+}
+impl From<PathBuf> for ModCodePaths {
+    fn from(value: PathBuf) -> Self {
+        Self { root: value }
+    }
+}
+
+#[derive(Getters, Clone, Debug, Serialize, Deserialize)]
+#[getset(get = "pub")]
+pub struct ModValuePaths {
+    root: PathBuf,
+}
+impl From<PathBuf> for ModValuePaths {
+    fn from(value: PathBuf) -> Self {
+        Self { root: value }
+    }
+}
+
+impl ModValuePaths {
+    pub fn sys_value_file(&self) -> PathBuf {
+        self.root.join(SYS_VALUE_FILE)
+    }
+    pub fn mod_value_file(&self) -> PathBuf {
+        self.root.join(MOD_VALUE_FILE)
+    }
+    pub fn used_with_origon(&self) -> PathBuf {
+        self.root.join(USED_READABLE_FILE)
+    }
+    pub fn join<S: AsRef<str>>(self, path: S) -> Self {
+        Self {
+            root: self.root.join(path.as_ref()),
+        }
+    }
+    pub fn ensure_join<S: AsRef<str>>(self, path: S) -> PathResult<Self> {
+        Ok(Self {
+            root: ensure_path(self.root.join(path.as_ref()))?,
+        })
+    }
+}
 #[derive(Getters, Clone, Debug)]
+#[getset(get = "pub")]
 pub struct ModOperator {
     conf: ModConf,
     mod_spec: ModuleSpec,
@@ -49,6 +99,26 @@ impl ModOperator {
             project: GxlProject::from((MOD_PRJ_WORK_GXL, MOD_PRJ_ADM_GXL, MOD_PRJ_ROOT_FILE)),
             root_local,
         }
+    }
+
+    pub fn init_setting_value(&self) -> MainResult<ModValuePaths> {
+        let value_root = ModValuePaths::from(self.root_local().clone());
+        let value_root = value_root.ensure_join(VALUE_DIR).owe_logic()?;
+        for (name, model) in self.mod_spec.targets() {
+            let model_value_path = value_root
+                .clone()
+                .ensure_join(name.to_string())
+                .owe_logic()?;
+            let model_sys_value = model_value_path.sys_value_file();
+            let model_mod_value = model_value_path.mod_value_file();
+            if !model_sys_value.exists() {
+                let sys_vars = model.vars().system_vars().to_val();
+                sys_vars.save_conf(&model_sys_value).owe_res()?;
+                let mod_vars = model.vars().module_vars().to_val();
+                mod_vars.save_conf(&model_mod_value).owe_res()?;
+            }
+        }
+        Ok(value_root)
     }
     pub fn load(root_local: &Path) -> MainResult<Self> {
         let mut flag = auto_exit_log!(
@@ -139,10 +209,10 @@ impl RefUpdateable<()> for ModOperator {
 }
 
 #[async_trait]
-impl Localizable for ModConf {
-    async fn localize(
+impl ModuleLocalizable<ModValuePaths> for ModConf {
+    async fn mod_localize(
         &self,
-        _dst_path: Option<ValuePath>,
+        _dst_path: ModValuePaths,
         _options: LocalizeOptions,
     ) -> MainResult<()> {
         Ok(())
@@ -150,17 +220,17 @@ impl Localizable for ModConf {
 }
 
 #[async_trait]
-impl Localizable for ModOperator {
-    async fn localize(
+impl ModuleLocalizable<ModValuePaths> for ModOperator {
+    async fn mod_localize(
         &self,
-        dst_path: Option<ValuePath>,
+        val_path: ModValuePaths,
         options: LocalizeOptions,
     ) -> MainResult<()> {
         //let local_path = LocalizePath::from_root(self.root_local());
         self.conf
-            .localize(dst_path.clone(), options.clone())
+            .mod_localize(val_path.clone(), options.clone())
             .await?;
-        self.mod_spec().localize(dst_path, options).await?;
+        self.mod_spec().mod_localize(val_path, options).await?;
         Ok(())
     }
 }
@@ -171,7 +241,7 @@ impl ModOperator {
         Ok(ModOperator::new(mod_spec, res, prj_path.to_path_buf()))
     }
     pub fn make_test_prj(name: &str) -> MainResult<Self> {
-        let prj_path = PathBuf::from(MODULES_SPC_ROOT).join(name);
+        let prj_path = PathBuf::from(MOD_OPERATORS_ROOT).join(name);
         make_clean_path(&prj_path).owe_logic()?;
         let proj = ModOperator::make_new(&prj_path, name)?;
         proj.save()?;
@@ -197,23 +267,22 @@ pub mod tests {
     use crate::{
         accessor::accessor_for_test,
         predule::*,
-        types::{LocalizeOptions, RefUpdateable},
+        types::{LocalizeOptions, ModuleLocalizable, RefUpdateable},
     };
     use std::path::PathBuf;
 
     use orion_error::TestAssertWithMsg;
     use orion_infra::path::make_clean_path;
-    use orion_variate::{tools::test_init, update::DownloadOptions};
+    use orion_variate::{tools::test_init, update::DownloadOptions, vars::OriginDict};
 
     use crate::{
-        const_vars::MODULES_SPC_ROOT,
+        const_vars::MOD_OPERATORS_ROOT,
         module::operator::{ModOperator, make_mod_prj_testins},
-        types::Localizable,
     };
     #[tokio::test]
     async fn test_mod_prj_new() -> MainResult<()> {
         test_init();
-        let prj_path = PathBuf::from(MODULES_SPC_ROOT).join("mod-new");
+        let prj_path = PathBuf::from(MOD_OPERATORS_ROOT).join("mod-new");
         make_clean_path(&prj_path).owe_logic()?;
         let proj = ModOperator::make_new(&prj_path, "mod_new")?;
         proj.save()?;
@@ -224,22 +293,23 @@ pub mod tests {
     async fn test_mod_prj_example() -> MainResult<()> {
         test_init();
 
-        let prj_path = PathBuf::from(MODULES_SPC_ROOT).join("postgresql");
+        let prj_path = PathBuf::from(MOD_OPERATORS_ROOT).join("postgresql");
         let project = make_mod_prj_testins(&prj_path).assert("make cust");
         if prj_path.exists() {
             std::fs::remove_dir_all(&prj_path).assert("ok");
         }
         std::fs::create_dir_all(&prj_path).assert("yes");
         project.save().assert("save dss_prj");
-        let project = ModOperator::load(&prj_path).assert("dss-project");
+        let operator = ModOperator::load(&prj_path).assert("dss-project");
         let accessor = accessor_for_test();
-        project
+        operator
             .update_local(accessor, &prj_path, &DownloadOptions::default())
             .await
             .assert("spec.update_local");
 
-        project
-            .localize(None, LocalizeOptions::for_test())
+        let value_path = operator.init_setting_value()?;
+        operator
+            .mod_localize(value_path, LocalizeOptions::new(OriginDict::new()))
             .await
             .assert("spec.localize");
         Ok(())

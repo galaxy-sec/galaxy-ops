@@ -1,11 +1,12 @@
 use clap::{Args, Parser};
 use derive_getters::Getters;
+use galaxy_ops::const_vars::VALUE_DIR;
 use galaxy_ops::error::MainResult;
 use galaxy_ops::infra::DfxArgsGetter;
 use galaxy_ops::module::operator::ModOperator;
 use galaxy_ops::module::spec::make_mod_spec_example;
-use galaxy_ops::project::load_project_global_value;
-use galaxy_ops::types::{Localizable, LocalizeOptions, RefUpdateable};
+use galaxy_ops::project::load_sys_opr_value;
+use galaxy_ops::types::{LocalizeOptions, ModuleLocalizable, RefUpdateable};
 use orion_conf::Persistable;
 use orion_error::{ErrorConv, ErrorOwe};
 use orion_variate::update::DownloadOptions;
@@ -168,14 +169,18 @@ impl ModCommandHandler {
         let current_dir = std::env::current_dir().expect("无法获取当前目录");
         galaxy_ops::infra::configure_dfx_logging(&args);
 
-        let spec = ModOperator::load(&current_dir).err_conv()?;
-        let dict = load_project_global_value(spec.root_local(), args.localize.value())?;
-        spec.localize(
-            None,
-            LocalizeOptions::new(dict, *args.localize.use_default_value()),
-        )
-        .await
-        .err_conv()?;
+        let operator = ModOperator::load(&current_dir).err_conv()?;
+        todo!();
+        /*
+        let dict = load_sys_opr_value(operator.root_local())?;
+        operator
+            .mod_localize(
+                operator.root_local().join(VALUE_DIR),
+                LocalizeOptions::new(dict),
+            )
+            .await
+            .err_conv()?;
+            */
         Ok(())
     }
 

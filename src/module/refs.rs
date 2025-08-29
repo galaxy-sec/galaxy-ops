@@ -1,6 +1,7 @@
 use super::prelude::*;
 use crate::error::ModReason;
 use crate::local::{LocalizeExecPath, LocalizeVarPath};
+use crate::module::operator::ModValuePaths;
 use crate::predule::*;
 
 use orion_error::UvsLogicFrom;
@@ -8,10 +9,13 @@ use orion_variate::types::ResourceDownloader;
 use orion_variate::vars::EnvEvalable;
 
 use super::ModelSTD;
-use crate::types::{Localizable, LocalizeOptions, RefUpdateable, ValuePath};
-use crate::{const_vars::MOD_DIR, error::MainResult, module::model::ModModelSpec};
+use crate::types::{
+    LocalizeOptions, ModuleLocalizable, RefUpdateable, SystemLocalizable, ValuePath,
+};
+use crate::{const_vars::MOD_DIR, error::MainResult, module::model::MMOperator};
 
 #[derive(Getters, Clone, Debug, Serialize, Deserialize)]
+#[getset(get = "pub")]
 pub struct ModuleSpecRef {
     name: String,
     addr: Address,
@@ -64,14 +68,14 @@ impl ModuleSpecRef {
     pub fn set_local(&mut self, local: PathBuf) {
         self.local = Some(local);
     }
-    pub fn get_target_spec(&self) -> MainResult<Option<ModModelSpec>> {
+    pub fn get_target_spec(&self) -> MainResult<Option<MMOperator>> {
         if self.is_enable()
             && let Some(local) = &self.local
         {
             let target_root = local.join(self.name());
             let target_path = target_root.join(self.model().to_string());
             if target_path.exists() {
-                let spec = ModModelSpec::load_from(&target_path)
+                let spec = MMOperator::load_from(&target_path)
                     .with(&target_root)
                     .owe(MainReason::from(ModReason::Load))?;
                 return Ok(Some(spec));
@@ -119,14 +123,14 @@ impl RefUpdateable<UpdateUnit> for ModuleSpecRef {
 
             debug!(target: "mod/ref",  "update target success!" );
             //let target_path = target_root.join(self.node().to_string());
-            let spec = ModModelSpec::load_from(&target_path)
+            let spec = MMOperator::load_from(&target_path)
                 .with(&target_root)
                 .owe(MainReason::from(ModReason::Load))?;
             let unit = spec
                 .update_local(accessor, &target_path, options)
                 .await
                 .owe(MainReason::from(ModReason::Update))?;
-            ModModelSpec::clean_other(&target_root, self.model())?;
+            MMOperator::clean_other(&target_root, self.model())?;
             flag.mark_suc();
             return Ok(unit);
         } else {
@@ -143,12 +147,8 @@ impl ModuleSpecRef {
 }
 
 #[async_trait]
-impl Localizable for ModuleSpecRef {
-    async fn localize(
-        &self,
-        val_path: Option<ValuePath>,
-        options: LocalizeOptions,
-    ) -> MainResult<()> {
+impl SystemLocalizable for ModuleSpecRef {
+    async fn sys_localize(&self, val_path: PathBuf, options: LocalizeOptions) -> MainResult<()> {
         if self.enable.is_none_or(|x| x) {
             if let Some(local) = &self.local {
                 let mut ctx = OperationContext::want("mod ref localize")
@@ -158,17 +158,21 @@ impl Localizable for ModuleSpecRef {
                 let mod_path = local.join(self.name.as_str());
                 let target_path = mod_path.join(self.model().to_string());
                 let spec =
-                    ModModelSpec::load_from(&target_path).owe(MainReason::from(ModReason::Load))?;
-                let value = PathBuf::from(self.name());
-                let cur_dst_path = val_path.map(|x| x.join(value));
-                spec.localize(cur_dst_path.clone(), options.clone())
+                    MMOperator::load_from(&target_path).owe(MainReason::from(ModReason::Load))?;
+                //let value = PathBuf::from(self.name());
+                let cur_dst_path = ModValuePaths::from(val_path.join(self.name()));
+                spec.mod_localize(cur_dst_path.clone(), options.clone())
                     .await
                     .with(&ctx)?;
                 if let Some(setting) = &self.setting {
-                    let used_value_file = ValuePath::new(spec.used_value_path()?);
-                    let exe_setting =
-                        LocalizeExecPath::from(setting.clone().env_eval(options.evaled_value()));
-                    exe_setting.localize(Some(used_value_file), options).await?;
+                    let exe_setting = LocalizeExecPath::from(
+                        setting
+                            .clone()
+                            .env_eval(&options.evaled_value().export_dict()),
+                    );
+                    exe_setting
+                        .mod_localize(spec.used_value_path()?, options)
+                        .await?;
                 }
                 ctx.mark_suc();
             }

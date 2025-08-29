@@ -3,7 +3,7 @@ use derive_getters::Getters;
 use galaxy_ops::error::MainResult;
 use galaxy_ops::infra::DfxArgsGetter;
 use galaxy_ops::module::ModelSTD;
-use galaxy_ops::project::load_project_global_value;
+use galaxy_ops::project::load_sys_opr_value;
 use galaxy_ops::system::operator::SysOperator;
 use galaxy_ops::types::{LocalizeOptions, RefUpdateable};
 use inquire::Select;
@@ -165,13 +165,8 @@ impl SysCommandHandler {
         galaxy_ops::infra::configure_dfx_logging(&args);
 
         let spec = SysOperator::load(&current_dir).err_conv()?;
-        let dict = load_project_global_value(spec.root_local(), args.localize.value())?;
-        spec.localize(LocalizeOptions::new(
-            dict,
-            *args.localize.use_default_value(),
-        ))
-        .await
-        .err_conv()?;
+        let dict = load_sys_opr_value(spec.root_local())?;
+        spec.localize(LocalizeOptions::new(dict)).await.err_conv()?;
         Ok(())
     }
 
