@@ -7,7 +7,7 @@ use galaxy_ops::{
     module::depend::{Dependency, DependencySet},
     ops_prj::project::OpsProject,
     system::{operator::SysOperator, spec::SysModelSpec},
-    types::{InsUpdateable, RefUpdateable},
+    types::{InsUpdateable, LocalizeOptions, RefUpdateable},
 };
 use orion_error::{ErrorOwe, TestAssertWithMsg};
 use orion_infra::path::make_clean_path;
@@ -21,7 +21,10 @@ use orion_variate::{
 async fn test_full_flow() -> MainResult<()> {
     test_init();
     let sys_proj = make_sys_opr_example().await?;
-    let out_path = PathBuf::from(SYS_MODEL_PRJ_ROOT).join("example_sys_x.tar.gz");
+    let out_path = PathBuf::from(SYS_MODEL_PRJ_ROOT).join("example_sys_x-1.0.0.tar.gz");
+    if out_path.exists() {
+        std::fs::remove_file(&out_path).owe_sys()?;
+    }
     compress(sys_proj.root_local(), &out_path).owe_sys()?;
     let mut ops_proj = make_workins_example().await?;
     let accessor = accessor_for_test();
@@ -38,7 +41,7 @@ async fn test_full_flow() -> MainResult<()> {
     sys_proj
         .update_local(accessor, &sys_path, &DownloadOptions::default())
         .await?;
-    //sys_proj.localize(LocalizeOptions::for_test()).await?;
+    sys_proj.localize(LocalizeOptions::for_test()).await?;
     Ok(())
     //sys_proj.
 }

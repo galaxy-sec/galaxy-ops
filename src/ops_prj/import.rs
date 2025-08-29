@@ -1,22 +1,21 @@
 use std::path::{Path, PathBuf};
 
+use crate::ops_prj::install::SystemPackageInstaller;
 use orion_conf::Configable;
 use orion_error::{ErrorOwe, ErrorWith};
-use orion_infra::path::{ensure_path, make_clean_path};
+use orion_infra::path::ensure_path;
 use orion_variate::{
     addr::Address,
-    archive::decompress,
     types::ResourceDownloader,
     update::DownloadOptions,
     vars::{EnvEvalable, ValueDict, VarCollection},
 };
 
 use crate::{
-    artifact::types::{PackageType, build_pkg, convert_addr},
+    artifact::types::{build_pkg, convert_addr},
     const_vars::{SYS_VALUE_FILE, SYS_VARS_YML},
     error::MainResult,
-    ops_prj::{install::PackageInstaller, project::OpsProject, system::OpsSystem},
-    system::spec::SysModelSpec,
+    ops_prj::{project::OpsProject, system::OpsSystem},
     types::Accessor,
 };
 
@@ -26,12 +25,11 @@ impl OpsProject {
         accessor: Accessor,
         path: &str,
         up_opt: &DownloadOptions,
-    ) -> MainResult<SysModelSpec> {
+    ) -> MainResult<()> {
         // 1. 解析地址
         let addr = convert_addr(path);
 
-        // 2.更新到本地目路
-        // 本地路径： ${HOME}/ds-build/
+        // 2. 更新到本地目录
         let work_path = PathBuf::from(
             "${HOME}/ds-package"
                 .to_string()
@@ -47,33 +45,22 @@ impl OpsProject {
                 .owe_data()?;
             up_unit.position().clone()
         };
+
+        // 3. 创建安装器并准备包
+        let installer = SystemPackageInstaller::new(self.paths().clone()).with_pkg_path(pkg_path);
+
         let package = build_pkg(path);
-        let sys_src = match package {
-            //tar.gz ,tgz
-            PackageType::Bin(bin_package) => {
-                let out_path = work_path.join(bin_package.name());
-                make_clean_path(&out_path).owe_res()?;
-                decompress(&pkg_path, out_path.clone())
-                    .owe_sys()
-                    .want("decompress tar.gz")
-                    .with(pkg_path.display().to_string())?;
-                out_path
-            }
-            PackageType::Git(_git_package) => pkg_path.to_path_buf(),
-        };
-        let sys_spec = SysModelSpec::load_from(&sys_src.join("sys"))?;
+        let sys_src = installer.prepare_package(package)?;
 
-        let ops_sys = OpsSystem::new(sys_spec.define().clone(), addr);
+        // 4. 导入到工作目录
+        let ops_target_system = installer.install_system_package(&sys_src)?;
+
+        let ops_sys = OpsSystem::new(ops_target_system.spec().define().clone(), addr);
         self.import_ops_sys(ops_sys);
-        // 3.获得sys pakage
-
-        //self.paths().value_dir().join(path)
-        // 4. 导入到 工作目录
-        let installer = PackageInstaller::new(self.paths().clone());
-        installer.install_package(sys_src, &sys_spec)?;
         self.save()?;
+
         // 5. 提供系统包的信息， 包组所有组件。
-        Ok(sys_spec)
+        Ok(())
     }
     pub fn ia_setting_interactive(&self) -> MainResult<()> {
         self.ia_setting(true)

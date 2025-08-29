@@ -15,6 +15,16 @@ pub struct InstallPaths {
     pub project_root: PathBuf,
 }
 
+#[derive(Debug, Clone)]
+pub struct InstallationPaths {
+    #[allow(dead_code)]
+    pub source_path: PathBuf,
+    pub temp_target_path: PathBuf,
+    pub final_target_path: PathBuf,
+    pub project_root: PathBuf,
+    pub value_path: PathBuf,
+}
+
 #[derive(Getters, Clone, Debug)]
 pub struct ProjectPath {
     #[getset(get = "pub")]
