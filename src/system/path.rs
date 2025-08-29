@@ -1,4 +1,4 @@
-use crate::const_vars::SYS_MODLE_DEF_YML;
+use crate::const_vars::{MOD_VALUE_FILE, SYS_MODLE_DEF_YML, SYS_VALUE_FILE, USED_READABLE_FILE};
 use std::path::{Path, PathBuf};
 
 use crate::const_vars::{MOD_LIST_YML, VARS_YML};
@@ -6,7 +6,7 @@ use crate::error::MainResult;
 use crate::types::ValuePath;
 use getset::Getters;
 use orion_error::ErrorOwe;
-use orion_infra::path::ensure_path;
+use orion_infra::path::{PathResult, ensure_path};
 
 #[derive(Getters, Clone, Debug)]
 #[getset(get = "pub ")]
@@ -99,5 +99,38 @@ impl SysOperatorPath {
     pub fn ensure_root_exists(&self) -> MainResult<()> {
         ensure_path(&self.root).owe_logic()?;
         Ok(())
+    }
+}
+
+#[derive(Getters, Clone, Debug)]
+#[getset(get = "pub")]
+pub struct SysValuePaths {
+    root: PathBuf,
+}
+impl From<PathBuf> for SysValuePaths {
+    fn from(value: PathBuf) -> Self {
+        Self { root: value }
+    }
+}
+
+impl SysValuePaths {
+    pub fn sys_value_file(&self) -> PathBuf {
+        self.root.join(SYS_VALUE_FILE)
+    }
+    pub fn mod_value_file(&self) -> PathBuf {
+        self.root.join(MOD_VALUE_FILE)
+    }
+    pub fn used_with_origon(&self) -> PathBuf {
+        self.root.join(USED_READABLE_FILE)
+    }
+    pub fn join<S: AsRef<str>>(self, path: S) -> Self {
+        Self {
+            root: self.root.join(path.as_ref()),
+        }
+    }
+    pub fn ensure_join<S: AsRef<str>>(self, path: S) -> PathResult<Self> {
+        Ok(Self {
+            root: ensure_path(self.root.join(path.as_ref()))?,
+        })
     }
 }

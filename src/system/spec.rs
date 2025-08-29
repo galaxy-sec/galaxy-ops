@@ -155,7 +155,7 @@ impl RefUpdateable<()> for SysModelSpec {
             if path.exists() {
                 std::fs::remove_file(&path).owe_sys()?;
             }
-            value.vars.save_yml(&path).owe_res()?;
+            //value.vars.save_yml(&path).owe_res()?;
             Ok(())
         } else {
             MainReason::from(ElementReason::Miss("local path".into())).err_result()

@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use galaxy_ops::{
     accessor::accessor_for_test,
-    const_vars::{SYS_MODEL_PRJ_ROOT, WORKINS_PRJ_ROOT},
+    const_vars::{SYS_OPERATORS_ROOT, WORKINS_PRJ_ROOT},
     error::MainResult,
     module::depend::{Dependency, DependencySet},
     ops_prj::project::OpsProject,
@@ -21,7 +21,7 @@ use orion_variate::{
 async fn test_full_flow() -> MainResult<()> {
     test_init();
     let sys_proj = make_sys_opr_example().await?;
-    let out_path = PathBuf::from(SYS_MODEL_PRJ_ROOT).join("example_sys_x-1.0.0.tar.gz");
+    let out_path = PathBuf::from(SYS_OPERATORS_ROOT).join("example_sys_x-1.0.0.tar.gz");
     if out_path.exists() {
         std::fs::remove_file(&out_path).owe_sys()?;
     }
@@ -63,7 +63,7 @@ async fn make_workins_example() -> MainResult<OpsProject> {
 
 async fn make_sys_opr_example() -> MainResult<SysOperator> {
     let name = "example_sys_x";
-    let prj_path = PathBuf::from(SYS_MODEL_PRJ_ROOT).join(name);
+    let prj_path = PathBuf::from(SYS_OPERATORS_ROOT).join(name);
     make_clean_path(&prj_path).owe_logic()?;
     let sys_opr = make_sys_operator(&prj_path, name).assert("make cust");
     if prj_path.exists() {

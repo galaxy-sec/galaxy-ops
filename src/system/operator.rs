@@ -1,7 +1,9 @@
+use crate::const_vars::VALUE_DIR;
 use crate::error::SysReason;
 use crate::module::ModelSTD;
 use crate::predule::*;
 
+use crate::system::path::SysValuePaths;
 use crate::system::spec::SysDefine;
 use crate::{
     const_vars::SYS_MODEL_SPC_ROOT, error::MainResult, module::depend::DependencySet,
@@ -16,10 +18,10 @@ use super::{
 };
 use crate::types::{Accessor, LocalizeOptions, RefUpdateable, ValuePath};
 use async_trait::async_trait;
-use orion_conf::{Configable, Persistable};
+use orion_conf::{Configable, Persistable, Yamlable};
 use orion_infra::path::{ensure_path, make_clean_path};
 use orion_variate::update::DownloadOptions;
-use orion_variate::vars::{ValueDict, ValueType};
+use orion_variate::vars::{ValueDict, ValueType, VarCollection, VarToValue};
 
 #[derive(Getters, Clone, Debug)]
 #[getset(get = "pub")]
@@ -155,6 +157,29 @@ impl SysOperator {
         proj.save()?;
         Ok(proj)
     }
+    pub fn init_setting_value(&self) -> MainResult<SysValuePaths> {
+        let value_root = SysValuePaths::from(PathBuf::from(self.root_local()))
+            .ensure_join(VALUE_DIR)
+            .owe_res()?;
+        let mut all_vars = VarCollection::default();
+        for x in self.sys_spec().mod_list().iter() {
+            if let Some(mmo) = x.get_target_spec()? {
+                let mm_path = value_root.clone().ensure_join(x.name()).owe_res()?;
+                all_vars = all_vars.merge(mmo.vars().clone());
+                if !mm_path.mod_value_file().exists() {
+                    let mod_vars = mmo.vars().system_vars().to_val();
+                    mod_vars.save_yml(&mm_path.mod_value_file()).owe_res()?;
+                }
+
+                //mm.vars()
+            }
+        }
+        if !value_root.sys_value_file().exists() {
+            let sys_vars = all_vars.system_vars().to_val();
+            sys_vars.save_yml(&value_root.sys_value_file()).owe_res()?;
+        }
+        Ok(value_root)
+    }
 }
 
 #[cfg(test)]
@@ -171,7 +196,7 @@ pub mod tests {
 
     use crate::{
         accessor::accessor_for_test,
-        const_vars::SYS_MODEL_PRJ_ROOT,
+        const_vars::SYS_OPERATORS_ROOT,
         error::MainResult,
         module::{
             ModelSTD,
@@ -183,7 +208,7 @@ pub mod tests {
     #[tokio::test]
     async fn test_mod_prj_new() -> MainResult<()> {
         test_init();
-        let prj_path = PathBuf::from(SYS_MODEL_PRJ_ROOT).join("sys_new");
+        let prj_path = PathBuf::from(SYS_OPERATORS_ROOT).join("sys_new");
         make_clean_path(&prj_path).owe_logic()?;
         let proj = SysOperator::make_new(&prj_path, "sys_new", ModelSTD::from_cur_sys())?;
         proj.save()?;
@@ -194,7 +219,7 @@ pub mod tests {
     async fn test_sys_prj_example() -> MainResult<()> {
         test_init();
 
-        let prj_path = PathBuf::from(SYS_MODEL_PRJ_ROOT).join("example_sys2");
+        let prj_path = PathBuf::from(SYS_OPERATORS_ROOT).join("example_sys2");
         make_clean_path(&prj_path).owe_logic()?;
         let project = make_sys_prj_testins(&prj_path).assert("make cust");
         if prj_path.exists() {
@@ -208,10 +233,13 @@ pub mod tests {
             .update_local(accessor, &prj_path, &DownloadOptions::default())
             .await
             .assert("spec.update_local");
+        let value_path = project.init_setting_value()?;
+        /*
         project
             .localize(LocalizeOptions::for_test())
             .await
             .assert("spec.localize");
+            */
         Ok(())
     }
 

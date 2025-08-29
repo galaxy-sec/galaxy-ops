@@ -1,7 +1,7 @@
 pub const MOD_OPERATORS_ROOT: &str = "./example/mod-operators";
 pub const TARGET_SPC_ROOT: &str = "./example/targets";
 pub const MODULES_INS_ROOT: &str = "./example/mod-ins";
-pub const SYS_MODEL_PRJ_ROOT: &str = "./example/sys-model-prj";
+pub const SYS_OPERATORS_ROOT: &str = "./example/sys-operators";
 pub const SYS_MODEL_SPC_ROOT: &str = "./example/sys-operators";
 pub const WORKINS_PRJ_ROOT: &str = "./example/workins-prj";
 pub const EXAMPLE_ROOT: &str = "./example";

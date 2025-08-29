@@ -1,12 +1,10 @@
 use clap::{Args, Parser};
 use derive_getters::Getters;
-use galaxy_ops::const_vars::VALUE_DIR;
 use galaxy_ops::error::MainResult;
 use galaxy_ops::infra::DfxArgsGetter;
 use galaxy_ops::module::operator::ModOperator;
 use galaxy_ops::module::spec::make_mod_spec_example;
-use galaxy_ops::project::load_sys_opr_value;
-use galaxy_ops::types::{LocalizeOptions, ModuleLocalizable, RefUpdateable};
+use galaxy_ops::types::RefUpdateable;
 use orion_conf::Persistable;
 use orion_error::{ErrorConv, ErrorOwe};
 use orion_variate::update::DownloadOptions;
