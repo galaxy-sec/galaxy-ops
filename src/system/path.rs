@@ -1,4 +1,6 @@
-use crate::const_vars::{MOD_VALUE_FILE, SYS_MODLE_DEF_YML, SYS_VALUE_FILE, USED_READABLE_FILE};
+use crate::const_vars::{
+    MOD_VALUE_FILE, SYS_MODLE_DEF_YML, SYS_VALUE_FILE, SYS_VARS_YML, USED_READABLE_FILE,
+};
 use std::path::{Path, PathBuf};
 
 use crate::const_vars::{MOD_LIST_YML, VARS_YML};
@@ -15,8 +17,6 @@ pub struct SysTargetPaths {
     target_root: PathBuf,
     define_path: PathBuf,
     spec_path: PathBuf,
-    //net_path: PathBuf,
-    //res_path: PathBuf,
     #[allow(dead_code)]
     sys_vars_path: PathBuf,
     modlist_path: PathBuf,
@@ -28,8 +28,6 @@ impl From<&PathBuf> for SysTargetPaths {
         Self {
             target_root: target_root.to_path_buf(),
             define_path: target_root.join(SYS_MODLE_DEF_YML),
-            //net_path: target_root.join(NET_RES_YML),
-            //res_path: target_root.join(RESOURCE_YML),
             sys_vars_path: target_root.join(VARS_YML),
             modlist_path: target_root.join(MOD_LIST_YML),
             workflow_path: target_root.to_path_buf(),
@@ -65,6 +63,9 @@ impl SysOperatorPath {
     /// 获取系统目录路径 (sys/)
     pub fn sys_dir(&self) -> PathBuf {
         self.root.join("sys")
+    }
+    pub fn sys_vars_file(&self) -> PathBuf {
+        self.root.join("sys").join(SYS_VARS_YML)
     }
 
     /// 获取值目录路径 (values/)

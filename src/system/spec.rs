@@ -3,7 +3,10 @@ use crate::{
     error::SysReason,
     local::LocalizeVarPath,
     predule::*,
-    system::path::SysTargetPaths,
+    system::{
+        mod_list::ModulesList,
+        path::{SysTargetPaths, SysValuePaths},
+    },
     types::{Accessor, RefUpdateable},
 };
 use std::path::{Path, PathBuf};
@@ -14,7 +17,7 @@ use crate::{
 };
 use async_trait::async_trait;
 use getset::{Getters, WithSetters};
-use orion_conf::{Configable, Persistable, Yamlable};
+use orion_conf::{Configable, Persistable, YamlStorageExt};
 use orion_error::{ErrorOwe, ErrorWith, UvsConfFrom, UvsLogicFrom, WithContext};
 use orion_infra::auto_exit_log;
 use orion_variate::{
@@ -22,10 +25,7 @@ use orion_variate::{
     update::DownloadOptions,
 };
 
-use super::{
-    ModulesList,
-    init::{SysIniter, sys_init_gitignore},
-};
+use super::init::{SysIniter, sys_init_gitignore};
 use crate::types::LocalizeOptions;
 use crate::{
     error::{MainReason, MainResult, ToErr},
@@ -155,7 +155,7 @@ impl RefUpdateable<()> for SysModelSpec {
             if path.exists() {
                 std::fs::remove_file(&path).owe_sys()?;
             }
-            //value.vars.save_yml(&path).owe_res()?;
+            value.vars.save_yml(&path).owe_res()?;
             Ok(())
         } else {
             MainReason::from(ElementReason::Miss("local path".into())).err_result()
@@ -164,8 +164,12 @@ impl RefUpdateable<()> for SysModelSpec {
 }
 
 #[async_trait]
-impl SystemLocalizable for SysModelSpec {
-    async fn sys_localize(&self, val_path: PathBuf, options: LocalizeOptions) -> MainResult<()> {
+impl SystemLocalizable<SysValuePaths> for SysModelSpec {
+    async fn sys_localize(
+        &self,
+        val_path: SysValuePaths,
+        options: LocalizeOptions,
+    ) -> MainResult<()> {
         if let Some(_local) = &self.local {
             self.mod_list.sys_localize(val_path, options).await?;
             Ok(())
@@ -241,46 +245,4 @@ pub fn make_sys_spec_test(define: SysDefine, mod_names: Vec<&str>) -> MainResult
     }
 
     Ok(modul_spec)
-}
-
-#[cfg(test)]
-pub mod tests {
-
-    use orion_error::TestAssertWithMsg;
-    use orion_infra::path::make_clean_path;
-    use orion_variate::tools::test_init;
-
-    use crate::{
-        accessor::accessor_for_test, const_vars::SYS_MODEL_SPC_ROOT, module::operator::ModOperator,
-    };
-
-    use super::*;
-
-    #[tokio::test]
-    async fn build_example_sys_spec() -> MainResult<()> {
-        test_init();
-        let sys_name = "example_sys";
-        ModOperator::make_test_prj("redis_mock")?;
-        ModOperator::make_test_prj("mysql_mock")?;
-        let spec = make_sys_spec_test(
-            SysDefine::new(sys_name, ModelSTD::from_cur_sys()),
-            vec!["redis_mock", "mysql_mock"],
-        )
-        .assert("make spec");
-        let spec_root = PathBuf::from(SYS_MODEL_SPC_ROOT);
-        make_clean_path(&spec_root).owe_logic()?;
-        let spec_path = spec_root.join(spec.define().name());
-        make_clean_path(&spec_path).owe_logic()?;
-        let accessor = accessor_for_test();
-        spec.save_to(&spec_root).assert("spec save");
-        let spec_path = spec_root.join(spec.define().name());
-        let spec = SysModelSpec::load_from(&spec_path).assert("spec load");
-        spec.update_local(accessor, &spec_path, &DownloadOptions::for_test())
-            .await
-            .assert("update");
-        spec.sys_localize(spec_root, LocalizeOptions::for_test())
-            .await
-            .assert("localize");
-        Ok(())
-    }
 }

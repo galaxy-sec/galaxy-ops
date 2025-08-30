@@ -2,13 +2,14 @@ use std::path::{Path, PathBuf};
 
 use galaxy_ops::{
     accessor::accessor_for_test,
-    const_vars::{SYS_OPERATORS_ROOT, WORKINS_PRJ_ROOT},
+    const_vars::{OPS_PRJ_ROOT, SYS_OPERATORS_ROOT, VALUE_DIR},
     error::MainResult,
     module::depend::{Dependency, DependencySet},
     ops_prj::project::OpsProject,
-    system::{operator::SysOperator, spec::SysModelSpec},
+    system::{SysValuePaths, operator::SysOperator, spec::SysModelSpec},
     types::{InsUpdateable, LocalizeOptions, RefUpdateable},
 };
+use orion_conf::Yamlable;
 use orion_error::{ErrorOwe, TestAssertWithMsg};
 use orion_infra::path::make_clean_path;
 use orion_variate::{
@@ -16,6 +17,7 @@ use orion_variate::{
     archive::compress,
     tools::test_init,
     update::DownloadOptions,
+    vars::{OriginDict, ValueDict},
 };
 #[tokio::test]
 async fn test_full_flow() -> MainResult<()> {
@@ -35,20 +37,25 @@ async fn test_full_flow() -> MainResult<()> {
             &DownloadOptions::for_test(),
         )
         .await?;
-    ops_proj.ia_setting(false)?;
+    //ops_proj.ia_setting(false)?;
     let sys_path = ops_proj.root_local().join("example_sys_x");
     let sys_proj = SysOperator::load(&sys_path)?;
+    let sys_value_path = SysValuePaths::from(sys_path.clone()).join(VALUE_DIR);
+    let sys_value_dict =
+        OriginDict::from(ValueDict::from_yml(&sys_value_path.sys_value_file()).owe_conf()?)
+            .with_origin("sys-setting");
     sys_proj
         .update_local(accessor, &sys_path, &DownloadOptions::default())
         .await?;
-    sys_proj.localize(LocalizeOptions::for_test()).await?;
+    sys_proj
+        .localize(sys_value_path, LocalizeOptions::new(sys_value_dict))
+        .await?;
     Ok(())
-    //sys_proj.
 }
 async fn make_workins_example() -> MainResult<OpsProject> {
     test_init();
     let prj_name = "obs_prj_x";
-    let prj_path = PathBuf::from(WORKINS_PRJ_ROOT).join(prj_name);
+    let prj_path = PathBuf::from(OPS_PRJ_ROOT).join(prj_name);
     make_clean_path(&prj_path).owe_logic()?;
     let project = OpsProject::for_test(prj_name).assert("make workins");
     project.save().assert("save workins_prj");

@@ -1,9 +1,8 @@
 use crate::{
     error::{MainReason, SysReason, ToErr},
     predule::*,
-    types::{
-        Accessor, InsUpdateable, LocalizeOptions, RefUpdateable, SystemLocalizable, ValuePath,
-    },
+    system::SysValuePaths,
+    types::{Accessor, InsUpdateable, LocalizeOptions, RefUpdateable, SystemLocalizable},
 };
 
 use async_trait::async_trait;
@@ -100,8 +99,12 @@ impl InsUpdateable<SysModelSpecRef> for SysModelSpecRef {
 }
 
 #[async_trait]
-impl SystemLocalizable for SysModelSpecRef {
-    async fn sys_localize(&self, val_path: PathBuf, options: LocalizeOptions) -> MainResult<()> {
+impl SystemLocalizable<SysValuePaths> for SysModelSpecRef {
+    async fn sys_localize(
+        &self,
+        val_path: SysValuePaths,
+        options: LocalizeOptions,
+    ) -> MainResult<()> {
         if let Some(spec) = &self.spec {
             spec.sys_localize(val_path, options).await?;
             Ok(())

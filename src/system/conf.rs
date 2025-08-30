@@ -34,8 +34,8 @@ impl RefUpdateable<()> for SysConf {
     }
 }
 #[async_trait]
-impl SystemLocalizable for SysConf {
-    async fn sys_localize(&self, _val_path: PathBuf, _options: LocalizeOptions) -> MainResult<()> {
+impl SystemLocalizable<()> for SysConf {
+    async fn sys_localize(&self, _val_path: (), _options: LocalizeOptions) -> MainResult<()> {
         Ok(())
     }
 }

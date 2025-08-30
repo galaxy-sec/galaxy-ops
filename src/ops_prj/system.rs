@@ -97,8 +97,7 @@ system:
         std::os::unix::fs::symlink(&value_path, &value_link).unwrap();
 
         // Test function should not fail when symlink already exists
-        OpsProject::process_system_vars(&vars_path, &value_path, &value_link, "test_system", false)
-            .unwrap();
+        OpsProject::process_system_vars(&vars_path, &value_path, "test_system", false).unwrap();
 
         // Verify symlink still exists
         assert!(value_link.exists());

@@ -166,7 +166,8 @@ impl SysCommandHandler {
 
         let spec = SysOperator::load(&current_dir).err_conv()?;
         let dict = load_sys_opr_value(spec.root_local())?;
-        spec.localize(LocalizeOptions::new(dict)).await.err_conv()?;
+        todo!();
+        //spec.localize(LocalizeOptions::new(dict)).await.err_conv()?;
         Ok(())
     }
 

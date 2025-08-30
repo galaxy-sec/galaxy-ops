@@ -1,4 +1,4 @@
-use crate::const_vars::WORKINS_PRJ_ROOT;
+use crate::const_vars::OPS_PRJ_ROOT;
 use crate::error::OpsReason;
 use crate::ops_prj::path::ProjectPath;
 use crate::ops_prj::system::{OpsSystem, OpsTarget};
@@ -122,7 +122,7 @@ impl OpsProject {
         Ok(OpsProject::new(conf, prj_path.to_path_buf()))
     }
     pub fn for_test(name: &str) -> MainResult<Self> {
-        let prj_path = PathBuf::from(WORKINS_PRJ_ROOT).join(name);
+        let prj_path = PathBuf::from(OPS_PRJ_ROOT).join(name);
         make_clean_path(&prj_path).owe_logic()?;
 
         let conf = ProjectConf::for_test();
@@ -177,13 +177,11 @@ system:
         // DO NOT create value file initially to test variable processing
 
         // Test function in non-interactive mode with no existing value file
-        OpsProject::process_system_vars(&vars_path, &value_path, &value_link, "test_system", false)
-            .assert();
+        OpsProject::process_system_vars(&vars_path, &value_path, "test_system", false).assert();
 
         // The value file should be created by the function
         assert!(value_file.exists());
         // The symlink should be created
-        assert!(value_link.exists());
     }
 
     #[test]
@@ -218,19 +216,10 @@ system:
         std::fs::write(&vars_path, vars_content).unwrap();
 
         // Test function in non-interactive mode
-        let result = OpsProject::process_system_vars(
-            &vars_path,
-            &value_path,
-            &value_link,
-            "test_system",
-            false,
-        );
+        let result = OpsProject::process_system_vars(&vars_path, &value_path, "test_system", false);
 
         // Verify the function succeeds
         result.assert();
-
-        // Verify the symlink was created
-        assert!(value_link.exists());
 
         // Read and verify the value file was created with default values
         assert!(value_file.exists());
@@ -284,19 +273,10 @@ immutable_var: "existing_immutable"
         std::fs::write(&value_file, initial_value_content).unwrap();
 
         // Test function in non-interactive mode
-        let result = OpsProject::process_system_vars(
-            &vars_path,
-            &value_path,
-            &value_link,
-            "test_system",
-            false,
-        );
+        let result = OpsProject::process_system_vars(&vars_path, &value_path, "test_system", false);
 
         // Verify function succeeds
         result.assert();
-
-        // Verify symlink was created
-        assert!(value_link.exists());
 
         // Verify value file still exists and contains expected values
         assert!(value_file.exists());
@@ -334,19 +314,10 @@ immutable_var: "existing_immutable"
         std::fs::write(&vars_path, "").unwrap();
 
         // Test function in non-interactive mode
-        let result = OpsProject::process_system_vars(
-            &vars_path,
-            &value_path,
-            &value_link,
-            "test_system",
-            false,
-        );
+        let result = OpsProject::process_system_vars(&vars_path, &value_path, "test_system", false);
 
         // Verify the function succeeds
         result.assert();
-
-        // Verify the symlink was created
-        assert!(value_link.exists());
     }
 
     #[test]
@@ -381,19 +352,10 @@ system:
         std::fs::write(&vars_path, vars_content).unwrap();
 
         // Test function in non-interactive mode
-        let result = OpsProject::process_system_vars(
-            &vars_path,
-            &value_path,
-            &value_link,
-            "test_system",
-            false,
-        );
+        let result = OpsProject::process_system_vars(&vars_path, &value_path, "test_system", false);
 
         // Verify the function succeeds
         result.assert();
-
-        // Verify the symlink was created
-        assert!(value_link.exists());
 
         // Verify the value file was created
         assert!(value_file.exists());
@@ -408,21 +370,13 @@ system:
         // Create test paths
         let vars_path = root.join("sys/sys_vars.yml");
         let value_path = root.join("values/test");
-        let value_link = root.join("test/values");
 
         // Create directories but no vars.yml file (this should cause an error)
         std::fs::create_dir_all(vars_path.parent().unwrap()).unwrap();
         std::fs::create_dir_all(&value_path).unwrap();
-        std::fs::create_dir_all(value_link.parent().unwrap()).unwrap();
 
         // Test function should return an error when vars.yml doesn't exist
-        let result = OpsProject::process_system_vars(
-            &vars_path,
-            &value_path,
-            &value_link,
-            "test_system",
-            false,
-        );
+        let result = OpsProject::process_system_vars(&vars_path, &value_path, "test_system", false);
 
         // Verify that an error occurred
         assert!(result.is_err());

@@ -9,7 +9,7 @@ use orion_infra::path::{PathResult, ensure_path};
 use orion_variate::{
     addr::accessor::UniversalAccessor,
     update::DownloadOptions,
-    vars::{EnvDict, EnvEvalable, OriginDict, ValueDict, VarCollection},
+    vars::{EnvDict, EnvEvalable, OriginDict, VarCollection},
 };
 
 use crate::error::MainResult;
@@ -79,8 +79,8 @@ impl LocalizeOptions {
 }
 
 #[async_trait]
-pub trait SystemLocalizable {
-    async fn sys_localize(&self, val_path: PathBuf, options: LocalizeOptions) -> MainResult<()>;
+pub trait SystemLocalizable<T> {
+    async fn sys_localize(&self, val_path: T, options: LocalizeOptions) -> MainResult<()>;
 }
 
 #[async_trait]

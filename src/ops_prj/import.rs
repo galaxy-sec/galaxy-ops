@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use crate::ops_prj::install::SystemPackageInstaller;
+use crate::{ops_prj::install::SystemPackageInstaller, system::operator::SysOperator};
 use orion_conf::Configable;
 use orion_error::ErrorOwe;
 use orion_infra::path::ensure_path;
@@ -58,7 +58,8 @@ impl OpsProject {
         let ops_sys = OpsSystem::new(ops_target_system.spec().define().clone(), addr);
         self.import_ops_sys(ops_sys);
         self.save()?;
-
+        let sys_operator = SysOperator::load(&ops_target_system.installation_path)?;
+        sys_operator.init_setting_value()?;
         // 5. 提供系统包的信息， 包组所有组件。
         Ok(())
     }
@@ -69,16 +70,12 @@ impl OpsProject {
     pub fn process_system_vars(
         vars_path: &Path,
         value_path: &Path,
-        value_link: &Path,
         system_name: &str,
         interactive: bool,
     ) -> MainResult<()> {
         use inquire::{Confirm, Text};
 
         let value_file = value_path.join(SYS_VALUE_FILE);
-        if value_file.exists() && value_link.exists() {
-            std::fs::remove_file(value_link).owe_res()?;
-        }
 
         let vars_vec = VarCollection::from_conf(vars_path).owe_res()?;
         let mut vals_dict = if value_file.exists() {
@@ -146,16 +143,7 @@ impl OpsProject {
             let value_path = self.root_local().join("values").join(i.sys().name());
             ensure_path(&value_path).owe_res()?;
 
-            let value_link = self.root_local().join(i.sys().name()).join("values");
-            //.join("value.yml");
-
-            Self::process_system_vars(
-                &vars_path,
-                &value_path,
-                &value_link,
-                i.sys().name(),
-                interactive,
-            )?;
+            Self::process_system_vars(&vars_path, &value_path, i.sys().name(), interactive)?;
         }
         Ok(())
     }

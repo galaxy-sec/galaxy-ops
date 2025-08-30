@@ -10,9 +10,13 @@ use crate::{
 use async_trait::async_trait;
 use derive_more::Deref;
 use getset::Getters;
+use orion_conf::JsonAble;
 use orion_error::{ContextRecord, ToStructError, UvsResFrom};
 use orion_infra::auto_exit_log;
-use orion_variate::{update::DownloadOptions, vars::EnvEvalable};
+use orion_variate::{
+    update::DownloadOptions,
+    vars::{EnvEvalable, ValueDict},
+};
 
 #[derive(Getters, Clone, Debug, Serialize, Deserialize)]
 #[getset(get = "pub")]
@@ -140,19 +144,32 @@ impl ModuleLocalizable<PathBuf> for LocalizeExecPath {
         if let Some(parent) = self.dst.parent() {
             std::fs::create_dir_all(parent).owe_res()?;
         }
-        let mut ctx = WithContext::want("sys-path localize").with_auto_log();
+        let mut ctx = OperationContext::want("sys-path localize").with_auto_log();
         ctx.record("dst", &self.dst);
         ctx.record("src", &self.src);
+        if !self.src.exists() {
+            ctx.warn("src path miss");
+            ctx.mark_cancel();
+            return Ok(());
+        }
+
+        if !value_file.exists() {
+            return MainReason::from_res(format!(
+                "sys value file not exists: {}",
+                value_file.display()
+            ))
+            .err_result();
+        }
+        ctx.record("value_file", &value_file);
+        let dict = ValueDict::from_json(&value_file).owe_res()?;
 
         // Handle template configuration if available
-        if let Some(setting) = self.setting.clone().or(Some(Setting::default())) {
-            if !value_file.exists() {
-                return MainReason::from_res(format!(
-                    "sys value file not exists: {}",
-                    value_file.display()
-                ))
-                .err_result();
-            }
+        if let Some(setting) = self
+            .setting
+            .clone()
+            .or(Some(Setting::default()))
+            .map(|x| x.env_eval(&dict))
+        {
             let tpl_path_opt = setting
                 .localize()
                 .clone()

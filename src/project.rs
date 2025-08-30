@@ -77,7 +77,7 @@ pub fn mix_used_value(
 
 #[cfg(test)]
 mod tests {
-    use crate::{const_vars::USER_VALUE_FILE, module::model::TargetValuePaths};
+    use crate::const_vars::USER_VALUE_FILE;
 
     use super::*;
     use orion_variate::vars::{Mutability, OriginValue, ValueType, VarDefinition};

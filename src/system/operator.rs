@@ -21,7 +21,7 @@ use async_trait::async_trait;
 use orion_conf::{Configable, Persistable, Yamlable};
 use orion_infra::path::{ensure_path, make_clean_path};
 use orion_variate::update::DownloadOptions;
-use orion_variate::vars::{ValueDict, ValueType, VarCollection, VarToValue};
+use orion_variate::vars::{VarCollection, VarToValue, find_project_define_base};
 
 #[derive(Getters, Clone, Debug)]
 #[getset(get = "pub")]
@@ -30,20 +30,19 @@ pub struct SysOperator {
     sys_spec: SysModelSpec,
     project: GxlProject,
     paths: SysOperatorPath,
-    val_dict: ValueDict,
 }
 
 impl SysOperator {
     pub fn new(spec: SysModelSpec, local_res: DependencySet, root_local: PathBuf) -> Self {
         let conf = SysConf::new(local_res);
-        let mut val_dict = ValueDict::default();
-        val_dict.insert("TEST_WORK_ROOT", ValueType::from("/home/galaxy"));
+        //let mut val_dict = ValueDict::default();
+        //val_dict.insert("TEST_WORK_ROOT", ValueType::from("/home/galaxy"));
         Self {
             conf,
             sys_spec: spec,
-            project: GxlProject::from((SYS_PRJ_WORK, SYS_PRJ_ADM)),
+            project: GxlProject::from((SYS_PRJ_WORK, SYS_PRJ_ADM, "define")),
             paths: SysOperatorPath::new(root_local),
-            val_dict,
+            //val_dict,
         }
     }
     pub fn load(root_local: &Path) -> MainResult<Self> {
@@ -68,19 +67,12 @@ impl SysOperator {
             .owe(SysReason::Load.into())
             .with(&ctx)?;
         ensure_path(paths.value_dir()).owe_logic().with(&ctx)?;
-        let value_file = paths.sys_value_file();
-        let val_dict = if value_file.exists() {
-            ValueDict::from_conf(&value_file).owe_data().with(&ctx)?
-        } else {
-            ValueDict::new()
-        };
         ctx.mark_suc();
         Ok(Self {
             conf,
             sys_spec,
             project,
             paths,
-            val_dict,
         })
     }
     pub fn save(&self) -> MainResult<()> {
@@ -99,8 +91,6 @@ impl SysOperator {
         // 保存 sys_local 配置
 
         ensure_path(self.paths.value_dir()).owe_logic().with(&ctx)?;
-        let value_file = self.paths.sys_value_file();
-        self.val_dict.save_conf(&value_file).owe_res().with(&ctx)?;
         sys_init_gitignore(self.paths.root()).with(&ctx)?;
         ctx.mark_suc();
         Ok(())
@@ -123,14 +113,16 @@ impl RefUpdateable<()> for SysOperator {
 }
 
 impl SysOperator {
-    pub async fn localize(&self, options: LocalizeOptions) -> MainResult<()> {
-        let value_path = self.value_path().ensure_exist().owe_res()?;
+    pub async fn localize(
+        &self,
+        val_path: SysValuePaths,
+        options: LocalizeOptions,
+    ) -> MainResult<()> {
+        //let value_path = self.value_path().ensure_exist().owe_res()?;
 
-        self.conf
-            .sys_localize(value_path.path().clone(), options.clone())
-            .await?;
+        self.conf.sys_localize((), options.clone()).await?;
         self.sys_spec()
-            .sys_localize(value_path.path().clone(), options.clone())
+            .sys_localize(val_path, options.clone())
             .await?;
         Ok(())
     }
@@ -161,13 +153,13 @@ impl SysOperator {
         let value_root = SysValuePaths::from(PathBuf::from(self.root_local()))
             .ensure_join(VALUE_DIR)
             .owe_res()?;
-        let mut all_vars = VarCollection::default();
+        //let mut all_vars = VarCollection::default();
         for x in self.sys_spec().mod_list().iter() {
             if let Some(mmo) = x.get_target_spec()? {
                 let mm_path = value_root.clone().ensure_join(x.name()).owe_res()?;
-                all_vars = all_vars.merge(mmo.vars().clone());
+                //all_vars = all_vars.merge(mmo.vars().clone());
                 if !mm_path.mod_value_file().exists() {
-                    let mod_vars = mmo.vars().system_vars().to_val();
+                    let mod_vars = mmo.vars().module_vars().to_val();
                     mod_vars.save_yml(&mm_path.mod_value_file()).owe_res()?;
                 }
 
@@ -175,23 +167,35 @@ impl SysOperator {
             }
         }
         if !value_root.sys_value_file().exists() {
-            let sys_vars = all_vars.system_vars().to_val();
+            let sys_vars = VarCollection::from_yml(&self.paths.sys_vars_file())
+                .owe_res()?
+                .system_vars()
+                .to_val();
+            //all_vars.system_vars().to_val();
             sys_vars.save_yml(&value_root.sys_value_file()).owe_res()?;
         }
         Ok(value_root)
     }
 }
 
+pub fn setup_prj_root_env_vars(base: PathBuf) -> MainResult<()> {
+    let prj_root = find_project_define_base(base).unwrap_or(PathBuf::from("UNDEFIN"));
+    unsafe { std::env::set_var("GXL_PRJ_ROOT", format!("{}", prj_root.display())) };
+    Ok(())
+}
+
 #[cfg(test)]
 pub mod tests {
     use std::path::{Path, PathBuf};
 
+    use orion_conf::Yamlable;
     use orion_error::{ErrorOwe, TestAssertWithMsg};
     use orion_infra::path::make_clean_path;
     use orion_variate::{
         addr::{Address, HttpResource, types::PathTemplate},
         tools::test_init,
         update::DownloadOptions,
+        vars::{OriginDict, ValueDict},
     };
 
     use crate::{
@@ -202,7 +206,10 @@ pub mod tests {
             ModelSTD,
             depend::{Dependency, DependencySet},
         },
-        system::{operator::SysOperator, spec::SysModelSpec},
+        system::{
+            operator::{SysOperator, setup_prj_root_env_vars},
+            spec::SysModelSpec,
+        },
         types::{LocalizeOptions, RefUpdateable},
     };
     #[tokio::test]
@@ -222,10 +229,6 @@ pub mod tests {
         let prj_path = PathBuf::from(SYS_OPERATORS_ROOT).join("example_sys2");
         make_clean_path(&prj_path).owe_logic()?;
         let project = make_sys_prj_testins(&prj_path).assert("make cust");
-        if prj_path.exists() {
-            std::fs::remove_dir_all(&prj_path).assert("ok");
-        }
-        std::fs::create_dir_all(&prj_path).assert("yes");
         project.save().assert("save dss_prj");
         let project = SysOperator::load(&prj_path).assert("dss-project");
         let accessor = accessor_for_test();
@@ -234,12 +237,14 @@ pub mod tests {
             .await
             .assert("spec.update_local");
         let value_path = project.init_setting_value()?;
-        /*
+        let mut dict =
+            OriginDict::from(ValueDict::from_yml(&value_path.sys_value_file()).owe_res()?);
+        dict.set_source("sys-setting");
+        setup_prj_root_env_vars(prj_path.clone()).owe_sys()?;
         project
-            .localize(LocalizeOptions::for_test())
+            .localize(value_path, LocalizeOptions::new(dict))
             .await
             .assert("spec.localize");
-            */
         Ok(())
     }
 

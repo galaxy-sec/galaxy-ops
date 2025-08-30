@@ -1170,7 +1170,7 @@ dependencies = [
  "log",
  "mockall",
  "once_cell",
- "orion-error 0.5.3",
+ "orion-error 0.5.4",
  "orion_conf",
  "orion_infra 0.3.1",
  "orion_variate",
@@ -2225,9 +2225,9 @@ dependencies = [
 
 [[package]]
 name = "orion-error"
-version = "0.5.3"
+version = "0.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd756cd69dcbd7fe76af86e9d3e775cc767876d6203ea4c8a2afa06d0ca34ba3"
+checksum = "ac3c3c07d39f70ce6fdcdc5f5eff8494454af616bbf7eeed44e985236ea4d5bf"
 dependencies = [
  "derive-getters",
  "derive_more",
@@ -2244,7 +2244,7 @@ dependencies = [
  "chrono",
  "derive-getters",
  "derive_more",
- "orion-error 0.5.3",
+ "orion-error 0.5.4",
  "serde",
  "serde_derive",
  "serde_ini",
@@ -2281,7 +2281,7 @@ dependencies = [
  "derive_more",
  "flexi_logger",
  "log",
- "orion-error 0.5.3",
+ "orion-error 0.5.4",
  "scopeguard",
  "serde",
  "serde_derive",
@@ -2313,7 +2313,7 @@ dependencies = [
  "indexmap",
  "indicatif",
  "log",
- "orion-error 0.5.3",
+ "orion-error 0.5.4",
  "orion_conf",
  "orion_infra 0.3.2",
  "os_info",

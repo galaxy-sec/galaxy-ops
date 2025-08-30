@@ -145,31 +145,33 @@ impl ModuleSpecRef {
         parent.join(value)
     }
 }
-
+use crate::system::SysValuePaths;
 #[async_trait]
-impl SystemLocalizable for ModuleSpecRef {
-    async fn sys_localize(&self, val_path: PathBuf, options: LocalizeOptions) -> MainResult<()> {
+impl SystemLocalizable<SysValuePaths> for ModuleSpecRef {
+    async fn sys_localize(
+        &self,
+        val_path: SysValuePaths,
+        options: LocalizeOptions,
+    ) -> MainResult<()> {
         if self.enable.is_none_or(|x| x) {
             if let Some(local) = &self.local {
                 let mut ctx = OperationContext::want("mod ref localize")
                     .with_auto_log()
                     .with_mod_path("mod");
                 ctx.record("name", self.name.as_str());
+                let mod_val_path = val_path.join(self.name.as_str());
                 let mod_path = local.join(self.name.as_str());
                 let target_path = mod_path.join(self.model().to_string());
                 let spec =
                     MMOperator::load_from(&target_path).owe(MainReason::from(ModReason::Load))?;
                 //let value = PathBuf::from(self.name());
-                let cur_dst_path = ModValuePaths::from(val_path.join(self.name()));
-                spec.mod_localize(cur_dst_path.clone(), options.clone())
+                let cur_md_path = ModValuePaths::from(mod_val_path.root().clone());
+                spec.mod_localize(cur_md_path.clone(), options.clone())
                     .await
                     .with(&ctx)?;
                 if let Some(setting) = &self.setting {
-                    let exe_setting = LocalizeExecPath::from(
-                        setting
-                            .clone()
-                            .env_eval(&options.evaled_value().export_dict()),
-                    );
+                    let dict = options.evaled_value().export_dict();
+                    let exe_setting = LocalizeExecPath::from(setting.clone().env_eval(&dict));
                     exe_setting
                         .mod_localize(spec.used_value_path()?, options)
                         .await?;
