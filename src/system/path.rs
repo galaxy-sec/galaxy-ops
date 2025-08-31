@@ -21,6 +21,7 @@ pub struct SysTargetPaths {
     sys_vars_path: PathBuf,
     modlist_path: PathBuf,
     workflow_path: PathBuf,
+    setting_path: PathBuf,
 }
 impl From<&PathBuf> for SysTargetPaths {
     fn from(target_root: &PathBuf) -> Self {
@@ -32,6 +33,7 @@ impl From<&PathBuf> for SysTargetPaths {
             modlist_path: target_root.join(MOD_LIST_YML),
             workflow_path: target_root.to_path_buf(),
             spec_path: target_root.clone(),
+            setting_path: target_root.join("setting"),
         }
     }
 }

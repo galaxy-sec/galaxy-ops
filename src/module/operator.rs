@@ -52,6 +52,13 @@ impl From<PathBuf> for ModValuePaths {
     }
 }
 
+impl From<String> for ModValuePaths {
+    fn from(value: String) -> Self {
+        Self {
+            root: PathBuf::from(value),
+        }
+    }
+}
 impl ModValuePaths {
     pub fn sys_value_file(&self) -> PathBuf {
         self.root.join(SYS_VALUE_FILE)
@@ -226,7 +233,6 @@ impl ModuleLocalizable<ModValuePaths> for ModOperator {
         val_path: ModValuePaths,
         options: LocalizeOptions,
     ) -> MainResult<()> {
-        //let local_path = LocalizePath::from_root(self.root_local());
         self.conf
             .mod_localize(val_path.clone(), options.clone())
             .await?;

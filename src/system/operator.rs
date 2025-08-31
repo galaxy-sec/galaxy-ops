@@ -166,6 +166,13 @@ impl SysOperator {
                 //mm.vars()
             }
         }
+        let setting_val_path = value_root.clone().ensure_join("setting").owe_res()?;
+        if !setting_val_path.mod_value_file().exists() {
+            let setting_vars = self.sys_spec().setting().vars().module_vars().to_val();
+            setting_vars
+                .save_yml(&setting_val_path.mod_value_file())
+                .owe_res()?;
+        }
         if !value_root.sys_value_file().exists() {
             let sys_vars = VarCollection::from_yml(&self.paths.sys_vars_file())
                 .owe_res()?

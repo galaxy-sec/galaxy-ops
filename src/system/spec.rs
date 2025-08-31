@@ -6,6 +6,7 @@ use crate::{
     system::{
         mod_list::ModulesList,
         path::{SysTargetPaths, SysValuePaths},
+        setting::SysSetting,
     },
     types::{Accessor, RefUpdateable},
 };
@@ -17,9 +18,9 @@ use crate::{
 };
 use async_trait::async_trait;
 use getset::{Getters, WithSetters};
-use orion_conf::{Configable, Persistable, YamlStorageExt};
+use orion_conf::{Persistable, Yamlable};
 use orion_error::{ErrorOwe, ErrorWith, UvsConfFrom, UvsLogicFrom, WithContext};
-use orion_infra::auto_exit_log;
+use orion_infra::{auto_exit_log, path::ensure_path};
 use orion_variate::{
     addr::{GitRepository, LocalPath},
     update::DownloadOptions,
@@ -49,14 +50,15 @@ impl SysDefine {
         }
     }
 }
-#[derive(Getters, Clone, Debug, Serialize, Deserialize)]
+#[derive(Getters, Clone, Debug)]
 #[getset(get = "pub ")]
 pub struct SysModelSpec {
     define: SysDefine,
     mod_list: ModulesList,
     local: Option<PathBuf>,
-    #[serde(skip)]
+    //#[serde(skip)]
     workflow: SysWorkflows,
+    setting: SysSetting,
 }
 
 impl SysModelSpec {
@@ -79,8 +81,10 @@ impl SysModelSpec {
         let paths = SysTargetPaths::from(&root);
         std::fs::create_dir_all(paths.spec_path()).owe_conf()?;
         sys_init_gitignore(&root)?;
-        self.define.save_conf(paths.define_path()).owe_res()?;
-        self.mod_list.save_conf(paths.modlist_path()).owe_res()?;
+        self.define.save_yml(paths.define_path()).owe_res()?;
+        self.mod_list.save_yml(paths.modlist_path()).owe_res()?;
+        ensure_path(&paths.setting_path()).owe_res()?;
+        self.setting().save_local(&paths.setting_path())?;
 
         self.workflow
             .save_to(paths.workflow_path(), None)
@@ -110,12 +114,12 @@ impl SysModelSpec {
             ))
             .err_result();
         } else {
-            SysDefine::from_conf(paths.define_path())
+            SysDefine::from_yml(paths.define_path())
                 .with("load define".to_string())
                 .with(&ctx)
                 .owe_data()?
         };
-        let mut mod_list = ModulesList::from_conf(paths.modlist_path())
+        let mut mod_list = ModulesList::from_yml(paths.modlist_path())
             .with("load mod-list".to_string())
             .with(&ctx)
             .owe_data()?;
@@ -123,12 +127,14 @@ impl SysModelSpec {
         let workflow = SysWorkflows::load_from(paths.workflow_path())
             .with(&ctx)
             .owe(SysReason::Load.into())?;
+        let setting = SysSetting::load_from(&paths.setting_path())?;
         flag.mark_suc();
         Ok(Self {
             define,
             mod_list,
             local: Some(root.to_path_buf()),
             workflow,
+            setting,
         })
     }
 
@@ -138,6 +144,7 @@ impl SysModelSpec {
             mod_list: ModulesList::default(),
             local: None,
             workflow: actions,
+            setting: SysSetting::example(),
         }
     }
 }
@@ -155,7 +162,8 @@ impl RefUpdateable<()> for SysModelSpec {
             if path.exists() {
                 std::fs::remove_file(&path).owe_sys()?;
             }
-            value.vars.save_yml(&path).owe_res()?;
+            let sys_vars = value.vars.merge_system(self.setting().vars().clone());
+            sys_vars.save_yml(&path).owe_res()?;
             Ok(())
         } else {
             MainReason::from(ElementReason::Miss("local path".into())).err_result()
@@ -199,11 +207,7 @@ impl SysModelSpec {
                 GitRepository::from("https://github.com/you-mod1").with_tag("0.1.0"),
                 ModelSTD::new(CpuArch::Arm, OsCPE::MAC14, RunSPC::Host),
             )
-            .with_enable(false)
-            .with_setting(LocalizeVarPath::of_module(
-                mod_name,
-                define.model().to_string().as_str(),
-            )),
+            .with_enable(false),
         );
         modul_spec.add_mod_ref(
             ModuleSpecRef::from(
@@ -231,17 +235,11 @@ pub fn make_sys_spec_test(define: SysDefine, mod_names: Vec<&str>) -> MainResult
     for mod_name in mod_names {
         //let mod_name = "postgresql";
         let model = ModelSTD::new(CpuArch::Arm, OsCPE::MAC14, RunSPC::Host);
-        modul_spec.add_mod_ref(
-            ModuleSpecRef::from(
-                mod_name,
-                LocalPath::from(format!("{MOD_OPERATORS_ROOT}/{mod_name}").as_str()),
-                model.clone(),
-            )
-            .with_setting(LocalizeVarPath::of_module(
-                mod_name,
-                model.to_string().as_str(),
-            )),
-        );
+        modul_spec.add_mod_ref(ModuleSpecRef::from(
+            mod_name,
+            LocalPath::from(format!("{MOD_OPERATORS_ROOT}/{mod_name}").as_str()),
+            model.clone(),
+        ));
     }
 
     Ok(modul_spec)

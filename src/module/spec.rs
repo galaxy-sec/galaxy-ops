@@ -145,19 +145,21 @@ impl ModuleLocalizable<ModValuePaths> for ModuleSpec {
         options: LocalizeOptions,
     ) -> MainResult<()> {
         for model in self.targets.values() {
+            let mut ctx = OperationContext::want("model localize").with_auto_log();
             let model_path = val_path.clone().join(model.model().to_string());
-            //have sys_value.yml
-            let cur_options = if model_path.sys_value_file().exists() {
-                let mut sys_vars =
-                    OriginDict::from(ValueDict::from_yml(&model_path.sys_value_file()).owe_res()?);
-                sys_vars.set_source("sys-setting");
-                let mut cur_dict = options.raw_value().clone();
-                cur_dict.merge(&sys_vars);
-                LocalizeOptions::new(cur_dict)
-            } else {
-                options.clone()
-            };
+            ctx.record("sys-value", &model_path.sys_value_file());
+            //let cur_options = if model_path.sys_value_file().exists() {
+            let mut sys_vars =
+                OriginDict::from(ValueDict::from_yml(&model_path.sys_value_file()).owe_res()?);
+            sys_vars.set_source("sys-setting");
+            let mut cur_dict = options.raw_value().clone();
+            cur_dict.merge(&sys_vars);
+            let cur_options = LocalizeOptions::new(cur_dict);
+            //} else {
+            //options.clone()
+            //};
             model.mod_localize(model_path, cur_options).await?;
+            ctx.mark_suc();
         }
         Ok(())
     }

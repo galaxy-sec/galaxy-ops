@@ -1,16 +1,19 @@
 use clap::{Args, Parser};
 use derive_getters::Getters;
+use galaxy_ops::const_vars::VALUE_DIR;
 use galaxy_ops::error::MainResult;
 use galaxy_ops::infra::DfxArgsGetter;
 use galaxy_ops::module::ModelSTD;
 use galaxy_ops::project::load_sys_opr_value;
+use galaxy_ops::system::SysValuePaths;
 use galaxy_ops::system::operator::SysOperator;
 use galaxy_ops::types::{LocalizeOptions, RefUpdateable};
 use inquire::Select;
+use orion_conf::Yamlable;
 use orion_error::{ErrorConv, ErrorOwe};
 use orion_infra::path::make_new_path;
 use orion_variate::update::DownloadOptions;
-use orion_variate::vars::ValueDict;
+use orion_variate::vars::{OriginDict, ValueDict};
 
 use crate::commands::common::{DebugLogArgs, ForceArgs, LocalizeArgs};
 
@@ -151,12 +154,14 @@ impl SysCommandHandler {
         galaxy_ops::infra::configure_dfx_logging(&args);
 
         let options = DownloadOptions::from((*args.force.force(), ValueDict::default()));
-        let spec = SysOperator::load(&current_dir).err_conv()?;
+        let operator = SysOperator::load(&current_dir).err_conv()?;
         let accessor = galaxy_ops::accessor::accessor_for_default();
 
-        spec.update_local(accessor, &current_dir, &options)
+        operator
+            .update_local(accessor, &current_dir, &options)
             .await
             .err_conv()?;
+        operator.init_setting_value()?;
         Ok(())
     }
 
@@ -165,9 +170,11 @@ impl SysCommandHandler {
         galaxy_ops::infra::configure_dfx_logging(&args);
 
         let spec = SysOperator::load(&current_dir).err_conv()?;
-        let dict = load_sys_opr_value(spec.root_local())?;
-        todo!();
-        //spec.localize(LocalizeOptions::new(dict)).await.err_conv()?;
+        let val_path = SysValuePaths::from(current_dir.clone()).join(VALUE_DIR);
+        let dict = OriginDict::from(ValueDict::from_yml(&val_path.sys_value_file()).owe_res()?);
+        spec.localize(val_path, LocalizeOptions::new(dict))
+            .await
+            .err_conv()?;
         Ok(())
     }
 

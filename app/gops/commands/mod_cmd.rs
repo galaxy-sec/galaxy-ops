@@ -1,14 +1,15 @@
 use clap::{Args, Parser};
 use derive_getters::Getters;
-use galaxy_ops::error::MainResult;
+use galaxy_ops::const_vars::VALUE_DIR;
 use galaxy_ops::infra::DfxArgsGetter;
 use galaxy_ops::module::operator::ModOperator;
 use galaxy_ops::module::spec::make_mod_spec_example;
-use galaxy_ops::types::RefUpdateable;
-use orion_conf::Persistable;
+use galaxy_ops::types::{LocalizeOptions, ModuleLocalizable, RefUpdateable};
+use galaxy_ops::{error::MainResult, module::operator::ModValuePaths};
+use orion_conf::{Persistable, Yamlable};
 use orion_error::{ErrorConv, ErrorOwe};
 use orion_variate::update::DownloadOptions;
-use orion_variate::vars::ValueDict;
+use orion_variate::vars::{OriginDict, ValueDict};
 
 use crate::commands::common::{DebugLogArgs, ForceArgs, LocalizeArgs};
 
@@ -153,13 +154,15 @@ impl ModCommandHandler {
         let current_dir = std::env::current_dir().expect("无法获取当前目录");
         galaxy_ops::infra::configure_dfx_logging(&args);
 
-        let spec = ModOperator::load(&current_dir).err_conv()?;
+        let operator = ModOperator::load(&current_dir).err_conv()?;
         let options = DownloadOptions::from((*args.force.force(), ValueDict::default()));
         let accessor = galaxy_ops::accessor::accessor_for_default();
 
-        spec.update_local(accessor, &current_dir, &options)
+        operator
+            .update_local(accessor, &current_dir, &options)
             .await
             .err_conv()?;
+        operator.init_setting_value()?;
         Ok(())
     }
 
@@ -168,17 +171,11 @@ impl ModCommandHandler {
         galaxy_ops::infra::configure_dfx_logging(&args);
 
         let operator = ModOperator::load(&current_dir).err_conv()?;
-        todo!();
-        /*
-        let dict = load_sys_opr_value(operator.root_local())?;
+        let val_path = ModValuePaths::from(current_dir).join(VALUE_DIR);
         operator
-            .mod_localize(
-                operator.root_local().join(VALUE_DIR),
-                LocalizeOptions::new(dict),
-            )
+            .mod_localize(val_path, LocalizeOptions::new(OriginDict::default()))
             .await
             .err_conv()?;
-            */
         Ok(())
     }
 

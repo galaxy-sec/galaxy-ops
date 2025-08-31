@@ -25,8 +25,6 @@ pub struct ModuleSpecRef {
     enable: Option<bool>,
     #[serde(skip)]
     local: Option<PathBuf>,
-    #[serde(skip_serializing_if = "Option::is_none", default)]
-    setting: Option<LocalizeVarPath>,
 }
 
 impl ModuleSpecRef {
@@ -41,16 +39,10 @@ impl ModuleSpecRef {
             model: node,
             enable: None,
             local: None,
-            setting: None,
         }
     }
     pub fn with_enable(mut self, effective: bool) -> Self {
         self.enable = Some(effective);
-        self
-    }
-
-    pub fn with_setting(mut self, setting: LocalizeVarPath) -> Self {
-        self.setting = Some(setting);
         self
     }
 
@@ -169,13 +161,6 @@ impl SystemLocalizable<SysValuePaths> for ModuleSpecRef {
                 spec.mod_localize(cur_md_path.clone(), options.clone())
                     .await
                     .with(&ctx)?;
-                if let Some(setting) = &self.setting {
-                    let dict = options.evaled_value().export_dict();
-                    let exe_setting = LocalizeExecPath::from(setting.clone().env_eval(&dict));
-                    exe_setting
-                        .mod_localize(spec.used_value_path()?, options)
-                        .await?;
-                }
                 ctx.mark_suc();
             }
             Ok(())
