@@ -20,6 +20,7 @@ pub const DEFAULT_VALUE_FILE: &str = "_default.yml";
 pub const USER_VALUE_FILE: &str = "value.yml";
 pub const MOD_VALUE_FILE: &str = "mod_value.yml";
 pub const VALUE_DIR: &str = "values";
+pub const SETTING_DIR: &str = "setting";
 pub const GLOBAL_VALUE_FILE: &str = "sys_value.yml";
 pub const USED_JSON: &str = "_used.json";
 pub const USED_READABLE_FILE: &str = "used_value.yml";

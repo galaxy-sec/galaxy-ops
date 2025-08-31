@@ -26,14 +26,6 @@ impl PackageWorkingPaths {
     pub fn new(work_dir: PathBuf, pkg_path: PathBuf) -> Self {
         Self { work_dir, pkg_path }
     }
-
-    pub fn work_dir(&self) -> &Path {
-        &self.work_dir
-    }
-
-    pub fn pkg_path(&self) -> &Path {
-        &self.pkg_path
-    }
 }
 
 #[derive(Clone)]

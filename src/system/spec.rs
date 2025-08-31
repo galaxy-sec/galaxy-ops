@@ -1,12 +1,11 @@
 use crate::{
     const_vars::SYS_VARS_YML,
     error::SysReason,
-    local::LocalizeVarPath,
     predule::*,
     system::{
         mod_list::ModulesList,
         path::{SysTargetPaths, SysValuePaths},
-        setting::SysSetting,
+        setting::{ModSetting, SysSetting},
     },
     types::{Accessor, RefUpdateable},
 };
@@ -17,13 +16,14 @@ use crate::{
     types::SystemLocalizable, workflow::act::SysWorkflows,
 };
 use async_trait::async_trait;
-use getset::{Getters, WithSetters};
+use getset::{Getters, MutGetters, WithSetters};
 use orion_conf::{Persistable, Yamlable};
 use orion_error::{ErrorOwe, ErrorWith, UvsConfFrom, UvsLogicFrom, WithContext};
 use orion_infra::{auto_exit_log, path::ensure_path};
 use orion_variate::{
     addr::{GitRepository, LocalPath},
     update::DownloadOptions,
+    vars::{VarCollection, VarDefinition},
 };
 
 use super::init::{SysIniter, sys_init_gitignore};
@@ -50,8 +50,8 @@ impl SysDefine {
         }
     }
 }
-#[derive(Getters, Clone, Debug)]
-#[getset(get = "pub ")]
+#[derive(Getters, Clone, Debug, MutGetters)]
+#[getset(get = "pub ", get_mut = "pub")]
 pub struct SysModelSpec {
     define: SysDefine,
     mod_list: ModulesList,
@@ -138,13 +138,14 @@ impl SysModelSpec {
         })
     }
 
-    pub fn new(define: SysDefine, actions: SysWorkflows) -> Self {
+    pub fn new(define: SysDefine, actions: SysWorkflows, setting: SysSetting) -> Self {
         Self {
             define,
             mod_list: ModulesList::default(),
             local: None,
             workflow: actions,
-            setting: SysSetting::example(),
+            //setting: SysSetting::example(),
+            setting,
         }
     }
 }
@@ -179,7 +180,12 @@ impl SystemLocalizable<SysValuePaths> for SysModelSpec {
         options: LocalizeOptions,
     ) -> MainResult<()> {
         if let Some(_local) = &self.local {
-            self.mod_list.sys_localize(val_path, options).await?;
+            self.mod_list
+                .sys_localize(val_path.clone(), options.clone())
+                .await?;
+            self.setting
+                .sys_localize(val_path.join("setting"), options)
+                .await?;
             Ok(())
         } else {
             MainReason::from(ElementReason::Miss("local path".into())).err_result()
@@ -198,7 +204,8 @@ impl SysModelSpec {
 
     pub fn make_new(define: SysDefine) -> MainResult<SysModelSpec> {
         let actions = SysWorkflows::sys_tpl_init();
-        let mut modul_spec = SysModelSpec::new(define.clone(), actions);
+        let setting = SysSetting::new(VarCollection::define(vec![]));
+        let mut modul_spec = SysModelSpec::new(define.clone(), actions, setting);
         let mod_name = "you_mod1";
 
         modul_spec.add_mod_ref(
@@ -231,7 +238,12 @@ impl SysModelSpec {
 
 pub fn make_sys_spec_test(define: SysDefine, mod_names: Vec<&str>) -> MainResult<SysModelSpec> {
     let actions = SysWorkflows::sys_tpl_init();
-    let mut modul_spec = SysModelSpec::new(define, actions);
+    let setting = SysSetting::new(VarCollection::define(vec![
+        VarDefinition::from(("HOME", "${HOME}")).with_mut_immutable(),
+        VarDefinition::from(("SYS_KEY1", "sys_value1")).with_mut_module(),
+        VarDefinition::from(("SYS_KEY2", "sys_value2")).with_mut_system(),
+    ]));
+    let mut modul_spec = SysModelSpec::new(define, actions, setting);
     for mod_name in mod_names {
         //let mod_name = "postgresql";
         let model = ModelSTD::new(CpuArch::Arm, OsCPE::MAC14, RunSPC::Host);
@@ -240,6 +252,10 @@ pub fn make_sys_spec_test(define: SysDefine, mod_names: Vec<&str>) -> MainResult
             LocalPath::from(format!("{MOD_OPERATORS_ROOT}/{mod_name}").as_str()),
             model.clone(),
         ));
+        modul_spec.setting_mut().add_mod_setting(
+            mod_name,
+            ModSetting::enable_new(mod_name, model.to_string().as_str()),
+        );
     }
 
     Ok(modul_spec)

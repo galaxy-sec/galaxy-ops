@@ -8,7 +8,6 @@ pub mod workflow;
 #[macro_use]
 pub mod tools;
 pub mod accessor;
-mod app_sys;
 pub mod infra;
 pub mod local;
 pub mod ops_prj;

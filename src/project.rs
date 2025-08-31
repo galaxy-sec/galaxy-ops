@@ -80,6 +80,7 @@ mod tests {
     use crate::const_vars::USER_VALUE_FILE;
 
     use super::*;
+    use orion_error::TestAssert;
     use orion_variate::vars::{Mutability, OriginValue, ValueType, VarDefinition};
     use tempfile::tempdir;
 
@@ -120,7 +121,7 @@ mod tests {
         let temp_dir = tempdir().unwrap();
         let value_paths = temp_dir.path().to_path_buf();
 
-        let result = mix_used_value(options, &vars, &value_paths).unwrap();
+        let result = mix_used_value(options, &vars, &value_paths).assert();
         assert_eq!(
             result.get("TEST_KEY"),
             Some(

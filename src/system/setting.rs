@@ -21,12 +21,6 @@ use crate::{error::MainResult, module::ModelSTD};
 
 #[derive(Getters, Clone, Debug, Serialize, Deserialize)]
 #[getset(get = "pub ")]
-#[serde(transparent)]
-pub struct LocalizeDict {
-    dicts: IndexMap<String, ModSetting>,
-}
-#[derive(Getters, Clone, Debug, Serialize, Deserialize)]
-#[getset(get = "pub ")]
 pub struct ModSetting {
     enable: bool,
     localize: LocalizeVarPath,
@@ -38,6 +32,18 @@ impl ModSetting {
             localize: LocalizeVarPath::of_module(module, model),
         }
     }
+    pub fn enable_new(module: &str, model: &str) -> Self {
+        Self {
+            enable: true,
+            localize: LocalizeVarPath::of_module(module, model),
+        }
+    }
+}
+#[derive(Getters, Clone, Debug, Serialize, Deserialize)]
+#[getset(get = "pub ")]
+#[serde(transparent)]
+pub struct LocalizeDict {
+    dicts: IndexMap<String, ModSetting>,
 }
 impl LocalizeDict {
     pub fn example() -> Self {
@@ -67,6 +73,17 @@ impl StorageLoadEvent for SysSetting {
     }
 }
 impl SysSetting {
+    pub fn new(vars: VarCollection) -> Self {
+        SysSetting {
+            vars,
+            list: LocalizeDict::example(),
+            root: None,
+        }
+    }
+    pub fn add_mod_setting<S: Into<String>>(&mut self, mod_name: S, mod_setting: ModSetting) {
+        self.list.dicts.insert(mod_name.into(), mod_setting);
+    }
+
     pub fn example() -> Self {
         SysSetting {
             vars: VarCollection::define(vec![
@@ -107,7 +124,7 @@ impl SystemLocalizable<SysValuePaths> for SysSetting {
             .clone()
             .expect("setting root miss")
             .join("_used.json");
-        for (k, v) in self.list.dicts() {
+        for (_k, v) in self.list.dicts() {
             if !v.enable {
                 continue;
             }
@@ -127,6 +144,7 @@ impl SystemLocalizable<SysValuePaths> for SysSetting {
             exe_setting
                 .mod_localize(cur_used_file, options.clone())
                 .await?;
+            ctx.mark_suc();
         }
         Ok(())
     }
