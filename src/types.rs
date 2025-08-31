@@ -95,8 +95,8 @@ pub enum Value2Path {
 impl Value2Path {
     pub fn path(&self) -> &PathBuf {
         match self {
-            Value2Path::ModOperator(path_buf) => &path_buf,
-            Value2Path::SysSetting(path_buf) => &path_buf,
+            Value2Path::ModOperator(path_buf) => path_buf,
+            Value2Path::SysSetting(path_buf) => path_buf,
         }
     }
     pub fn module_join<S: AsRef<str>>(self, sub: S) {

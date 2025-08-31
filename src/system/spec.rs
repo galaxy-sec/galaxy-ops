@@ -84,7 +84,7 @@ impl SysModelSpec {
         self.define.save_yml(paths.define_path()).owe_res()?;
         self.mod_list.save_yml(paths.modlist_path()).owe_res()?;
         ensure_path(&paths.setting_path()).owe_res()?;
-        self.setting().save_local(&paths.setting_path())?;
+        self.setting().save_local(paths.setting_path())?;
 
         self.workflow
             .save_to(paths.workflow_path(), None)
@@ -127,7 +127,7 @@ impl SysModelSpec {
         let workflow = SysWorkflows::load_from(paths.workflow_path())
             .with(&ctx)
             .owe(SysReason::Load.into())?;
-        let setting = SysSetting::load_from(&paths.setting_path())?;
+        let setting = SysSetting::load_from(paths.setting_path())?;
         flag.mark_suc();
         Ok(Self {
             define,

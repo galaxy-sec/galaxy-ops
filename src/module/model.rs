@@ -44,7 +44,7 @@ impl MMOperator {
     fn build_used_value(
         &self,
         options: LocalizeOptions,
-        mod_value: &PathBuf,
+        mod_value: &Path,
     ) -> Result<OriginDict, StructError<MainReason>> {
         crate::project::mix_used_value(options, &self.vars, mod_value)
     }
