@@ -2,7 +2,9 @@ use orion_conf::{Configable, error::SerdeResult};
 use orion_error::{ContextRecord, OperationContext};
 
 use super::prelude::*;
+use crate::localize::{LocalizeTemplate, TemplateConfig};
 use crate::predule::*;
+use crate::system::setting::Setting;
 use crate::{
     artifact::ArtifactPackage,
     const_vars::{
@@ -14,12 +16,7 @@ use crate::{
 };
 use std::{fs::read_to_string, str::FromStr};
 
-use super::{
-    ModelSTD,
-    depend::DependencySet,
-    localize::LocalizeTemplate,
-    setting::{Setting, TemplateConfig},
-};
+use super::{ModelSTD, depend::DependencySet};
 
 #[derive(Getters, Clone, Debug, Serialize)]
 #[getset(get = "pub")]

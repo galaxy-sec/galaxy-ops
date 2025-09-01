@@ -1,5 +1,6 @@
 use super::prelude::*;
 use crate::conf::{ConfFile, ConfSpec};
+use crate::system::setting::Setting;
 use crate::workflow::prj::GxlProject;
 use orion_conf::Yamlable;
 
@@ -20,7 +21,6 @@ use super::{
     depend::DependencySet,
     init::{ModIniter, ModPrjIniter, mod_init_gitignore},
     model::MMOperator,
-    setting::Setting,
 };
 use crate::types::{Accessor, LocalizeOptions, ModuleLocalizable, RefUpdateable};
 

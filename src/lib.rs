@@ -9,7 +9,7 @@ pub mod workflow;
 pub mod tools;
 pub mod accessor;
 pub mod infra;
-pub mod local;
+pub mod localize;
 pub mod ops_prj;
 pub mod predule;
 pub mod project;

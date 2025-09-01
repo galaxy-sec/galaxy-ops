@@ -1,11 +1,9 @@
 pub mod depend;
 pub mod init;
-pub mod localize;
 pub mod model;
 pub mod operator;
 mod prelude;
 pub mod refs;
-pub mod setting;
 pub mod spec;
 
 use crate::predule::*;
