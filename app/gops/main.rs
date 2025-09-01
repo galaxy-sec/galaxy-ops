@@ -122,15 +122,6 @@ mod tests {
             ],
             vec![
                 "gops",
-                "prj",
-                "setting",
-                "--debug",
-                "1",
-                "--log",
-                "setting=debug",
-            ],
-            vec![
-                "gops",
                 "mod",
                 "localize",
                 "--debug",
