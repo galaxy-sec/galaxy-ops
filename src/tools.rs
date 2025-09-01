@@ -1,5 +1,3 @@
-use crate::predule::*;
-
 use std::path::PathBuf;
 use url::Url;
 

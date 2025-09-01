@@ -47,10 +47,6 @@ impl SystemPackageInstaller {
         self
     }
 
-    pub fn work_paths(&self) -> &PackageWorkingPaths {
-        &self.work_paths
-    }
-
     pub fn prepare_package(&self, package: PackageType) -> MainResult<PathBuf> {
         match package {
             PackageType::Bin(bin_package) => {
