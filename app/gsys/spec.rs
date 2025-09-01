@@ -158,7 +158,6 @@ mod tests {
         spec::{do_sys_cmd, ia_model_std},
     };
 
-    use super::test_utils::setup_test_env;
     use galaxy_ops::{infra::configure_dfx_logging, module::ModelSTD};
     // use super::*; // Not needed, using explicit imports
     use tempfile::tempdir;

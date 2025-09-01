@@ -63,7 +63,6 @@ pub struct BinPackage {
 
 #[cfg(test)]
 mod tests {
-
     use home::home_dir;
 
     use orion_variate::addr::{GitRepository, HttpResource};

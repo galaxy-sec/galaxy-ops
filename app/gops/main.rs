@@ -1,7 +1,6 @@
-mod commands;
-
 extern crate clap;
 extern crate log;
+mod commands;
 
 use clap::Parser;
 use commands::{CommandDispatcher, GInsCmd};

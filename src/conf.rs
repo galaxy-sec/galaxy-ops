@@ -150,7 +150,6 @@ impl RefUpdateable<UpdateUnit> for ConfSpec {
 
 #[cfg(test)]
 mod tests {
-
     use crate::accessor::accessor_for_test;
 
     use super::*;

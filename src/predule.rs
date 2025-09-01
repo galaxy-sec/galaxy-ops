@@ -32,9 +32,9 @@ pub use orion_infra::auto_exit_log;
 pub use orion_infra::path::{PathResult, ensure_path, make_clean_path};
 pub use orion_variate::update::DownloadOptions;
 
+pub use orion_variate::addr::accessor::UniversalAccessor;
 // 常用类型和trait
 pub use orion_variate::addr::Address;
-pub use orion_variate::addr::accessor::UniversalAccessor;
 pub use orion_variate::types::ResourceDownloader;
 pub use orion_variate::vars::{
     EnvDict, EnvEvalable, OriginDict, ValueDict, VarCollection, VarDefinition,
