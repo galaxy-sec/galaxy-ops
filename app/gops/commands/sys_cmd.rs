@@ -298,7 +298,7 @@ mod tests {
 
         assert_eq!(args.debug_level(), 2);
         assert_eq!(args.log_setting(), Some("info".to_string()));
-        assert_eq!(args.force, false);
+        assert!(!args.force);
     }
 
     #[test]

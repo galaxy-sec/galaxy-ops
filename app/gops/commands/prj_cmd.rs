@@ -37,20 +37,6 @@ pub struct PrjUpdateArgs {
     pub force: ForceArgs,
 }
 
-#[derive(Debug, Args, Getters)]
-pub struct PrjSettingArgs {
-    #[clap(flatten)]
-    pub debug_log: DebugLogArgs,
-
-    #[arg(
-        short = 'i',
-        long = "interactive",
-        default_value = "false",
-        help = "启用交互模式设定变量值 (Enable interactive mode to set variable values)"
-    )]
-    pub interactive: bool,
-}
-
 #[derive(Debug, Parser)]
 pub enum PrjCmd {
     #[command(about = "创建维护工程 (Create Maintenance Project)")]
@@ -59,8 +45,6 @@ pub enum PrjCmd {
     Import(PrjImportArgs),
     #[command(about = "维护工程 (Maintain Project)")]
     Update(PrjUpdateArgs),
-    #[command(about = "工程设置 (Project Settings)")]
-    Setting(PrjSettingArgs),
 }
 
 impl DfxArgsGetter for PrjNewArgs {
@@ -82,15 +66,6 @@ impl DfxArgsGetter for PrjImportArgs {
 }
 
 impl DfxArgsGetter for PrjUpdateArgs {
-    fn debug_level(&self) -> usize {
-        self.debug_log.debug_level()
-    }
-    fn log_setting(&self) -> Option<String> {
-        self.debug_log.log_setting()
-    }
-}
-
-impl DfxArgsGetter for PrjSettingArgs {
     fn debug_level(&self) -> usize {
         self.debug_log.debug_level()
     }
@@ -139,20 +114,11 @@ impl PrjCommandHandler {
         Ok(())
     }
 
-    pub async fn handle_setting(args: PrjSettingArgs) -> MainResult<()> {
-        galaxy_ops::infra::configure_dfx_logging(&args);
-        let current_dir = std::env::current_dir().owe_res()?;
-        let prj = OpsProject::load(&current_dir).err_conv()?;
-        prj.ia_setting(*args.interactive())?;
-        Ok(())
-    }
-
     pub async fn execute(cmd: PrjCmd) -> MainResult<()> {
         match cmd {
             PrjCmd::New(args) => Self::handle_new(args).await,
             PrjCmd::Import(args) => Self::handle_import(args).await,
             PrjCmd::Update(args) => Self::handle_update(args).await,
-            PrjCmd::Setting(args) => Self::handle_setting(args).await,
         }
     }
 }
