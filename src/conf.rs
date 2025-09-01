@@ -1,21 +1,13 @@
 use super::predule::*;
-use std::{
-    fs,
-    path::{Path, PathBuf},
-};
 
 use crate::{
     const_vars::CONFS_DIR,
-    error::MainResult,
     types::{Accessor, RefUpdateable},
 };
-use async_trait::async_trait;
-use orion_conf::Configable;
 use orion_error::ErrorConv;
 use orion_variate::{
     addr::{Address, accessor::path_file_name},
     types::{ResourceDownloader, UpdateUnit},
-    update::DownloadOptions,
 };
 // 由于 `crate::tools::log_flag` 未定义，移除该导入
 #[derive(Clone, Debug, Getters, Deserialize, Serialize)]

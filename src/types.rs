@@ -1,18 +1,6 @@
-use std::{
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use super::predule::*;
 
-use async_trait::async_trait;
-use getset::Getters;
-use orion_infra::path::{PathResult, ensure_path};
-use orion_variate::{
-    addr::accessor::UniversalAccessor,
-    update::DownloadOptions,
-    vars::{EnvDict, EnvEvalable, OriginDict, VarCollection},
-};
-
-use crate::error::MainResult;
+use orion_variate::addr::accessor::UniversalAccessor;
 
 pub type AnyResult<T> = anyhow::Result<T>;
 #[derive(Clone)]

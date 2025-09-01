@@ -3,6 +3,7 @@ pub mod init;
 pub mod mod_list;
 pub mod operator;
 mod path;
+mod prelude;
 pub mod refs;
 pub mod setting;
 pub mod spec;

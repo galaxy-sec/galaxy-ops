@@ -1,6 +1,5 @@
 use orion_conf::{Configable, error::SerdeResult};
 use orion_error::{ContextRecord, OperationContext};
-use orion_variate::vars::VarToValue;
 
 use super::prelude::*;
 use crate::{
@@ -9,9 +8,10 @@ use crate::{
         DEFAULT_VALUE_FILE, LOCAL_DIR, MOD_VALUE_FILE, USED_JSON, USED_READABLE_FILE,
         USER_VALUE_FILE,
     },
+    error::ToErr,
     module::operator::ModValuePaths,
     predule::*,
-    types::{ModuleLocalizable, RefUpdateable, ValuePath},
+    types::{Accessor, ModuleLocalizable, RefUpdateable, ValuePath},
 };
 use std::{fs::read_to_string, str::FromStr};
 
@@ -47,24 +47,6 @@ impl MMOperator {
         mod_value: &Path,
     ) -> Result<OriginDict, StructError<MainReason>> {
         crate::project::mix_used_value(options, &self.vars, mod_value)
-    }
-
-    fn crate_mod_value_file(
-        &self,
-        value_paths: &TargetValuePaths,
-    ) -> Result<(), StructError<MainReason>> {
-        if !(value_paths.mod_value_file().exists() || value_paths.user_value_file().exists()) {
-            value_paths
-                .mod_value_file()
-                .parent()
-                .map(std::fs::create_dir_all);
-            let vars_dict = self.vars.module_vars().to_val();
-            vars_dict
-                .save_valconf(value_paths.mod_value_file())
-                .owe_res()?;
-            info!( target:"mod/target", "crate  value.yml at : {}" ,value_paths.mod_value_file().display() );
-        }
-        Ok(())
     }
 }
 

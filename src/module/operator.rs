@@ -1,28 +1,21 @@
+use super::prelude::*;
 use core::str;
-
-use getset::Getters;
-use orion_infra::path::{PathResult, ensure_path};
+use orion_infra::path::PathResult;
 use orion_variate::addr::HttpResource;
 use orion_variate::vars::VarToValue;
 
-use super::prelude::*;
 use crate::const_vars::{
     BITNAMI_COMMON_GIT_URL, MOD_PRJ_CONF_FILE_V1, MOD_PRJ_CONF_FILE_V2, MOD_PRJ_TEST_ROOT,
     MOD_VALUE_FILE, SYS_VALUE_FILE, USED_READABLE_FILE, VALUE_DIR,
 };
-use crate::error::ModReason;
 use crate::module::init::MOD_PRJ_ROOT_FILE;
-use crate::predule::*;
-use crate::types::{ModuleLocalizable, RefUpdateable};
+use crate::types::{Accessor, RefUpdateable};
 
 use super::init::{MOD_PRJ_ADM_GXL, MOD_PRJ_WORK_GXL, mod_init_gitignore};
-use crate::{
-    const_vars::MOD_OPERATORS_ROOT,
-    module::{
-        depend::{Dependency, DependencySet},
-        spec::ModuleSpec,
-    },
-    workflow::prj::GxlProject,
+use crate::const_vars::MOD_OPERATORS_ROOT;
+use crate::module::{
+    depend::{Dependency, DependencySet},
+    spec::ModuleSpec,
 };
 
 #[derive(Getters, Clone, Debug, Serialize, Deserialize)]

@@ -1,16 +1,7 @@
-use getset::Getters;
-use getset::Setters;
-use getset::WithSetters;
-use orion_error::ErrorOwe;
-use orion_variate::addr::AddrResult;
-use orion_variate::addr::Address;
-use orion_variate::types::ResourceDownloader;
-use orion_variate::types::UpdateUnit;
-use orion_variate::update::DownloadOptions;
-use serde_derive::{Deserialize, Serialize};
-use std::path::Path;
-
+use crate::predule::*;
 use crate::types::Accessor;
+use orion_variate::addr::AddrResult;
+use orion_variate::types::{ResourceDownloader, UpdateUnit};
 
 #[derive(Getters, Clone, Debug, Deserialize, Serialize, Setters, WithSetters)]
 #[getset(get = "pub")]

@@ -1,12 +1,7 @@
 use super::prelude::*;
 use crate::conf::{ConfFile, ConfSpec};
-use crate::module::operator::ModValuePaths;
-use crate::predule::*;
-
-use crate::{
-    const_vars::{CONFS_DIR, MOD_DIR},
-    workflow::prj::GxlProject,
-};
+use crate::workflow::prj::GxlProject;
+use orion_conf::Yamlable;
 
 // 常量定义
 const POSTGRESQL_URL: &str = "https://mirrors.aliyun.com/postgresql/latest/postgresql-17.4.tar.gz";
@@ -16,12 +11,9 @@ const POSTGRESQL_README_URL: &str = "https://mirrors.aliyun.com/postgresql/READM
 const POSTGRESQL_ARCHIVE: &str = "postgresql-17.4.tar.gz";
 const POSTGRESQL_MD5_ARCHIVE: &str = "postgresql-17.4.tar.gz.md5";
 use crate::artifact::{Artifact, ArtifactPackage};
-use async_trait::async_trait;
-use getset::Getters;
 use indexmap::IndexMap;
-use orion_conf::Yamlable;
 use orion_conf::error::SerdeResult;
-use orion_variate::{addr::HttpResource, vars::VarDefinition};
+use orion_variate::addr::HttpResource;
 
 use super::{
     CpuArch, ModelSTD, OsCPE, RunSPC,
@@ -30,7 +22,7 @@ use super::{
     model::MMOperator,
     setting::Setting,
 };
-use crate::types::{LocalizeOptions, ModuleLocalizable};
+use crate::types::{Accessor, LocalizeOptions, ModuleLocalizable, RefUpdateable};
 
 #[derive(Getters, Clone, Debug)]
 #[getset(get = "pub")]

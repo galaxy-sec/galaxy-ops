@@ -1,16 +1,12 @@
 use super::prelude::*;
-use crate::error::ModReason;
-use crate::module::operator::ModValuePaths;
-use crate::predule::*;
 
 use orion_error::UvsLogicFrom;
 use orion_variate::types::ResourceDownloader;
 
 use super::ModelSTD;
-use crate::types::{
-    LocalizeOptions, ModuleLocalizable, RefUpdateable, SystemLocalizable, ValuePath,
-};
-use crate::{const_vars::MOD_DIR, error::MainResult, module::model::MMOperator};
+use crate::error::ToErr;
+use crate::types::{Accessor, RefUpdateable, SystemLocalizable};
+use crate::{const_vars::MOD_DIR, module::model::MMOperator};
 
 #[derive(Getters, Clone, Debug, Serialize, Deserialize)]
 #[getset(get = "pub")]

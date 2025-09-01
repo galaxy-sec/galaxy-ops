@@ -1,4 +1,8 @@
 module:
+  - name: desp
+    value: |
+      this is galaxy ops tools
+      hope you can join us!!!
   - name: beta_ver
     value: "v0.12.6-beta"
   - name: use_ver

@@ -1,25 +1,12 @@
-use crate::const_vars::OPS_PRJ_ROOT;
-use crate::error::OpsReason;
-use crate::ops_prj::path::ProjectPath;
-use crate::ops_prj::system::{OpsSystem, OpsTarget};
-use crate::predule::*;
+use super::prelude::*;
 
-use crate::{error::MainResult, module::depend::DependencySet, workflow::prj::GxlProject};
+use crate::module::depend::DependencySet;
 const OPS_PRJ_WORK: &str = include_str!("init/_gal/work.gxl");
 const OPS_PRJ_ADM: &str = include_str!("init/_gal/adm.gxl");
 pub const OPS_PRJ_FILE: &str = "ops-prj.yml";
 pub const PRJ_OPS_TARGET: &str = "ops-systems.yml";
 
-use crate::types::{Accessor, InsUpdateable, ValuePath};
-use async_trait::async_trait;
-use getset::MutGetters;
-use orion_conf::{Configable, Persistable};
-use orion_infra::auto_exit_log;
-use orion_infra::path::make_clean_path;
-use orion_variate::update::DownloadOptions;
-
-use super::conf::ProjectConf;
-use super::init::workins_init_gitignore;
+use crate::types::Accessor;
 
 #[derive(Getters, Clone, Debug, MutGetters)]
 #[getset(get = "pub")]
