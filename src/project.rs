@@ -81,12 +81,14 @@ pub fn mix_used_value(
     global.set_source("global");
     used.merge(&mod_dict);
     used.merge(&global);
-    let used = used.clone().env_eval(&EnvDict::default());
+    let used = used.env_eval(&EnvDict::default());
     Ok(used)
 }
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
     use crate::const_vars::USER_VALUE_FILE;
 
     use super::*;
@@ -301,26 +303,27 @@ mod tests {
         }
     }
 
-    // TODO: 修复这个测试 - 需要实现"use_default_value_flag"功能
-    // #[test]
-    // fn test_use_default_value_flag() {
-    //     test_init();
-    //     let temp_dir = tempdir().unwrap();
-    //     let user_value_path = temp_dir.path().join(USER_VALUE_FILE);
-    //     std::fs::write(&user_value_path, "TEST_KEY: user_value").unwrap();
+    #[test]
+    fn test_use_ver_final_answer() {
+        test_init();
 
-    //     let vars = VarCollection::define(vec![VarDefinition::from(("TEST_KEY", "default_value"))]);
-    //     let options = LocalizeOptions::new(OriginDict::new());
-    //     let mod_value_path = temp_dir.path().join(MOD_VALUE_FILE);
-    //     // 创建空的 mod_value.yml 文件
-    //     std::fs::write(&mod_value_path, "").unwrap();
+        let temp_dir = tempdir().unwrap();
+        let mod_value_path = temp_dir.path().join(MOD_VALUE_FILE);
 
-    //     let result = mix_used_value(options, &vars, &mod_value_path).unwrap();
-    //     assert_eq!(
-    //         result.get("TEST_KEY"),
-    //         Some(&OriginValue::from("default_value").with_origin("mod-default"))
-    //     );
-    // }
+        let vars = VarCollection::from_yml(&PathBuf::from("./src/data/vars.yml")).assert();
+        //let mut global_dict = OriginDict::from(vars);
+        // 创建 mod_value.yml 文件，使用给定的输入数据（扁平结构）
+        let mod_value_content = r#"
+"#;
+        std::fs::write(&mod_value_path, mod_value_content).unwrap();
+
+        let options = LocalizeOptions::new(OriginDict::new());
+        let result = mix_used_value(options.clone(), &vars, &mod_value_path).unwrap();
+
+        // 验证：没有环境变量时，use_ver 保持原样
+        let use_ver_result = result.ucase_get("use_ver").assert();
+        assert_eq!(use_ver_result.value(), &ValueType::from("v0.12.6-beta"));
+    }
 
     #[test]
     fn test_global_value_override_precedence() {

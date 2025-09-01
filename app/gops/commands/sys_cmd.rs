@@ -4,8 +4,6 @@ use galaxy_ops::const_vars::{SETTING_DIR, VALUE_DIR};
 use galaxy_ops::error::MainResult;
 use galaxy_ops::infra::DfxArgsGetter;
 use galaxy_ops::module::ModelSTD;
-use galaxy_ops::module::setting::Setting;
-use galaxy_ops::project::load_sys_opr_value;
 use galaxy_ops::system::SysValuePaths;
 use galaxy_ops::system::operator::SysOperator;
 use galaxy_ops::system::setting::SysSetting;
@@ -17,7 +15,7 @@ use orion_infra::path::{ensure_path, make_new_path};
 use orion_variate::update::DownloadOptions;
 use orion_variate::vars::{OriginDict, ValueDict};
 
-use crate::commands::common::{DebugLogArgs, ForceArgs, LocalizeArgs};
+use crate::commands::common::{DebugLogArgs, LocalizeArgs};
 
 // === 参数定义 ===
 
@@ -36,8 +34,8 @@ pub struct SysUpdateArgs {
     #[clap(flatten)]
     pub debug_log: DebugLogArgs,
 
-    #[clap(flatten)]
-    pub force: ForceArgs,
+    #[arg(short, long, help = "update force", default_value = "false")]
+    pub force: bool,
 }
 
 #[derive(Debug, Args, Getters)]
@@ -165,7 +163,7 @@ impl SysCommandHandler {
         let current_dir = std::env::current_dir().expect("无法获取当前目录");
         galaxy_ops::infra::configure_dfx_logging(&args);
 
-        let options = DownloadOptions::from((*args.force.force(), ValueDict::default()));
+        let options = DownloadOptions::from((args.force, ValueDict::default()));
         let operator = SysOperator::load(&current_dir).err_conv()?;
         let accessor = galaxy_ops::accessor::accessor_for_default();
 
@@ -295,12 +293,12 @@ mod tests {
                 debug: 2,
                 log: Some("info".to_string()),
             },
-            force: ForceArgs { force: 1 },
+            force: false,
         };
 
         assert_eq!(args.debug_level(), 2);
         assert_eq!(args.log_setting(), Some("info".to_string()));
-        assert_eq!(*args.force.force(), 1);
+        assert_eq!(args.force, false);
     }
 
     #[test]
