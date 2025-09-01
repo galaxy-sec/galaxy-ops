@@ -1,5 +1,5 @@
 use super::prelude::*;
-use crate::error::{MainReason, ToErr};
+use crate::error::MainReason;
 
 use orion_error::{UvsLogicFrom, UvsReason};
 use orion_variate::{addr::Address, types::ResourceDownloader};

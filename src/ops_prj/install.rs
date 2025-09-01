@@ -1,6 +1,5 @@
 use super::prelude::*;
 
-use crate::error::ToErr;
 use crate::ops_prj::system::OpsTargetSystem;
 use fs_extra::dir::CopyOptions;
 use orion_variate::archive::decompress;

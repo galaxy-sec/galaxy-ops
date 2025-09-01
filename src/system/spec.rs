@@ -13,7 +13,7 @@ use orion_variate::vars::VarDefinition;
 
 use super::init::{SysIniter, sys_init_gitignore};
 use crate::{
-    error::{MainReason, MainResult, ToErr},
+    error::{MainReason, MainResult},
     module::{CpuArch, ModelSTD, OsCPE, RunSPC, refs::ModuleSpecRef, spec::ModuleSpec},
 };
 

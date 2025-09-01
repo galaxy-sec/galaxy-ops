@@ -4,7 +4,6 @@ use orion_error::UvsLogicFrom;
 use orion_variate::types::ResourceDownloader;
 
 use super::ModelSTD;
-use crate::error::ToErr;
 use crate::types::{Accessor, RefUpdateable, SystemLocalizable};
 use crate::{const_vars::MOD_DIR, module::model::MMOperator};
 
