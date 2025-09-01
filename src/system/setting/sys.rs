@@ -1,8 +1,10 @@
-use super::prelude::*;
+use crate::predule::*;
 
+use crate::system::SysValuePaths;
+use crate::types::{LocalizeOptions, SystemLocalizable};
 use crate::{
     const_vars::VARS_YML,
-    local::{LocalizeExecPath, LocalizeVarPath},
+    localize::{LocalizeExecPath, LocalizeVarPath},
     project::mix_used_value,
     types::ModuleLocalizable,
 };

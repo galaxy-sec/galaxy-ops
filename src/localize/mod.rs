@@ -1,0 +1,12 @@
+mod conf;
+mod exec;
+mod path;
+mod set;
+mod tpl_impl;
+mod tpl_path;
+pub use conf::TemplateConfig;
+pub use exec::LocalizeExecPath;
+pub use path::LocalizeVarPath;
+pub use set::LocalizeSet;
+pub use tpl_impl::LocalizeTemplate;
+pub use tpl_path::TemplatePath;

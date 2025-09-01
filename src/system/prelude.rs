@@ -10,12 +10,12 @@ pub use crate::const_vars::{SYS_MODEL_SPC_ROOT, VALUE_DIR};
 
 // system内部常用导入
 pub use orion_infra::auto_exit_log;
-pub use orion_variate::vars::{VarCollection, VarDefinition};
+pub use orion_variate::vars::VarCollection;
 
 pub use crate::system::{
     mod_list::ModulesList,
     path::{SysTargetPaths, SysValuePaths},
-    setting::{ModSetting, SysSetting},
+    setting::SysSetting,
 };
 
 pub use crate::types::{Accessor, InsUpdateable, RefUpdateable};
