@@ -1,5 +1,5 @@
 // 导入全局prelude
-pub use crate::predule::*;
+pub use crate::prelude::*;
 
 // module特定的导入
 pub use crate::error::{ElementReason, MainReason, ModReason};

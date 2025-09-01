@@ -1,7 +1,7 @@
 use orion_conf::Yamlable;
 use orion_variate::addr::{access_ctrl::serv::NetAccessCtrl, accessor::UniversalConfig};
 
-use crate::predule::*;
+use crate::prelude::*;
 use std::env::home_dir;
 
 use crate::const_vars::NET_ACCS_CTRL_FILE;

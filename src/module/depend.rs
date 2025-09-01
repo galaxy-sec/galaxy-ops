@@ -1,5 +1,5 @@
 use crate::{
-    predule::*,
+    prelude::*,
     types::{Accessor, RefUpdateable},
 };
 

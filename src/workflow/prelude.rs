@@ -1,5 +1,5 @@
 // 导入全局prelude
-pub use crate::predule::*;
+pub use crate::prelude::*;
 
 // workflow特定的导入
 pub use crate::const_vars::{ADM_GXL, PRJ_TOML};

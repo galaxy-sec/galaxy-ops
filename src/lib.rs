@@ -11,7 +11,7 @@ pub mod accessor;
 pub mod infra;
 pub mod localize;
 pub mod ops_prj;
-pub mod predule;
+pub mod prelude;
 pub mod project;
 pub mod types;
 //pub mod update;

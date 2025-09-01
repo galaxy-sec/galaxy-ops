@@ -1,6 +1,6 @@
 use crate::{
     localize::{TemplateConfig, TemplatePath},
-    predule::*,
+    prelude::*,
 };
 
 use orion_variate::vars::EnvEvalable;

@@ -1,7 +1,7 @@
 use crate::{
     error::{MainReason, ModReason},
     localize::{TemplateConfig, TemplatePath},
-    predule::*,
+    prelude::*,
 };
 
 use fs_extra::dir::CopyOptions;

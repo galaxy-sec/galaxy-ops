@@ -1,4 +1,4 @@
-use crate::predule::*;
+use crate::prelude::*;
 #[derive(Clone, Debug, Serialize, Deserialize, Getters)]
 #[getset(get = "pub")]
 pub struct TemplateConfig {

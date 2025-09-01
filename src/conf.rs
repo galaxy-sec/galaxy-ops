@@ -1,4 +1,4 @@
-use super::predule::*;
+use super::prelude::*;
 
 use crate::{
     const_vars::CONFS_DIR,

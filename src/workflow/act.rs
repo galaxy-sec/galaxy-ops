@@ -1,6 +1,9 @@
 use super::prelude::*;
 use derive_getters::Getters;
-use orion_conf::error::{SerdeReason, SerdeResult};
+use orion_conf::{
+    ErrorOwe,
+    error::{SerdeReason, SerdeResult},
+};
 use serde::Serialize;
 
 use crate::const_vars::WORKFLOWS_DIR;

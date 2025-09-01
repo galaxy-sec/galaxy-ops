@@ -265,7 +265,7 @@ pub fn make_mod_prj_testins(prj_path: &Path) -> MainResult<ModOperator> {
 pub mod tests {
     use crate::{
         accessor::accessor_for_test,
-        predule::*,
+        prelude::*,
         types::{LocalizeOptions, ModuleLocalizable, RefUpdateable},
     };
     use std::path::PathBuf;

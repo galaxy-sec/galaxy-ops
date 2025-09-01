@@ -6,7 +6,7 @@ mod prelude;
 pub mod refs;
 pub mod spec;
 
-use crate::predule::*;
+use crate::prelude::*;
 
 #[derive(Clone, Debug, Serialize, Deserialize, Display, PartialEq, Eq, Hash)]
 pub enum CpuArch {
