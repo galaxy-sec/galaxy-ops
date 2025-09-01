@@ -1,9 +1,8 @@
-use std::path::{Path, PathBuf};
-
-use derive_getters::Getters;
+use crate::predule::*;
 
 use glob::Pattern;
 #[derive(Default, Clone, Debug, Getters)]
+#[getset(get = "pub")]
 pub struct TemplatePath {
     includes: Vec<PathBuf>,
     excludes: Vec<PathBuf>,

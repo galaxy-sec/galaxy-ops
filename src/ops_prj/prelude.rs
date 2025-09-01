@@ -13,7 +13,7 @@ pub use crate::const_vars::{OPS_PRJ_CONF_FILE, OPS_PRJ_ROOT};
 
 // ops_prj内部常用导入
 pub use crate::ops_prj::conf::ProjectConf;
-pub use crate::ops_prj::init::{SysPrjIniter, WorkOperatsIniter, workins_init_gitignore};
+pub use crate::ops_prj::init::workins_init_gitignore;
 
 pub use orion_infra::auto_exit_log;
 pub use orion_infra::path::make_clean_path;

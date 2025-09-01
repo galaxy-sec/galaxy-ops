@@ -1,7 +1,5 @@
-use derive_more::From;
-use orion_error::{DomainReason, ErrorCode, StructError, StructErrorTrait, UvsReason, UvsResFrom};
-use orion_variate::addr::AddrReason;
-use serde_derive::Serialize;
+use crate::predule::*;
+
 use thiserror::Error;
 #[derive(Clone, Debug, Serialize, PartialEq, Error, From)]
 pub enum MainReason {
@@ -136,25 +134,6 @@ impl ErrorCode for MainReason {
     }
 }
 
-pub trait ToErr<R>
-where
-    R: DomainReason,
-{
-    fn to_err(self) -> StructError<R>;
-    fn err_result<T>(self) -> Result<T, StructError<R>>;
-}
-impl<R> ToErr<R> for R
-where
-    R: DomainReason,
-{
-    fn to_err(self) -> StructError<R> {
-        StructError::from(self)
-    }
-    fn err_result<T>(self) -> Result<T, StructError<R>> {
-        Err(StructError::from(self))
-    }
-}
-
 impl From<AddrReason> for MainReason {
     fn from(value: AddrReason) -> Self {
         match value {
@@ -253,9 +232,6 @@ pub fn report_error(e: StructError<MainReason>) {
         MainReason::Ops(e) => {
             println!("Operator Error: \n{e}");
         }
-    }
-    if let Some(pos) = e.position() {
-        println!("\n[POSITION]:\n{pos}",);
     }
     if let Some(detail) = e.detail() {
         println!("\n[DETAIL]:\n{detail}",);

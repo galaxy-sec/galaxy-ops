@@ -1,13 +1,8 @@
-use crate::predule::*;
-use crate::system::SysValuePaths;
-use std::{net::Ipv4Addr, path::PathBuf};
+use super::prelude::*;
+use std::net::Ipv4Addr;
 
-use crate::types::{
-    Accessor, LocalizeOptions, RefUpdateable, SysUpdateValue, SystemLocalizable, ValuePath,
-};
-use async_trait::async_trait;
+use crate::types::{SysUpdateValue, ValuePath};
 use derive_more::Deref;
-use orion_variate::update::DownloadOptions;
 use orion_variate::vars::{ValueDict, ValueType, VarCollection};
 
 use crate::error::MainResult;

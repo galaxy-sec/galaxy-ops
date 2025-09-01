@@ -1,11 +1,11 @@
-use derive_getters::Getters;
-use serde_derive::{Deserialize, Serialize};
+use crate::predule::*;
 
 use orion_variate::vars::EnvEvalable;
 
 use super::LocalizeConf;
 
 #[derive(Clone, Debug, Serialize, Deserialize, Getters, Default)]
+#[getset(get = "pub")]
 pub struct Setting {
     #[serde(skip_serializing_if = "Option::is_none", default)]
     localize: Option<LocalizeConf>,

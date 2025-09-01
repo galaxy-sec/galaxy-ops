@@ -1,19 +1,18 @@
-use std::path::Path;
-
-use derive_getters::Getters;
-use serde_derive::{Deserialize, Serialize};
+use crate::predule::*;
 
 use orion_variate::vars::EnvEvalable;
 
 use super::TemplatePath;
 
 #[derive(Clone, Debug, Serialize, Deserialize, Getters)]
+#[getset(get = "pub")]
 pub struct TemplateCustom {
     label_beg: String,
     label_end: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Getters)]
+#[getset(get = "pub")]
 pub struct TemplateConfig {
     origin: (String, String),
     target: (String, String),
@@ -29,6 +28,7 @@ impl From<TemplateCustom> for TemplateConfig {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Getters)]
+#[getset(get = "pub")]
 pub struct TemplateTargets {
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     includes: Vec<String>,

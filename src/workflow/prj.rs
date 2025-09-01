@@ -1,11 +1,8 @@
-use std::path::Path;
+use super::prelude::*;
 
 use derive_getters::Getters;
-use orion_conf::{Persistable, error::SerdeResult};
-use orion_error::{ErrorOwe, ErrorWith};
+use orion_conf::error::SerdeResult;
 use serde::Serialize;
-
-use crate::const_vars::{ADM_GXL, PRJ_TOML};
 
 #[derive(Getters, Clone, Debug, Default, Serialize)]
 pub struct GxlProject {

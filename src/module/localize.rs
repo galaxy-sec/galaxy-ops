@@ -1,16 +1,11 @@
-use std::path::{Path, PathBuf};
+use super::prelude::*;
 
 use fs_extra::dir::CopyOptions;
 use handlebars::Handlebars;
-use log::{debug, info};
-use orion_error::{ContextRecord, ErrorOwe, ErrorWith, UvsConfFrom, UvsResFrom, WithContext};
 use orion_variate::tpl::{CommentFmt, CustTmplLabel, LabelCoverter};
 use serde::Serialize;
 
-use crate::{
-    error::{MainReason, MainResult, ModReason, ToErr},
-    module::setting::TemplatePath,
-};
+use crate::module::setting::TemplatePath;
 
 use super::setting::TemplateConfig;
 
