@@ -233,9 +233,9 @@ pub mod tests {
     async fn test_sys_prj_example() -> MainResult<()> {
         test_init();
 
-        let prj_path = PathBuf::from(SYS_OPERATORS_ROOT).join("example_sys2");
+        let prj_path = PathBuf::from(SYS_OPERATORS_ROOT).join("example_sys_y");
         make_clean_path(&prj_path).owe_logic()?;
-        let project = make_sys_prj_testins(&prj_path).assert("make cust");
+        let project = make_sys_operator(&prj_path).assert("make cust");
         project.save().assert("save dss_prj");
         let project = SysOperator::load(&prj_path).assert("dss-project");
         let accessor = accessor_for_test();
@@ -255,8 +255,8 @@ pub mod tests {
         Ok(())
     }
 
-    fn make_sys_prj_testins(prj_path: &Path) -> MainResult<SysOperator> {
-        let mod_spec = SysModelSpec::for_example("exmaple_sys2")?;
+    fn make_sys_operator(prj_path: &Path) -> MainResult<SysOperator> {
+        let mod_spec = SysModelSpec::for_example("exmaple_sys_2")?;
         let mut res = DependencySet::default();
         res.push(
             Dependency::new(

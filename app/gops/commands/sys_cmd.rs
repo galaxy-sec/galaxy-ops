@@ -1,21 +1,21 @@
 use clap::{Args, Parser};
 use derive_getters::Getters;
-use galaxy_ops::const_vars::VALUE_DIR;
+use galaxy_ops::const_vars::{SETTING_DIR, VALUE_DIR};
 use galaxy_ops::error::MainResult;
 use galaxy_ops::infra::DfxArgsGetter;
 use galaxy_ops::module::ModelSTD;
-use galaxy_ops::project::load_sys_opr_value;
 use galaxy_ops::system::SysValuePaths;
 use galaxy_ops::system::operator::SysOperator;
+use galaxy_ops::system::setting::SysSetting;
 use galaxy_ops::types::{LocalizeOptions, RefUpdateable};
 use inquire::Select;
 use orion_conf::Yamlable;
 use orion_error::{ErrorConv, ErrorOwe};
-use orion_infra::path::make_new_path;
+use orion_infra::path::{ensure_path, make_new_path};
 use orion_variate::update::DownloadOptions;
 use orion_variate::vars::{OriginDict, ValueDict};
 
-use crate::commands::common::{DebugLogArgs, ForceArgs, LocalizeArgs};
+use crate::commands::common::{DebugLogArgs, LocalizeArgs};
 
 // === 参数定义 ===
 
@@ -34,8 +34,8 @@ pub struct SysUpdateArgs {
     #[clap(flatten)]
     pub debug_log: DebugLogArgs,
 
-    #[clap(flatten)]
-    pub force: ForceArgs,
+    #[arg(short, long, help = "update force", default_value = "false")]
+    pub force: bool,
 }
 
 #[derive(Debug, Args, Getters)]
@@ -45,6 +45,12 @@ pub struct SysLocalizeArgs {
 
     #[clap(flatten)]
     pub localize: LocalizeArgs,
+}
+
+#[derive(Debug, Args, Getters)]
+pub struct SysSettingArgs {
+    #[arg(long, help = "init sys setting")]
+    pub init: bool,
 }
 
 #[derive(Debug, Parser)]
@@ -72,6 +78,10 @@ pub enum SysCmd {
                      Generate localized configuration files for the system based on environment-specific values. Useful for adapting system configurations to different deployment environments."
     )]
     Localize(SysLocalizeArgs),
+
+    /// 为环境本地化系统配置 (Localize System Configuration for Environment)
+    #[command(about = "")]
+    Setting(SysSettingArgs),
 }
 
 // === DfxArgsGetter 实现 ===
@@ -153,7 +163,7 @@ impl SysCommandHandler {
         let current_dir = std::env::current_dir().expect("无法获取当前目录");
         galaxy_ops::infra::configure_dfx_logging(&args);
 
-        let options = DownloadOptions::from((*args.force.force(), ValueDict::default()));
+        let options = DownloadOptions::from((args.force, ValueDict::default()));
         let operator = SysOperator::load(&current_dir).err_conv()?;
         let accessor = galaxy_ops::accessor::accessor_for_default();
 
@@ -178,11 +188,22 @@ impl SysCommandHandler {
         Ok(())
     }
 
+    pub async fn handle_setting(args: SysSettingArgs) -> MainResult<()> {
+        let current_dir = std::env::current_dir().expect("无法获取当前目录");
+        if args.init {
+            let setting = SysSetting::example();
+            let setting_path = ensure_path(current_dir.join("sys").join(SETTING_DIR)).owe_res()?;
+            setting.save_local(&setting_path)?;
+        }
+        Ok(())
+    }
+
     pub async fn execute(cmd: SysCmd) -> MainResult<()> {
         match cmd {
             SysCmd::New(args) => Self::handle_new(args).await,
             SysCmd::Update(args) => Self::handle_update(args).await,
             SysCmd::Localize(args) => Self::handle_localize(args).await,
+            SysCmd::Setting(args) => Self::handle_setting(args).await,
         }
     }
 }
@@ -272,12 +293,12 @@ mod tests {
                 debug: 2,
                 log: Some("info".to_string()),
             },
-            force: ForceArgs { force: 1 },
+            force: false,
         };
 
         assert_eq!(args.debug_level(), 2);
         assert_eq!(args.log_setting(), Some("info".to_string()));
-        assert_eq!(*args.force.force(), 1);
+        assert_eq!(args.force, false);
     }
 
     #[test]

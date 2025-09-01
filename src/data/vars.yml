@@ -1,0 +1,5 @@
+module:
+  - name: beta_ver
+    value: "v0.12.6-beta"
+  - name: use_ver
+    value: ${BETA_VER}

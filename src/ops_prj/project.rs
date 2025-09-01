@@ -225,11 +225,11 @@ system:
         assert!(value_file.exists());
         let updated_vals = ValueDict::from_conf(&value_file).unwrap();
         assert_eq!(
-            updated_vals.get("test_var").unwrap().to_string(),
+            updated_vals.ucase_get("test_var").unwrap().to_string(),
             "default_value"
         );
         assert_eq!(
-            updated_vals.get("immutable_var").unwrap().to_string(),
+            updated_vals.ucase_get("immutable_var").unwrap().to_string(),
             "immutable_value"
         );
     }

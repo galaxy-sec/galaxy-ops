@@ -1,12 +1,10 @@
 use super::prelude::*;
 use crate::error::ModReason;
-use crate::local::{LocalizeExecPath, LocalizeVarPath};
 use crate::module::operator::ModValuePaths;
 use crate::predule::*;
 
 use orion_error::UvsLogicFrom;
 use orion_variate::types::ResourceDownloader;
-use orion_variate::vars::EnvEvalable;
 
 use super::ModelSTD;
 use crate::types::{
