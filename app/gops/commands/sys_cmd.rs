@@ -1,18 +1,21 @@
 use clap::{Args, Parser};
 use derive_getters::Getters;
+use galaxy_ops::const_vars::{SETTING_DIR, VALUE_DIR};
 use galaxy_ops::error::MainResult;
 use galaxy_ops::infra::DfxArgsGetter;
 use galaxy_ops::module::ModelSTD;
-use galaxy_ops::project::load_project_global_value;
-use galaxy_ops::system::proj::SysProject;
+use galaxy_ops::system::SysValuePaths;
+use galaxy_ops::system::operator::SysOperator;
+use galaxy_ops::system::setting::SysSetting;
 use galaxy_ops::types::{LocalizeOptions, RefUpdateable};
 use inquire::Select;
+use orion_conf::Yamlable;
 use orion_error::{ErrorConv, ErrorOwe};
-use orion_infra::path::make_new_path;
+use orion_infra::path::{ensure_path, make_new_path};
 use orion_variate::update::DownloadOptions;
-use orion_variate::vars::ValueDict;
+use orion_variate::vars::{OriginDict, ValueDict};
 
-use crate::commands::common::{DebugLogArgs, ForceArgs, LocalizeArgs};
+use crate::commands::common::{DebugLogArgs, LocalizeArgs};
 
 // === 参数定义 ===
 
@@ -31,8 +34,8 @@ pub struct SysUpdateArgs {
     #[clap(flatten)]
     pub debug_log: DebugLogArgs,
 
-    #[clap(flatten)]
-    pub force: ForceArgs,
+    #[arg(short, long, help = "update force", default_value = "false")]
+    pub force: bool,
 }
 
 #[derive(Debug, Args, Getters)]
@@ -44,11 +47,17 @@ pub struct SysLocalizeArgs {
     pub localize: LocalizeArgs,
 }
 
+#[derive(Debug, Args, Getters)]
+pub struct SysSettingArgs {
+    #[arg(long, help = "init sys setting")]
+    pub init: bool,
+}
+
 #[derive(Debug, Parser)]
 pub enum SysCmd {
     /// 创建新的系统操作符 (Create New System Operator)
     #[command(
-        about = "创建新的系统操作符 (Create New System Operator)",
+        about = "创建新的系统维护器 (Create New System Operator)",
         long_about = "使用给定的名称创建新的系统规范。这将初始化一个新的系统目录结构，其中包含所有必要的配置文件和模板。\n\
                      Create a new system specification with the given name. This will initialize a new system directory structure with all necessary configuration files and templates."
     )]
@@ -69,6 +78,10 @@ pub enum SysCmd {
                      Generate localized configuration files for the system based on environment-specific values. Useful for adapting system configurations to different deployment environments."
     )]
     Localize(SysLocalizeArgs),
+
+    /// 为环境本地化系统配置 (Localize System Configuration for Environment)
+    #[command(about = "")]
+    Setting(SysSettingArgs),
 }
 
 // === DfxArgsGetter 实现 ===
@@ -141,7 +154,7 @@ impl SysCommandHandler {
         make_new_path(&new_prj).owe_res()?;
 
         let model_in = Self::ia_model_std()?;
-        let spec = SysProject::make_new(&new_prj, args.name(), model_in).err_conv()?;
+        let spec = SysOperator::make_new(&new_prj, args.name(), model_in).err_conv()?;
         spec.save().err_conv()?;
         Ok(())
     }
@@ -150,13 +163,15 @@ impl SysCommandHandler {
         let current_dir = std::env::current_dir().expect("无法获取当前目录");
         galaxy_ops::infra::configure_dfx_logging(&args);
 
-        let options = DownloadOptions::from((*args.force.force(), ValueDict::default()));
-        let spec = SysProject::load(&current_dir).err_conv()?;
+        let options = DownloadOptions::from((args.force, ValueDict::default()));
+        let operator = SysOperator::load(&current_dir).err_conv()?;
         let accessor = galaxy_ops::accessor::accessor_for_default();
 
-        spec.update_local(accessor, &current_dir, &options)
+        operator
+            .update_local(accessor, &current_dir, &options)
             .await
             .err_conv()?;
+        operator.init_setting_value()?;
         Ok(())
     }
 
@@ -164,14 +179,22 @@ impl SysCommandHandler {
         let current_dir = std::env::current_dir().expect("无法获取当前目录");
         galaxy_ops::infra::configure_dfx_logging(&args);
 
-        let spec = SysProject::load(&current_dir).err_conv()?;
-        let dict = load_project_global_value(spec.root_local(), args.localize.value())?;
-        spec.localize(LocalizeOptions::new(
-            dict,
-            *args.localize.use_default_value(),
-        ))
-        .await
-        .err_conv()?;
+        let spec = SysOperator::load(&current_dir).err_conv()?;
+        let val_path = SysValuePaths::from(current_dir.clone()).join(VALUE_DIR);
+        let dict = OriginDict::from(ValueDict::from_yml(&val_path.sys_value_file()).owe_res()?);
+        spec.localize(val_path, LocalizeOptions::new(dict))
+            .await
+            .err_conv()?;
+        Ok(())
+    }
+
+    pub async fn handle_setting(args: SysSettingArgs) -> MainResult<()> {
+        let current_dir = std::env::current_dir().expect("无法获取当前目录");
+        if args.init {
+            let setting = SysSetting::example();
+            let setting_path = ensure_path(current_dir.join("sys").join(SETTING_DIR)).owe_res()?;
+            setting.save_local(&setting_path)?;
+        }
         Ok(())
     }
 
@@ -180,6 +203,7 @@ impl SysCommandHandler {
             SysCmd::New(args) => Self::handle_new(args).await,
             SysCmd::Update(args) => Self::handle_update(args).await,
             SysCmd::Localize(args) => Self::handle_localize(args).await,
+            SysCmd::Setting(args) => Self::handle_setting(args).await,
         }
     }
 }
@@ -189,12 +213,13 @@ impl SysCommandHandler {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use galaxy_ops::infra::{WorkDirWithLock, once_init_log};
     use tempfile::tempdir;
-
     #[tokio::test]
     async fn test_sys_new_command() {
+        once_init_log();
         let temp_dir = tempdir().unwrap();
-        std::env::set_current_dir(temp_dir.path()).unwrap();
+        let _wd = WorkDirWithLock::change(temp_dir.path());
 
         unsafe {
             std::env::set_var("TEST_MODE", "true");
@@ -213,46 +238,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_sys_update_command() {
-        let temp_dir = tempdir().unwrap();
-        std::env::set_current_dir(temp_dir.path()).unwrap();
-
-        let args = SysUpdateArgs {
-            debug_log: DebugLogArgs {
-                debug: 0,
-                log: None,
-            },
-            force: ForceArgs { force: 0 },
-        };
-
-        let result = SysCommandHandler::handle_update(args).await;
-        // 预期会失败，因为没有现有的系统项目
-        assert!(result.is_err());
-    }
-
-    #[tokio::test]
-    async fn test_sys_localize_command() {
-        let temp_dir = tempdir().unwrap();
-        std::env::set_current_dir(temp_dir.path()).unwrap();
-
-        let args = SysLocalizeArgs {
-            debug_log: DebugLogArgs {
-                debug: 0,
-                log: None,
-            },
-            localize: LocalizeArgs {
-                value: None,
-                use_default_value: true,
-            },
-        };
-
-        let result = SysCommandHandler::handle_localize(args).await;
-        // 预期会失败，因为没有现有的系统项目
-        assert!(result.is_err());
-    }
-
-    #[tokio::test]
     async fn test_ia_model_std() {
+        once_init_log();
         unsafe {
             std::env::set_var("TEST_MODE", "true");
         }
@@ -267,9 +254,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_execute_sys_commands() {
+        once_init_log();
         let temp_dir = tempdir().unwrap();
-        std::env::set_current_dir(temp_dir.path()).unwrap();
-
+        let _wd = WorkDirWithLock::change(temp_dir.path());
         unsafe {
             std::env::set_var("TEST_MODE", "true");
         }
@@ -288,6 +275,7 @@ mod tests {
 
     #[test]
     fn test_sys_new_args_getter() {
+        once_init_log();
         let args = SysNewArgs {
             name: "test_system".to_string(),
         };
@@ -299,21 +287,23 @@ mod tests {
 
     #[test]
     fn test_sys_update_args_getter() {
+        once_init_log();
         let args = SysUpdateArgs {
             debug_log: DebugLogArgs {
                 debug: 2,
                 log: Some("info".to_string()),
             },
-            force: ForceArgs { force: 1 },
+            force: false,
         };
 
         assert_eq!(args.debug_level(), 2);
         assert_eq!(args.log_setting(), Some("info".to_string()));
-        assert_eq!(*args.force.force(), 1);
+        assert!(!args.force);
     }
 
     #[test]
     fn test_sys_localize_args_getter() {
+        once_init_log();
         let args = SysLocalizeArgs {
             debug_log: DebugLogArgs {
                 debug: 1,

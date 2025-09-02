@@ -1,5 +1,8 @@
 pub mod conf;
 pub mod import;
 pub mod init;
-pub mod proj;
+mod install;
+mod path;
+mod prelude;
+pub mod project;
 pub mod system;

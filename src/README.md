@@ -13,24 +13,24 @@ graph TD
     A --> C[业务模块层]
     A --> D[数据类型层]
     A --> E[工具层]
-    
+
     B --> B1[types.rs - 核心类型]
     B --> B2[error.rs - 错误处理]
     B --> B3[const_vars.rs - 常量定义]
     B --> B4[tools.rs - 工具宏]
-    
+
     C --> C1[module/ - 模块管理]
     C --> C2[system/ - 系统管理]
     C --> C3[workflow/ - 工作流引擎]
     C --> C4[package/ - 包管理]
     C --> C5[ops_prj/ - 运维项目]
     C --> C6[app_sys/ - 应用系统]
-    
+
     D --> D1[artifact.rs - 构建产物]
     D --> D2[resource.rs - 资源配置]
     D --> D3[software.rs - 软件包]
     D --> D4[spec.rs - 规范定义]
-    
+
     E --> E1[conf.rs - 配置管理]
     E --> E2[infra.rs - 基础设施]
     E --> E3[predule.rs - 预导入]
@@ -98,7 +98,7 @@ let value_path = ValuePath::new("/path/to/config");
 ```
 
 ## 依赖关系
-- orion_common: 通用工具库
+- orion_conf: 通用工具库
 - orion_infra: 基础设施库
 - orion_variate: 变量管理库
 - serde: 序列化/反序列化

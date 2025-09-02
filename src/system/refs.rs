@@ -1,15 +1,8 @@
-use crate::{
-    error::{MainReason, SysReason, ToErr},
-    predule::*,
-    types::{Accessor, InsUpdateable, Localizable, LocalizeOptions, RefUpdateable, ValuePath},
-};
+use super::prelude::*;
+use crate::error::MainReason;
 
-use async_trait::async_trait;
 use orion_error::{UvsLogicFrom, UvsReason};
-use orion_infra::auto_exit_log;
-use orion_variate::{addr::Address, types::ResourceDownloader, update::DownloadOptions};
-
-use crate::error::MainResult;
+use orion_variate::{addr::Address, types::ResourceDownloader};
 
 use super::spec::SysModelSpec;
 
@@ -28,6 +21,7 @@ fn convert_syspec_addr(origin: Address) -> Address {
 }
 
 #[derive(Getters, Clone, Debug, Serialize, Deserialize)]
+#[getset(get = "pub")]
 pub struct SysModelSpecRef {
     name: String,
     addr: Address,
@@ -97,17 +91,17 @@ impl InsUpdateable<SysModelSpecRef> for SysModelSpecRef {
 }
 
 #[async_trait]
-impl Localizable for SysModelSpecRef {
-    async fn localize(
+impl SystemLocalizable<SysValuePaths> for SysModelSpecRef {
+    async fn sys_localize(
         &self,
-        dst_path: Option<ValuePath>,
+        val_path: SysValuePaths,
         options: LocalizeOptions,
     ) -> MainResult<()> {
         if let Some(spec) = &self.spec {
-            spec.localize(dst_path, options).await?;
+            spec.sys_localize(val_path, options).await?;
             Ok(())
         } else {
-            MainReason::from(UvsReason::from_logic("miss spec from spec-ref".into())).err_result()
+            MainReason::from(UvsReason::from_logic("miss spec from spec-ref")).err_result()
         }
     }
 }

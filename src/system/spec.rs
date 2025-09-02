@@ -1,33 +1,20 @@
-use crate::{
-    error::SysReason,
-    local::LocalizeVarPath,
-    predule::*,
-    system::path::SysTargetPaths,
-    types::{Accessor, RefUpdateable, ValuePath},
-};
-use std::path::{Path, PathBuf};
+use super::prelude::*;
 
 use crate::{
-    const_vars::MODULES_SPC_ROOT, error::ElementReason, module::proj::ModProject,
-    types::Localizable, workflow::act::SysWorkflows,
+    const_vars::{MOD_OPERATORS_ROOT, SYS_VARS_YML},
+    error::ElementReason,
+    module::operator::ModOperator,
+    system::setting::ModSetting,
+    types::SystemLocalizable,
+    workflow::act::SysWorkflows,
 };
-use async_trait::async_trait;
-use getset::{Getters, WithSetters};
-use orion_common::serde::{Configable, Persistable, Yamlable};
-use orion_error::{ErrorOwe, ErrorWith, UvsConfFrom, UvsLogicFrom, WithContext};
-use orion_infra::auto_exit_log;
-use orion_variate::{
-    addr::{GitRepository, LocalPath},
-    update::DownloadOptions,
-};
+use orion_conf::Yamlable;
+use orion_variate::addr::{GitRepository, LocalPath};
+use orion_variate::vars::VarDefinition;
 
-use super::{
-    ModulesList,
-    init::{SysIniter, sys_init_gitignore},
-};
-use crate::types::LocalizeOptions;
+use super::init::{SysIniter, sys_init_gitignore};
 use crate::{
-    error::{MainReason, MainResult, ToErr},
+    error::{MainReason, MainResult},
     module::{CpuArch, ModelSTD, OsCPE, RunSPC, refs::ModuleSpecRef, spec::ModuleSpec},
 };
 
@@ -48,14 +35,15 @@ impl SysDefine {
         }
     }
 }
-#[derive(Getters, Clone, Debug, Serialize, Deserialize)]
-#[getset(get = "pub ")]
+#[derive(Getters, Clone, Debug, MutGetters)]
+#[getset(get = "pub ", get_mut = "pub")]
 pub struct SysModelSpec {
     define: SysDefine,
     mod_list: ModulesList,
     local: Option<PathBuf>,
-    #[serde(skip)]
+    //#[serde(skip)]
     workflow: SysWorkflows,
+    setting: SysSetting,
 }
 
 impl SysModelSpec {
@@ -78,8 +66,10 @@ impl SysModelSpec {
         let paths = SysTargetPaths::from(&root);
         std::fs::create_dir_all(paths.spec_path()).owe_conf()?;
         sys_init_gitignore(&root)?;
-        self.define.save_conf(paths.define_path()).owe_res()?;
-        self.mod_list.save_conf(paths.modlist_path()).owe_res()?;
+        self.define.save_yml(paths.define_path()).owe_res()?;
+        self.mod_list.save_yml(paths.modlist_path()).owe_res()?;
+        ensure_path(&paths.setting_path()).owe_res()?;
+        self.setting().save_local(paths.setting_path())?;
 
         self.workflow
             .save_to(paths.workflow_path(), None)
@@ -101,7 +91,7 @@ impl SysModelSpec {
         );
         let paths = SysTargetPaths::from(&root.to_path_buf());
 
-        ctx.with_path("mod_list", paths.modlist_path());
+        ctx.record("mod_list", paths.modlist_path());
         let define = if !paths.define_path().exists() {
             return MainReason::from_logic(format!(
                 "miss define file : {}",
@@ -109,12 +99,12 @@ impl SysModelSpec {
             ))
             .err_result();
         } else {
-            SysDefine::from_conf(paths.define_path())
+            SysDefine::from_yml(paths.define_path())
                 .with("load define".to_string())
                 .with(&ctx)
                 .owe_data()?
         };
-        let mut mod_list = ModulesList::from_conf(paths.modlist_path())
+        let mut mod_list = ModulesList::from_yml(paths.modlist_path())
             .with("load mod-list".to_string())
             .with(&ctx)
             .owe_data()?;
@@ -122,21 +112,25 @@ impl SysModelSpec {
         let workflow = SysWorkflows::load_from(paths.workflow_path())
             .with(&ctx)
             .owe(SysReason::Load.into())?;
+        let setting = SysSetting::load_from(paths.setting_path())?;
         flag.mark_suc();
         Ok(Self {
             define,
             mod_list,
             local: Some(root.to_path_buf()),
             workflow,
+            setting,
         })
     }
 
-    pub fn new(define: SysDefine, actions: SysWorkflows) -> Self {
+    pub fn new(define: SysDefine, actions: SysWorkflows, setting: SysSetting) -> Self {
         Self {
             define,
             mod_list: ModulesList::default(),
             local: None,
             workflow: actions,
+            //setting: SysSetting::example(),
+            setting,
         }
     }
 }
@@ -150,11 +144,12 @@ impl RefUpdateable<()> for SysModelSpec {
     ) -> MainResult<()> {
         if let Some(local) = &self.local {
             let value = self.mod_list.update_local(accessor, local, options).await?;
-            let path = local.join("vars.yml");
+            let path = local.join(SYS_VARS_YML);
             if path.exists() {
                 std::fs::remove_file(&path).owe_sys()?;
             }
-            value.vars.save_yml(&path).owe_res()?;
+            let sys_vars = value.vars.merge_system(self.setting().vars().clone());
+            sys_vars.save_yml(&path).owe_res()?;
             Ok(())
         } else {
             MainReason::from(ElementReason::Miss("local path".into())).err_result()
@@ -163,14 +158,19 @@ impl RefUpdateable<()> for SysModelSpec {
 }
 
 #[async_trait]
-impl Localizable for SysModelSpec {
-    async fn localize(
+impl SystemLocalizable<SysValuePaths> for SysModelSpec {
+    async fn sys_localize(
         &self,
-        dst_path: Option<ValuePath>,
+        val_path: SysValuePaths,
         options: LocalizeOptions,
     ) -> MainResult<()> {
         if let Some(_local) = &self.local {
-            self.mod_list.localize(dst_path, options).await?;
+            self.mod_list
+                .sys_localize(val_path.clone(), options.clone())
+                .await?;
+            self.setting
+                .sys_localize(val_path.join("setting"), options)
+                .await?;
             Ok(())
         } else {
             MainReason::from(ElementReason::Miss("local path".into())).err_result()
@@ -179,8 +179,8 @@ impl Localizable for SysModelSpec {
 }
 impl SysModelSpec {
     pub fn for_example(name: &str) -> MainResult<SysModelSpec> {
-        ModProject::make_test_prj("redis2_mock")?;
-        ModProject::make_test_prj("mysql2_mock")?;
+        ModOperator::make_test_prj("redis2_mock")?;
+        ModOperator::make_test_prj("mysql2_mock")?;
         make_sys_spec_test(
             SysDefine::new(name, ModelSTD::from_cur_sys()),
             vec!["redis2_mock", "mysql2_mock"],
@@ -189,7 +189,8 @@ impl SysModelSpec {
 
     pub fn make_new(define: SysDefine) -> MainResult<SysModelSpec> {
         let actions = SysWorkflows::sys_tpl_init();
-        let mut modul_spec = SysModelSpec::new(define.clone(), actions);
+        let setting = SysSetting::new(VarCollection::define(vec![]));
+        let mut modul_spec = SysModelSpec::new(define.clone(), actions, setting);
         let mod_name = "you_mod1";
 
         modul_spec.add_mod_ref(
@@ -198,11 +199,7 @@ impl SysModelSpec {
                 GitRepository::from("https://github.com/you-mod1").with_tag("0.1.0"),
                 ModelSTD::new(CpuArch::Arm, OsCPE::MAC14, RunSPC::Host),
             )
-            .with_enable(false)
-            .with_setting(LocalizeVarPath::of_module(
-                mod_name,
-                define.model().to_string().as_str(),
-            )),
+            .with_enable(false),
         );
         modul_spec.add_mod_ref(
             ModuleSpecRef::from(
@@ -226,65 +223,25 @@ impl SysModelSpec {
 
 pub fn make_sys_spec_test(define: SysDefine, mod_names: Vec<&str>) -> MainResult<SysModelSpec> {
     let actions = SysWorkflows::sys_tpl_init();
-    let mut modul_spec = SysModelSpec::new(define, actions);
+    let setting = SysSetting::new(VarCollection::define(vec![
+        VarDefinition::from(("HOME", "${HOME}")).with_mut_immutable(),
+        VarDefinition::from(("SYS_KEY1", "sys_value1")).with_mut_module(),
+        VarDefinition::from(("SYS_KEY2", "sys_value2")).with_mut_system(),
+    ]));
+    let mut modul_spec = SysModelSpec::new(define, actions, setting);
     for mod_name in mod_names {
         //let mod_name = "postgresql";
         let model = ModelSTD::new(CpuArch::Arm, OsCPE::MAC14, RunSPC::Host);
-        modul_spec.add_mod_ref(
-            ModuleSpecRef::from(
-                mod_name,
-                LocalPath::from(format!("{MODULES_SPC_ROOT}/{mod_name}").as_str()),
-                model.clone(),
-            )
-            .with_setting(LocalizeVarPath::of_module(
-                mod_name,
-                model.to_string().as_str(),
-            )),
+        modul_spec.add_mod_ref(ModuleSpecRef::from(
+            mod_name,
+            LocalPath::from(format!("{MOD_OPERATORS_ROOT}/{mod_name}").as_str()),
+            model.clone(),
+        ));
+        modul_spec.setting_mut().add_mod_setting(
+            mod_name,
+            ModSetting::enable_new(mod_name, model.to_string().as_str()),
         );
     }
 
     Ok(modul_spec)
-}
-
-#[cfg(test)]
-pub mod tests {
-
-    use orion_error::TestAssertWithMsg;
-    use orion_infra::path::make_clean_path;
-    use orion_variate::tools::test_init;
-
-    use crate::{
-        accessor::accessor_for_test, const_vars::SYS_MODEL_SPC_ROOT, module::proj::ModProject,
-    };
-
-    use super::*;
-
-    #[tokio::test]
-    async fn build_example_sys_spec() -> MainResult<()> {
-        test_init();
-        let sys_name = "example_sys";
-        let spec_root = PathBuf::from(SYS_MODEL_SPC_ROOT).join(sys_name);
-        make_clean_path(&spec_root).owe_logic()?;
-        ModProject::make_test_prj("redis_mock")?;
-        ModProject::make_test_prj("mysql_mock")?;
-        let spec = make_sys_spec_test(
-            SysDefine::new(sys_name, ModelSTD::from_cur_sys()),
-            vec!["redis_mock", "mysql_mock"],
-        )
-        .assert("make spec");
-        let spec_root = PathBuf::from(SYS_MODEL_SPC_ROOT);
-        let spec_path = spec_root.join(spec.define().name());
-        make_clean_path(&spec_path).owe_logic()?;
-        let accessor = accessor_for_test();
-        spec.save_to(&spec_root).assert("spec save");
-        let spec_path = spec_root.join(spec.define().name());
-        let spec = SysModelSpec::load_from(&spec_path).assert("spec load");
-        spec.update_local(accessor, &spec_path, &DownloadOptions::for_test())
-            .await
-            .assert("update");
-        spec.localize(None, LocalizeOptions::for_test())
-            .await
-            .assert("localize");
-        Ok(())
-    }
 }

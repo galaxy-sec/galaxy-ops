@@ -1,11 +1,6 @@
-use crate::error::SysReason;
-use crate::predule::*;
+use super::prelude::*;
 
-use crate::{error::MainResult, module::depend::DependencySet, types::Localizable};
-
-use crate::types::{Accessor, LocalizeOptions, RefUpdateable, ValuePath};
-use async_trait::async_trait;
-use orion_variate::update::DownloadOptions;
+use crate::module::depend::DependencySet;
 
 #[derive(Getters, Clone, Debug, Serialize, Deserialize)]
 pub struct SysConf {
@@ -34,12 +29,8 @@ impl RefUpdateable<()> for SysConf {
     }
 }
 #[async_trait]
-impl Localizable for SysConf {
-    async fn localize(
-        &self,
-        _val_path: Option<ValuePath>,
-        _options: LocalizeOptions,
-    ) -> MainResult<()> {
+impl SystemLocalizable<()> for SysConf {
+    async fn sys_localize(&self, _val_path: (), _options: LocalizeOptions) -> MainResult<()> {
         Ok(())
     }
 }

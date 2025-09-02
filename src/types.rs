@@ -1,18 +1,6 @@
-use std::{
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use super::prelude::*;
 
-use async_trait::async_trait;
-use getset::Getters;
-use orion_infra::path::{PathResult, ensure_path};
-use orion_variate::{
-    addr::accessor::UniversalAccessor,
-    update::DownloadOptions,
-    vars::{EnvDict, EnvEvalable, ValueDict, VarCollection},
-};
-
-use crate::error::MainResult;
+use orion_variate::addr::accessor::UniversalAccessor;
 
 pub type AnyResult<T> = anyhow::Result<T>;
 #[derive(Clone)]
@@ -53,44 +41,58 @@ pub trait RefUpdateable<T> {
 
 #[derive(Clone, Debug, Default)]
 pub struct LocalizeOptions {
-    eval_dict: ValueDict,
-    raw_dict: ValueDict,
-    use_default_value: bool,
+    eval_dict: OriginDict,
+    raw_dict: OriginDict,
 }
 impl LocalizeOptions {
-    pub fn new(raw_dict: ValueDict, mod_user_value: bool) -> Self {
+    pub fn new(raw_dict: OriginDict) -> Self {
         Self {
             eval_dict: raw_dict.clone().env_eval(&EnvDict::default()),
             raw_dict,
-            use_default_value: mod_user_value,
         }
     }
-    pub fn evaled_value(&self) -> &ValueDict {
+    pub fn evaled_value(&self) -> &OriginDict {
         &self.eval_dict
     }
-    pub fn raw_value(&self) -> &ValueDict {
+    pub fn raw_value(&self) -> &OriginDict {
         &self.raw_dict
-    }
-    pub fn use_default_value(&self) -> bool {
-        self.use_default_value
     }
 
     pub fn for_test() -> Self {
         Self {
-            eval_dict: ValueDict::new(),
-            raw_dict: ValueDict::new(),
-            use_default_value: false,
+            eval_dict: OriginDict::new(),
+            raw_dict: OriginDict::new(),
         }
     }
 }
 
 #[async_trait]
-pub trait Localizable {
-    async fn localize(
-        &self,
-        val_path: Option<ValuePath>,
-        options: LocalizeOptions,
-    ) -> MainResult<()>;
+pub trait SystemLocalizable<T> {
+    async fn sys_localize(&self, val_path: T, options: LocalizeOptions) -> MainResult<()>;
+}
+
+#[async_trait]
+pub trait ModuleLocalizable<T> {
+    async fn mod_localize(&self, val_path: T, options: LocalizeOptions) -> MainResult<()>;
+}
+#[derive(Clone, Debug)]
+pub enum Value2Path {
+    ModOperator(PathBuf),
+    SysSetting(PathBuf),
+}
+impl Value2Path {
+    pub fn path(&self) -> &PathBuf {
+        match self {
+            Value2Path::ModOperator(path_buf) => path_buf,
+            Value2Path::SysSetting(path_buf) => path_buf,
+        }
+    }
+    pub fn module_join<S: AsRef<str>>(self, sub: S) {
+        match self {
+            Value2Path::ModOperator(x) => Value2Path::ModOperator(x.join(sub.as_ref())),
+            Value2Path::SysSetting(_) => self,
+        };
+    }
 }
 
 #[derive(Clone, Debug, Getters)]

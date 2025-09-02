@@ -1,16 +1,12 @@
 pub mod depend;
 pub mod init;
-pub mod localize;
 pub mod model;
+pub mod operator;
 mod prelude;
-pub mod proj;
 pub mod refs;
-pub mod setting;
 pub mod spec;
-use derive_more::{Display, From};
-use serde::Serializer;
-use serde_derive::{Deserialize, Serialize};
-use std::{fmt::Display, str::FromStr};
+
+use crate::prelude::*;
 
 #[derive(Clone, Debug, Serialize, Deserialize, Display, PartialEq, Eq, Hash)]
 pub enum CpuArch {
@@ -172,7 +168,7 @@ impl ModelSTD {
     }
 }
 
-impl Display for ModelSTD {
+impl std::fmt::Display for ModelSTD {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}-{}-{}", self.arch, self.os, self.spc)
     }

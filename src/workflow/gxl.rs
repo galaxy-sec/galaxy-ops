@@ -1,11 +1,8 @@
-use std::path::Path;
-
-use derive_getters::Getters;
-use orion_common::serde::{Persistable, SerdeReason, SerdeResult};
-use orion_error::{ErrorOwe, UvsConfFrom};
-use serde::Serialize;
+use super::prelude::*;
+use orion_conf::error::{SerdeReason, SerdeResult};
 
 #[derive(Getters, Clone, Debug, PartialEq, Serialize)]
+#[getset(get = "pub")]
 pub struct GxlAction {
     file: String,
     code: String,

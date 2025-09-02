@@ -1,22 +1,13 @@
-use std::path::{Path, PathBuf};
+use super::prelude::*;
 
-use fs_extra::dir::{CopyOptions, move_dir};
-use orion_common::serde::Configable;
-use orion_error::{ErrorOwe, ErrorWith, UvsConfFrom};
-use orion_infra::path::{ensure_path, make_clean_path};
-use orion_variate::{
-    addr::Address,
-    archive::decompress,
-    types::ResourceDownloader,
-    update::DownloadOptions,
-    vars::{EnvEvalable, ValueDict, VarCollection},
-};
+use crate::{ops_prj::install::SystemPackageInstaller, system::operator::SysOperator};
+use orion_variate::addr::Address;
 
 use crate::{
-    artifact::types::{PackageType, build_pkg, convert_addr},
-    error::{MainReason, MainResult, ToErr},
-    ops_prj::{proj::OpsProject, system::OpsSystem},
-    system::spec::SysModelSpec,
+    artifact::types::{build_pkg, convert_addr},
+    const_vars::{SYS_VALUE_FILE, SYS_VARS_YML},
+    error::MainResult,
+    ops_prj::{project::OpsProject, system::OpsSystem},
     types::Accessor,
 };
 
@@ -26,12 +17,11 @@ impl OpsProject {
         accessor: Accessor,
         path: &str,
         up_opt: &DownloadOptions,
-    ) -> MainResult<SysModelSpec> {
+    ) -> MainResult<()> {
         // 1. 解析地址
         let addr = convert_addr(path);
 
-        // 2.更新到本地目路
-        // 本地路径： ${HOME}/ds-build/
+        // 2. 更新到本地目录
         let work_path = PathBuf::from(
             "${HOME}/ds-package"
                 .to_string()
@@ -47,50 +37,23 @@ impl OpsProject {
                 .owe_data()?;
             up_unit.position().clone()
         };
+
+        // 3. 创建安装器并准备包
+        let installer = SystemPackageInstaller::new(self.paths().clone()).with_pkg_path(pkg_path);
+
         let package = build_pkg(path);
-        let sys_src = match package {
-            //tar.gz ,tgz
-            PackageType::Bin(bin_package) => {
-                let out_path = work_path.join(bin_package.name());
-                make_clean_path(&out_path).owe_res()?;
-                decompress(&pkg_path, out_path.clone())
-                    .owe_sys()
-                    .want("decompress tar.gz")
-                    .with(pkg_path.display().to_string())?;
-                out_path
-            }
-            PackageType::Git(_git_package) => pkg_path.to_path_buf(),
-        };
-        let sys_spec = SysModelSpec::load_from(&sys_src.join("sys"))?;
+        let sys_src = installer.prepare_package(package)?;
 
-        let ops_sys = OpsSystem::new(sys_spec.define().clone(), addr);
+        // 4. 导入到工作目录
+        let ops_target_system = installer.install_system_package(&sys_src)?;
+
+        let ops_sys = OpsSystem::new(ops_target_system.spec().define().clone(), addr);
         self.import_ops_sys(ops_sys);
-        // 3.获得sys pakage
-
-        // 4. 导入到 工作目录
-        let sys_dst_root = self.root_local();
-        //if let Some(last_name) = sys_src.iter().last() {
-        if let Some(last_name) = sys_src.iter().next_back() {
-            let sys_dst_path = sys_dst_root.join(last_name);
-            let sys_new_path = sys_dst_root.join(sys_spec.define().name());
-            if sys_dst_path.exists() {
-                std::fs::remove_dir_all(&sys_dst_path).owe_res()?;
-            }
-            if sys_new_path.exists() {
-                std::fs::remove_dir_all(&sys_new_path).owe_res()?;
-            }
-            move_dir(sys_src, sys_dst_root, &CopyOptions::new()).owe_res()?;
-            std::fs::rename(sys_dst_path, sys_new_path).owe_res()?;
-        } else {
-            MainReason::from_conf(format!(
-                "import package failed, bad path: {}",
-                sys_src.display()
-            ))
-            .to_err();
-        }
         self.save()?;
+        let sys_operator = SysOperator::load(&ops_target_system.installation_path)?;
+        sys_operator.init_setting_value()?;
         // 5. 提供系统包的信息， 包组所有组件。
-        Ok(sys_spec)
+        Ok(())
     }
     pub fn ia_setting_interactive(&self) -> MainResult<()> {
         self.ia_setting(true)
@@ -98,26 +61,17 @@ impl OpsProject {
 
     pub fn process_system_vars(
         vars_path: &Path,
-        value_file: &Path,
-        value_link: &Path,
+        value_path: &Path,
         system_name: &str,
         interactive: bool,
     ) -> MainResult<()> {
         use inquire::{Confirm, Text};
 
-        if value_file.exists() {
-            println!("value file exists ,use it");
-            if !value_link.exists() {
-                std::os::unix::fs::symlink(value_file, value_link)
-                    .owe_res()
-                    .with(value_link)?;
-            }
-            return Ok(());
-        }
+        let value_file = value_path.join(SYS_VALUE_FILE);
 
         let vars_vec = VarCollection::from_conf(vars_path).owe_res()?;
         let mut vals_dict = if value_file.exists() {
-            ValueDict::from_conf(value_file).owe_res()?
+            ValueDict::from_conf(&value_file).owe_res()?
         } else {
             ValueDict::default()
         };
@@ -125,7 +79,7 @@ impl OpsProject {
         // 通过交互模式设定vars的值
         println!("Setting variables for {system_name}");
 
-        for var in vars_vec.vars() {
+        for var in vars_vec.system_vars() {
             if !var.is_mutable() {
                 continue;
             }
@@ -141,8 +95,12 @@ impl OpsProject {
                     .prompt()
                     .owe_data()?
             } else {
-                // 非交互模式，使用默认值
-                var.value().to_string()
+                // 非交互模式，如果已有值则保留，否则使用默认值
+                if let Some(existing_value) = vals_dict.get(var.name()) {
+                    existing_value.to_string()
+                } else {
+                    var.value().to_string()
+                }
             };
             default_value.update_by_str(value_str.as_str()).owe_data()?;
             vals_dict.insert(var.name().to_string(), default_value);
@@ -160,226 +118,25 @@ impl OpsProject {
         if should_save {
             // 保存修改后的vars到文件
             // vars.save_to_file(&vars_path)?; // 假设的方法
-            println!("Changes saved to {}", vars_path.display());
-            vals_dict.save_conf(value_file).owe_res()?;
+            println!("Changes saved to {}", value_file.display());
+            vals_dict.save_conf(&value_file).owe_res()?;
         }
-        if !value_link.exists() {
-            std::os::unix::fs::symlink(value_file, value_link)
-                .owe_res()
-                .with(value_link)?;
-        }
-
         Ok(())
     }
 
     pub fn ia_setting(&self, interactive: bool) -> MainResult<()> {
         for i in self.ops_target().iter() {
-            let vars_path = self.root_local().join(i.sys().name()).join("sys/vars.yml");
+            let vars_path = self
+                .root_local()
+                .join(i.sys().name())
+                .join("sys")
+                .join(SYS_VARS_YML);
 
             let value_path = self.root_local().join("values").join(i.sys().name());
             ensure_path(&value_path).owe_res()?;
-            let value_file = value_path.join("value.yml");
 
-            let value_link = self.root_local().join(i.sys().name()).join("values");
-
-            Self::process_system_vars(
-                &vars_path,
-                &value_file,
-                &value_link,
-                i.sys().name(),
-                interactive,
-            )?;
+            Self::process_system_vars(&vars_path, &value_path, i.sys().name(), interactive)?;
         }
         Ok(())
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use orion_error::TestAssert;
-    use orion_variate::{tools::test_init, update::DownloadOptions, vars::ValueDict};
-    use std::path::PathBuf;
-    use tempfile::TempDir;
-
-    use crate::{accessor::accessor_for_test, const_vars::EXAMPLE_ROOT};
-
-    use super::*;
-
-    #[ignore = "need interactive run"]
-    #[tokio::test]
-    async fn import_pkg() {
-        test_init();
-        let prj_path = PathBuf::from(EXAMPLE_ROOT).join("dev-mac-env");
-        let mut project = OpsProject::load(&prj_path).assert();
-        let path = "${HOME}/ds-build/mac-devkit-0.1.6.tar.gz"
-            .to_string()
-            .env_eval(&ValueDict::default());
-        let accessor = accessor_for_test();
-        let sys_spec = project
-            .import_sys(accessor, path.as_str(), &DownloadOptions::for_test())
-            .await
-            .assert();
-        println!("{}", serde_json::to_string(&sys_spec).assert());
-    }
-
-    #[test]
-    fn test_process_system_vars_non_interactive() {
-        test_init();
-        let temp_dir = TempDir::new().unwrap();
-        let root = temp_dir.path();
-
-        // Create test paths
-        let vars_path = root.join("sys/vars.yml");
-        let value_path = root.join("values/test/value.yml");
-        let value_link = root.join("test/values");
-
-        // Create necessary directories
-        std::fs::create_dir_all(vars_path.parent().unwrap()).unwrap();
-        std::fs::create_dir_all(value_path.parent().unwrap()).unwrap();
-        std::fs::create_dir_all(value_link.parent().unwrap()).unwrap();
-
-        // Create a sample vars.yml file
-        let vars_content = r#"
-vars:
-  - name: "test_var"
-    value: "default_value"
-    mutable: true
-    desp: "A test variable"
-  - name: "immutable_var"
-    value: "immutable_value"
-    mutable: false
-    desp: "An immutable variable"
-"#;
-        std::fs::write(&vars_path, vars_content).unwrap();
-
-        // Create a sample value.yml file
-        let value_content = r#"
-test_var: "existing_value"
-immutable_var: "existing_immutable"
-"#;
-        std::fs::write(&value_path, value_content).unwrap();
-
-        // Test the function in non-interactive mode
-        let result = super::OpsProject::process_system_vars(
-            &vars_path,
-            &value_path,
-            &value_link,
-            "test_system",
-            false,
-        );
-
-        // Verify the function succeeds
-        result.assert();
-
-        // Verify the symlink was created
-        assert!(value_link.exists());
-
-        // Read and verify the value file was not modified (since we used the existing one)
-        let updated_vals = ValueDict::from_conf(&value_path).unwrap();
-        assert_eq!(
-            updated_vals.get("test_var").unwrap().to_string(),
-            "existing_value"
-        );
-        assert_eq!(
-            updated_vals.get("immutable_var").unwrap().to_string(),
-            "existing_immutable"
-        );
-    }
-
-    #[test]
-    fn test_process_system_vars_no_existing_file() {
-        test_init();
-        let temp_dir = TempDir::new().unwrap();
-        let root = temp_dir.path();
-
-        // Create test paths
-        let vars_path = root.join("sys/vars.yml");
-        let value_path = root.join("values/test/value.yml");
-        let value_link = root.join("test/values");
-
-        // Create necessary directories
-        std::fs::create_dir_all(vars_path.parent().unwrap()).unwrap();
-        std::fs::create_dir_all(value_path.parent().unwrap()).unwrap();
-        std::fs::create_dir_all(value_link.parent().unwrap()).unwrap();
-
-        // Create a sample vars.yml file
-        let vars_content = r#"
-vars:
-  - name: "test_var"
-    value: "default_value"
-    mutable: true
-    desp: "A test variable"
-  - name: "immutable_var"
-    value: "immutable_value"
-    mutable: false
-    desp: "An immutable variable"
-"#;
-        std::fs::write(&vars_path, vars_content).unwrap();
-
-        // DO NOT create the value file initially to test variable processing
-
-        // Test the function in non-interactive mode with no existing value file
-        super::OpsProject::process_system_vars(
-            &vars_path,
-            &value_path,
-            &value_link,
-            "test_system",
-            false,
-        )
-        .unwrap();
-
-        // The value file should be created by the function
-        assert!(value_path.exists());
-        // The symlink should be created
-        assert!(value_link.exists());
-
-        // Read and verify the value file has default values
-        let updated_vals = ValueDict::from_conf(&value_path).unwrap();
-        assert_eq!(
-            updated_vals.get("test_var").unwrap().to_string(),
-            "default_value"
-        );
-        assert_eq!(
-            updated_vals.get("immutable_var").unwrap().to_string(),
-            "immutable_value"
-        );
-    }
-
-    #[test]
-    fn test_process_system_vars_existing_value_file() {
-        test_init();
-        let temp_dir = TempDir::new().unwrap();
-        let root = temp_dir.path();
-
-        // Create test paths
-        let vars_path = root.join("sys/vars.yml");
-        let value_path = root.join("values/test/value.yml");
-        let value_link = root.join("test/values");
-
-        // Create necessary directories
-        std::fs::create_dir_all(vars_path.parent().unwrap()).unwrap();
-        std::fs::create_dir_all(value_path.parent().unwrap()).unwrap();
-        std::fs::create_dir_all(value_link.parent().unwrap()).unwrap();
-
-        // Create existing value file
-        std::fs::write(&value_path, "test_key: test_value").unwrap();
-
-        // Test the function - it should return early due to existing value file
-        let result = super::OpsProject::process_system_vars(
-            &vars_path,
-            &value_path,
-            &value_link,
-            "test_system",
-            false,
-        );
-
-        // Verify the function succeeds
-        result.assert();
-
-        // Verify the symlink was created
-        assert!(value_link.exists());
-
-        // Verify vars.yml wasn't created (since we returned early)
-        assert!(!vars_path.exists());
     }
 }

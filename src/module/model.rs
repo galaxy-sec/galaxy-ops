@@ -1,35 +1,37 @@
+use orion_conf::{Configable, error::SerdeResult};
+use orion_error::{ContextRecord, OperationContext};
+
 use super::prelude::*;
+use crate::localize::{LocalizeTemplate, TemplateConfig};
+use crate::prelude::*;
+use crate::system::setting::Setting;
 use crate::{
     artifact::ArtifactPackage,
     const_vars::{
-        DEFAULT_VALUE_FILE, LOCAL_DIR, SAMPLE_VALUE_FILE, USED_JSON, USED_READABLE_FILE,
-        USER_VALUE_FILE, VALUE_DIR,
+        DEFAULT_VALUE_FILE, LOCAL_DIR, MOD_VALUE_FILE, USED_JSON, USED_READABLE_FILE,
+        USER_VALUE_FILE,
     },
-    predule::*,
-    types::{Localizable, RefUpdateable, ValuePath},
+    module::operator::ModValuePaths,
+    types::{Accessor, ModuleLocalizable, RefUpdateable, ValuePath},
 };
 use std::{fs::read_to_string, str::FromStr};
 
-use super::{
-    ModelSTD,
-    depend::DependencySet,
-    localize::LocalizeTemplate,
-    setting::{Setting, TemplateConfig},
-};
+use super::{ModelSTD, depend::DependencySet};
 
 #[derive(Getters, Clone, Debug, Serialize)]
-pub struct ModModelSpec {
+#[getset(get = "pub")]
+pub struct MMOperator {
     model: ModelSTD,
     artifact: ArtifactPackage,
     workflow: ModWorkflows,
     gxl_prj: GxlProject,
     vars: VarCollection,
-    local: Option<PathBuf>,
+    root: Option<PathBuf>,
     setting: Option<Setting>,
     depends: DependencySet,
 }
 
-impl ModModelSpec {
+impl MMOperator {
     pub fn with_depends(mut self, depends: DependencySet) -> Self {
         self.depends = depends;
         self
@@ -38,32 +40,14 @@ impl ModModelSpec {
     fn build_used_value(
         &self,
         options: LocalizeOptions,
-        value_paths: &TargetValuePaths,
+        mod_value: &Path,
     ) -> Result<OriginDict, StructError<MainReason>> {
-        crate::project::mix_used_value(options, value_paths, &self.vars)
-    }
-
-    fn crate_sample_value_file(
-        &self,
-        value_paths: &TargetValuePaths,
-    ) -> Result<(), StructError<MainReason>> {
-        if !(value_paths.sample_value_file().exists() || value_paths.user_value_file().exists()) {
-            value_paths
-                .sample_value_file()
-                .parent()
-                .map(std::fs::create_dir_all);
-            let vars_dict = self.vars.value_dict();
-            vars_dict
-                .save_valconf(value_paths.sample_value_file())
-                .owe_res()?;
-            info!( target:"mod/target", "crate  value.yml at : {}" ,value_paths.sample_value_file().display() );
-        }
-        Ok(())
+        crate::project::mix_used_value(options, &self.vars, mod_value)
     }
 }
 
 #[async_trait]
-impl RefUpdateable<UpdateUnit> for ModModelSpec {
+impl RefUpdateable<UpdateUnit> for MMOperator {
     async fn update_local(
         &self,
         accessor: Accessor,
@@ -75,7 +59,7 @@ impl RefUpdateable<UpdateUnit> for ModModelSpec {
         Ok(UpdateUnit::new(path.to_path_buf(), self.vars.clone()))
     }
 }
-impl ModModelSpec {
+impl MMOperator {
     pub fn save_main(&self, root: &Path, name: Option<String>) -> MainResult<()> {
         let target_path = root.join(name.unwrap_or(self.model().to_string()));
         std::fs::create_dir_all(&target_path)
@@ -103,6 +87,7 @@ impl ModModelSpec {
 }
 
 #[derive(Getters, Clone, Debug)]
+#[getset(get = "pub")]
 pub struct ModTargetPaths {
     target_root: PathBuf,
     spec_path: PathBuf,
@@ -130,11 +115,12 @@ impl From<&PathBuf> for ModTargetPaths {
 }
 
 #[derive(Getters, Clone, Debug)]
+#[getset(get = "pub")]
 pub struct TargetValuePaths {
     used_readable: PathBuf,
     default_value_file: PathBuf,
     user_value_file: PathBuf,
-    sample_value_file: PathBuf,
+    mod_value_file: PathBuf,
     used_json_path: PathBuf,
 }
 impl From<&PathBuf> for TargetValuePaths {
@@ -143,35 +129,47 @@ impl From<&PathBuf> for TargetValuePaths {
             used_readable: value_root.join(USED_READABLE_FILE),
             default_value_file: value_root.join(DEFAULT_VALUE_FILE),
             user_value_file: value_root.join(USER_VALUE_FILE),
-            sample_value_file: value_root.join(SAMPLE_VALUE_FILE),
+            mod_value_file: value_root.join(MOD_VALUE_FILE),
             used_json_path: value_root.join(crate::const_vars::USED_JSON),
         }
     }
 }
 
-impl Persistable<ModModelSpec> for ModModelSpec {
+impl Persistable<MMOperator> for MMOperator {
     fn save_to(&self, root: &Path, name: Option<String>) -> SerdeResult<()> {
         let target_path = root.join(name.unwrap_or(self.model().to_string()));
 
-        let mut flag = auto_exit_log!(
-            info!(target: "spec/mod/target", "save target  success!:{}", target_path.display()),
-            error!(target: "spec/mod/target", "save target failed!:{}", target_path.display())
-        );
+        let mut ctx = OperationContext::want("save target").with_auto_log();
+        ctx.record("target", &target_path);
         let paths = ModTargetPaths::from(&target_path);
         std::fs::create_dir_all(paths.spec_path())
             .owe_conf()
+            .with(&ctx)
             .with(format!("path: {}", paths.spec_path().display()))?;
 
         if let Some(setting) = &self.setting {
-            setting.save_conf(paths.setting_path()).owe_logic()?;
+            setting
+                .save_conf(paths.setting_path())
+                .owe_logic()
+                .with(&ctx)?;
         }
         self.workflow.save_to(paths.workflow_path(), None)?;
-        self.artifact.save_conf(paths.artifact_path()).owe_logic()?;
+        self.artifact
+            .save_conf(paths.artifact_path())
+            .owe_logic()
+            .with(&ctx)?;
 
-        self.depends.save_conf(paths.depends_path()).owe_logic()?;
-        self.vars.save_conf(paths.vars_path()).owe_logic()?;
-        self.gxl_prj.save_to(&paths.target_root, None)?;
-        flag.mark_suc();
+        self.depends
+            .save_conf(paths.depends_path())
+            .owe_logic()
+            .with(&ctx)?;
+        self.vars
+            .save_conf(paths.vars_path())
+            .owe_logic()
+            .with(&ctx)?;
+        self.gxl_prj.save_to(&paths.target_root, None).with(&ctx)?;
+        //flag.mark_suc();
+        ctx.mark_suc();
         Ok(())
     }
 
@@ -183,7 +181,7 @@ impl Persistable<ModModelSpec> for ModModelSpec {
             error!(target: "spec/mod/target", "load target failed!:{}", target_root.display())
         );
         let paths = ModTargetPaths::from(&target_root.to_path_buf());
-        ctx.with_path("root", target_root);
+        ctx.record("root", target_root);
         let target = ModelSTD::from_str(path_file_name(target_root).owe_logic()?.as_str())
             .owe_res()
             .with(&ctx)?;
@@ -194,19 +192,19 @@ impl Persistable<ModModelSpec> for ModModelSpec {
         } else {
             None
         };
-        ctx.with_path("artifact", paths.artifact_path());
+        ctx.record("artifact", paths.artifact_path());
         let artifact = ArtifactPackage::from_conf(paths.artifact_path())
             .with(&ctx)
             .owe_logic()?;
 
-        //ctx.with_path("conf_spec", paths.conf_path());
+        //ctx.record("conf_spec", paths.conf_path());
         //let conf_spec = ConfSpec::from_conf(paths.conf_path()).with(&ctx)?;
 
-        ctx.with_path("depends", paths.depends_path());
+        ctx.record("depends", paths.depends_path());
         let depends = DependencySet::from_conf(paths.depends_path())
             .with(&ctx)
             .owe_logic()?;
-        ctx.with_path("vars", paths.vars_path());
+        ctx.record("vars", paths.vars_path());
         //let vars = VarCollection::eval_from_file(&ValueDict::default(), paths.vars_path())
         let vars = VarCollection::from_conf(paths.vars_path())
             .with(&ctx)
@@ -219,7 +217,7 @@ impl Persistable<ModModelSpec> for ModModelSpec {
             artifact,
             workflow: actions,
             //conf_spec,
-            local: Some(target_root.to_path_buf()),
+            root: Some(target_root.to_path_buf()),
             vars,
             setting,
             depends,
@@ -227,7 +225,7 @@ impl Persistable<ModModelSpec> for ModModelSpec {
         })
     }
 }
-impl ModModelSpec {
+impl MMOperator {
     pub fn init(
         target: ModelSTD,
         artifact: ArtifactPackage,
@@ -242,7 +240,7 @@ impl ModModelSpec {
             workflow,
             gxl_prj,
             artifact,
-            local: None,
+            root: None,
             vars,
             setting,
             depends: DependencySet::default(),
@@ -257,50 +255,44 @@ impl ModModelSpec {
         Ok(None)
     }
     pub fn used_value_path(&self) -> MainResult<PathBuf> {
-        let local = self
-            .local
+        let root = self
+            .root
             .clone()
             .ok_or(MainReason::from(ElementReason::Miss("local-path".into())).to_err())?;
-        let value_path = ensure_path(local.join(VALUE_DIR)).owe_logic()?;
-        let value_file = value_path.join(USED_JSON);
+        //let value_path = ensure_path(local.join(VALUE_DIR)).owe_logic()?;
+        let value_file = root.join(USED_JSON);
         Ok(value_file)
     }
 }
 
 #[async_trait]
-impl Localizable for ModModelSpec {
-    async fn localize(
+impl ModuleLocalizable<ModValuePaths> for MMOperator {
+    async fn mod_localize(
         &self,
-        dst_path: Option<ValuePath>,
+        val_path: ModValuePaths,
         options: LocalizeOptions,
     ) -> MainResult<()> {
-        let mut flag = auto_exit_log!(
-            info!(target : "/mod/target", "mod-target localize {} success!", self.model()),
-            error!(target: "/mod/target", "mod-target localize {} fail!",
-                self.local.clone().unwrap_or(PathBuf::from("unknow")).display())
-        );
-        let mut ctx = WithContext::want("modul localize");
-        let local = self.local.clone().ok_or(
-            MainReason::from(ElementReason::Miss("local-path".into()))
-                .to_err()
-                .with(&ctx),
-        )?;
-        let tpl = local.join(crate::const_vars::SPEC_DIR);
-        let localize_path = dst_path.unwrap_or(ValuePath::new(local.join(VALUE_DIR)));
+        let mut ctx = OperationContext::want("mod1 localize")
+            .with_auto_log()
+            .with_mod_path("mod");
+        let mod_root = self
+            .root
+            .clone()
+            .ok_or(MainReason::from(ElementReason::Miss("local-path".into())).to_err())?;
+        ctx.record("model", self.model().to_string());
 
-        let value_root = localize_path.path(); //.join(VALUE_DIR);
-        let value_paths = TargetValuePaths::from(value_root);
-        let used_value_file = self.used_value_path()?;
-        let local_path = local.join(LOCAL_DIR);
+        //let value_paths = TargetValuePaths::from(&val_path);
+        let local_path = mod_root.join(LOCAL_DIR);
+        ctx.record("local", &local_path);
         debug!( target:"spec/mod/target", "localize mod-target begin: {}" ,local_path.display() );
         make_clean_path(&local_path).owe_logic()?;
-        ctx.with_path("dst", &local_path);
-        self.crate_sample_value_file(&value_paths)?;
-        debug!(target : "/mod/target/loc", "value export");
-        let used = self.build_used_value(options, &value_paths)?;
+
+        let used = self.build_used_value(options, &val_path.mod_value_file())?;
         used.export_origin()
-            .save_valconf(value_paths.used_readable())
+            .save_valconf(&val_path.used_with_origon())
             .owe_res()?;
+        let used_value_file = self.used_value_path()?;
+        ctx.record("value_file", &used_value_file);
         used.export_value().save_json(&used_value_file).owe_res()?;
 
         debug!(target : "/mod/target/loc", "use value: {}", used_value_file.display());
@@ -309,7 +301,7 @@ impl Localizable for ModModelSpec {
             .as_ref()
             .and_then(|x| x.localize().clone())
             .and_then(|x| x.templatize_path().clone())
-            .map(|x| x.export_paths(&local));
+            .map(|x| x.export_paths(&mod_root));
 
         let tpl_path = tpl_path_opt.unwrap_or_default();
         let tpl_custom = self
@@ -324,10 +316,11 @@ impl Localizable for ModModelSpec {
         } else {
             LocalizeTemplate::default()
         };
+        let spec_tpl = mod_root.join(crate::const_vars::SPEC_DIR);
         localizer
-            .render_path(&tpl, &local_path, &used_value_file, &tpl_path)
+            .render_path(&spec_tpl, &local_path, &used_value_file, &tpl_path)
             .with(&ctx)?;
-        flag.mark_suc();
+        ctx.mark_suc();
         Ok(())
     }
 }

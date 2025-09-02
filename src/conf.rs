@@ -1,25 +1,17 @@
-use super::predule::*;
-use std::{
-    fs,
-    path::{Path, PathBuf},
-};
+use super::prelude::*;
 
 use crate::{
     const_vars::CONFS_DIR,
-    error::MainResult,
     types::{Accessor, RefUpdateable},
 };
-use async_trait::async_trait;
-use orion_common::serde::Configable;
 use orion_error::ErrorConv;
-use orion_infra::auto_exit_log;
 use orion_variate::{
     addr::{Address, accessor::path_file_name},
     types::{ResourceDownloader, UpdateUnit},
-    update::DownloadOptions,
 };
 // 由于 `crate::tools::log_flag` 未定义，移除该导入
 #[derive(Clone, Debug, Getters, Deserialize, Serialize)]
+#[getset(get = "pub")]
 pub struct ConfSpec {
     version: String,
     #[serde(default = "default_local_root")]
@@ -31,6 +23,7 @@ fn default_local_root() -> String {
 }
 
 #[derive(Clone, Debug, Getters, Deserialize, Serialize)]
+#[getset(get = "pub")]
 pub struct ConfFile {
     path: String,
     addr: Option<Address>,
@@ -98,7 +91,7 @@ impl ConfFile {
 impl ConfSpec {
     pub fn save(&self, path: &PathBuf) -> MainResult<()> {
         let mut ctx = WithContext::want("save conf spec");
-        ctx.with("path", format!("path: {}", path.display()));
+        ctx.record("path", format!("path: {}", path.display()));
         let data_content = toml::to_string(self).owe_data().with(&ctx)?;
         fs::write(path, data_content).owe_res().with(&ctx)?;
         Ok(())
@@ -131,12 +124,12 @@ impl RefUpdateable<UpdateUnit> for ConfSpec {
         path: &Path,
         options: &DownloadOptions,
     ) -> MainResult<UpdateUnit> {
-        debug!( target:"spec/confspec", "upload_local confspec begin: {}" ,path.display() );
+        let mut ctx = OperationContext::want("upload local confspec")
+            .with_auto_log()
+            .with_mod_path("spec/conf");
+        ctx.record("path", path);
+        ctx.debug("begin");
 
-        let mut is_suc = auto_exit_log!(
-            info!( target:"spec/confspec", "upload_local confspec suc: {}" ,path.display() ),
-            error!( target:"spec/confspec", "upload_local confspec fail: {}" ,path.display() )
-        );
         let root = path.join(self.local_root());
         std::fs::create_dir_all(&root).owe_res()?;
         for f in &self.files {
@@ -147,7 +140,7 @@ impl RefUpdateable<UpdateUnit> for ConfSpec {
                     .download_rename(addr, &root, filename.as_str(), options)
                     .await
                     .err_conv()?;
-                is_suc.mark_suc();
+                ctx.mark_suc();
                 return Ok(x);
             }
         }
@@ -157,7 +150,6 @@ impl RefUpdateable<UpdateUnit> for ConfSpec {
 
 #[cfg(test)]
 mod tests {
-
     use crate::accessor::accessor_for_test;
 
     use super::*;

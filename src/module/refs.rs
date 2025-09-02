@@ -1,17 +1,14 @@
 use super::prelude::*;
-use crate::error::ModReason;
-use crate::local::{LocalizeExecPath, LocalizeVarPath};
-use crate::predule::*;
 
 use orion_error::UvsLogicFrom;
 use orion_variate::types::ResourceDownloader;
-use orion_variate::vars::EnvEvalable;
 
 use super::ModelSTD;
-use crate::types::{Localizable, LocalizeOptions, RefUpdateable, ValuePath};
-use crate::{const_vars::MOD_DIR, error::MainResult, module::model::ModModelSpec};
+use crate::types::{Accessor, RefUpdateable, SystemLocalizable};
+use crate::{const_vars::MOD_DIR, module::model::MMOperator};
 
 #[derive(Getters, Clone, Debug, Serialize, Deserialize)]
+#[getset(get = "pub")]
 pub struct ModuleSpecRef {
     name: String,
     addr: Address,
@@ -21,8 +18,6 @@ pub struct ModuleSpecRef {
     enable: Option<bool>,
     #[serde(skip)]
     local: Option<PathBuf>,
-    #[serde(skip_serializing_if = "Option::is_none", default)]
-    setting: Option<LocalizeVarPath>,
 }
 
 impl ModuleSpecRef {
@@ -37,16 +32,10 @@ impl ModuleSpecRef {
             model: node,
             enable: None,
             local: None,
-            setting: None,
         }
     }
     pub fn with_enable(mut self, effective: bool) -> Self {
         self.enable = Some(effective);
-        self
-    }
-
-    pub fn with_setting(mut self, setting: LocalizeVarPath) -> Self {
-        self.setting = Some(setting);
         self
     }
 
@@ -64,14 +53,14 @@ impl ModuleSpecRef {
     pub fn set_local(&mut self, local: PathBuf) {
         self.local = Some(local);
     }
-    pub fn get_target_spec(&self) -> MainResult<Option<ModModelSpec>> {
+    pub fn get_target_spec(&self) -> MainResult<Option<MMOperator>> {
         if self.is_enable()
             && let Some(local) = &self.local
         {
             let target_root = local.join(self.name());
             let target_path = target_root.join(self.model().to_string());
             if target_path.exists() {
-                let spec = ModModelSpec::load_from(&target_path)
+                let spec = MMOperator::load_from(&target_path)
                     .with(&target_root)
                     .owe(MainReason::from(ModReason::Load))?;
                 return Ok(Some(spec));
@@ -119,18 +108,18 @@ impl RefUpdateable<UpdateUnit> for ModuleSpecRef {
 
             debug!(target: "mod/ref",  "update target success!" );
             //let target_path = target_root.join(self.node().to_string());
-            let spec = ModModelSpec::load_from(&target_path)
+            let spec = MMOperator::load_from(&target_path)
                 .with(&target_root)
                 .owe(MainReason::from(ModReason::Load))?;
             let unit = spec
                 .update_local(accessor, &target_path, options)
                 .await
                 .owe(MainReason::from(ModReason::Update))?;
-            ModModelSpec::clean_other(&target_root, self.model())?;
+            MMOperator::clean_other(&target_root, self.model())?;
             flag.mark_suc();
             return Ok(unit);
         } else {
-            Err(MainReason::from_logic("no local value in ModuleSpecRef ".into()).to_err())
+            Err(MainReason::from_logic("no local value in ModuleSpecRef ").to_err())
         }
     }
 }
@@ -141,34 +130,31 @@ impl ModuleSpecRef {
         parent.join(value)
     }
 }
-
+use crate::system::SysValuePaths;
 #[async_trait]
-impl Localizable for ModuleSpecRef {
-    async fn localize(
+impl SystemLocalizable<SysValuePaths> for ModuleSpecRef {
+    async fn sys_localize(
         &self,
-        val_path: Option<ValuePath>,
+        val_path: SysValuePaths,
         options: LocalizeOptions,
     ) -> MainResult<()> {
         if self.enable.is_none_or(|x| x) {
             if let Some(local) = &self.local {
-                let mut flag = auto_exit_log!(
-                    info!(target: "spec/mod/", "localize mod {} success!", self.name ),
-                    error!(target: "spec/mod/", "localize mod {} fail!", self.name )
-                );
+                let mut ctx = OperationContext::want("mod ref localize")
+                    .with_auto_log()
+                    .with_mod_path("mod");
+                ctx.record("name", self.name.as_str());
+                let mod_val_path = val_path.join(self.name.as_str());
                 let mod_path = local.join(self.name.as_str());
                 let target_path = mod_path.join(self.model().to_string());
                 let spec =
-                    ModModelSpec::load_from(&target_path).owe(MainReason::from(ModReason::Load))?;
-                let value = PathBuf::from(self.name());
-                let cur_dst_path = val_path.map(|x| x.join(value));
-                spec.localize(cur_dst_path.clone(), options.clone()).await?;
-                if let Some(setting) = &self.setting {
-                    let used_value_file = ValuePath::new(spec.used_value_path()?);
-                    let exe_setting =
-                        LocalizeExecPath::from(setting.clone().env_eval(options.evaled_value()));
-                    exe_setting.localize(Some(used_value_file), options).await?;
-                }
-                flag.mark_suc();
+                    MMOperator::load_from(&target_path).owe(MainReason::from(ModReason::Load))?;
+                //let value = PathBuf::from(self.name());
+                let cur_md_path = ModValuePaths::from(mod_val_path.root().clone());
+                spec.mod_localize(cur_md_path.clone(), options.clone())
+                    .await
+                    .with(&ctx)?;
+                ctx.mark_suc();
             }
             Ok(())
         } else {
