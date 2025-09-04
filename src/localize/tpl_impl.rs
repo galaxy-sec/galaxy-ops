@@ -18,6 +18,7 @@ impl TplHandleBars<'_> {
     pub fn init() -> Self {
         let mut handlebars = Handlebars::new();
         handlebars.set_strict_mode(true);
+        handlebars.register_escape_fn(handlebars::no_escape);
         Self { handlebars }
     }
 
@@ -215,7 +216,7 @@ mod tests {
 
         // 创建测试数据文件
         let data_file = tmp_dir.path().join("data.json");
-        std::fs::write(&data_file, r#"{"name": "World"}"#).unwrap();
+        std::fs::write(&data_file, r#"{"name": "&World"}"#).unwrap();
 
         // 准备输出目录
         let output_dir = tmp_dir.path().join("output");
@@ -235,7 +236,7 @@ mod tests {
 
         // 验证输出内容
         let output = std::fs::read_to_string(output_dir.join("output.txt")).unwrap();
-        assert_eq!(output, "Hello, World!");
+        assert_eq!(output, "Hello, &World!");
     }
 
     #[test]
