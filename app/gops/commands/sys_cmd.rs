@@ -96,26 +96,82 @@ pub enum SysCmd {
     )]
     Localize(SysLocalizeArgs),
 
-    /// 为环境本地化系统配置 (Localize System Configuration for Environment)
-    #[command(about = "")]
+    /// 初始化系统设置 (Initialize System Settings)
+    #[command(
+        about = "初始化系统设置 (Initialize System Settings)",
+        long_about = "在当前目录下创建系统设置文件。这会生成一个包含默认配置的系统设置示例文件，\
+                     可作为系统配置的基础模板。\n\
+                     Create system settings files in the current directory. This generates a sample system settings \
+                     file with default configurations that can serve as a base template for system configuration."
+    )]
     Setting(SysSettingArgs),
 
-    #[command(about = "")]
+    /// 下载系统组件 (Download System Components)
+    #[command(
+        about = "下载系统组件 (Download System Components)",
+        long_about = "从指定源下载系统所需的组件、依赖或资源。支持指定特定的模块和环境，\
+                     便于在不同配置下获取相应的系统组件。\n\
+                     Download required components, dependencies, or resources for the system from specified sources. \
+                     Supports specifying particular modules and environments for obtaining corresponding system components \
+                     under different configurations."
+    )]
     Download(SysOpsArgs),
 
-    #[command(about = "")]
+    /// 安装系统组件 (Install System Components)
+    #[command(
+        about = "安装系统组件 (Install System Components)",
+        long_about = "安装已下载的系统组件到目标环境。支持模块化安装和环境特定配置，\
+                     确保系统组件正确部署到指定的环境中。\n\
+                     Install downloaded system components to the target environment. Supports modular installation and \
+                     environment-specific configurations to ensure system components are properly deployed to specified environments."
+    )]
     Install(SysOpsArgs),
-    #[command(about = "")]
+    /// 卸载系统组件 (Uninstall System Components)
+    #[command(
+        about = "卸载系统组件 (Uninstall System Components)",
+        long_about = "从系统中移除已安装的组件。支持安全卸载指定模块的组件，\
+                     清理相关配置和依赖，确保系统状态的完整性。\n\
+                     Remove installed components from the system. Supports safe uninstallation of specified module components, \
+                     cleaning up related configurations and dependencies to ensure system state integrity."
+    )]
     Uninstall(SysOpsArgs),
 
-    #[command(about = "")]
+    /// 启动系统服务 (Start System Services)
+    #[command(
+        about = "启动系统服务 (Start System Services)",
+        long_about = "启动指定的系统服务或组件。支持按模块和环境启动服务，\
+                     提供调试日志输出，便于监控启动过程和故障排除。\n\
+                     Start specified system services or components. Supports starting services by module and environment, \
+                     providing debug log output for monitoring the startup process and troubleshooting."
+    )]
     Start(SysOpsArgs),
-    #[command(about = "")]
+    /// 停止系统服务 (Stop System Services)
+    #[command(
+        about = "停止系统服务 (Stop System Services)",
+        long_about = "停止正在运行的系统服务或组件。支持优雅停机过程，\
+                     确保服务正常关闭并清理相关资源，维护系统稳定性。\n\
+                     Stop running system services or components. Supports graceful shutdown processes to ensure \
+                     services terminate normally and clean up related resources, maintaining system stability."
+    )]
     Stop(SysOpsArgs),
 
-    #[command(about = "")]
+    /// 查询系统状态 (Query System Status)
+    #[command(
+        about = "查询系统状态 (Query System Status)",
+        long_about = "获取系统服务和组件的当前运行状态。支持按模块和环境过滤状态信息，\
+                     提供详细的运行时状态和健康检查结果。\n\
+                     Retrieve current runtime status of system services and components. Supports filtering status information \
+                     by module and environment, providing detailed runtime status and health check results."
+    )]
     Status(SysOpsArgs),
-    #[command(about = "")]
+    /// 诊断系统问题 (Diagnose System Issues)
+    #[command(
+        about = "诊断系统问题 (Diagnose System Issues)",
+        long_about = "对系统进行全面诊断和故障排除。支持针对特定模块和环境进行诊断，\
+                     生成详细的诊断报告和建议解决方案。\n\
+                     Perform comprehensive system diagnosis and troubleshooting. Supports targeted diagnosis for specific \
+                     modules and environments, generating detailed diagnostic reports and suggested solutions."
+    )]
     Diagnose(SysOpsArgs),
 }
 
