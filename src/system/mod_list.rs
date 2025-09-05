@@ -77,7 +77,7 @@ impl SystemLocalizable<SysValuePaths> for ModulesList {
     ) -> MainResult<()> {
         //let root = val_path.join("mods");
         for m in &self.mods {
-            if m.is_enable() {
+            if m.is_enable() && options.allow_module(m.name()) {
                 m.sys_localize(val_path.clone(), options.clone()).await?;
             }
         }
