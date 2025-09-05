@@ -39,16 +39,20 @@ pub trait RefUpdateable<T> {
     ) -> MainResult<T>;
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Getters, WithSetters)]
+#[getset(get = "pub")]
 pub struct LocalizeOptions {
     eval_dict: OriginDict,
     raw_dict: OriginDict,
+    #[getset(set_with = "pub")]
+    only_mod: Option<String>,
 }
 impl LocalizeOptions {
     pub fn new(raw_dict: OriginDict) -> Self {
         Self {
             eval_dict: raw_dict.clone().env_eval(&EnvDict::default()),
             raw_dict,
+            only_mod: None,
         }
     }
     pub fn evaled_value(&self) -> &OriginDict {
@@ -57,11 +61,18 @@ impl LocalizeOptions {
     pub fn raw_value(&self) -> &OriginDict {
         &self.raw_dict
     }
+    pub fn allow_module(&self, mod_name: &str) -> bool {
+        if let Some(name) = &self.only_mod {
+            return name == mod_name;
+        }
+        true
+    }
 
     pub fn for_test() -> Self {
         Self {
             eval_dict: OriginDict::new(),
             raw_dict: OriginDict::new(),
+            only_mod: None,
         }
     }
 }

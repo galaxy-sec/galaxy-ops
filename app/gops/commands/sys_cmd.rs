@@ -1,3 +1,8 @@
+use std::process::Command;
+use std::process::Stdio;
+use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio::process::Command as TokioCommand;
+
 use clap::{Args, Parser};
 use derive_getters::Getters;
 use galaxy_ops::const_vars::{SETTING_DIR, VALUE_DIR};
@@ -15,7 +20,7 @@ use orion_infra::path::{ensure_path, make_new_path};
 use orion_variate::update::DownloadOptions;
 use orion_variate::vars::{OriginDict, ValueDict};
 
-use crate::commands::common::{DebugLogArgs, LocalizeArgs};
+use crate::commands::common::DebugLogArgs;
 
 // === 参数定义 ===
 
@@ -43,14 +48,26 @@ pub struct SysLocalizeArgs {
     #[clap(flatten)]
     pub debug_log: DebugLogArgs,
 
-    #[clap(flatten)]
-    pub localize: LocalizeArgs,
+    #[arg(long = "mod", help = "mod name")]
+    pub module: Option<String>,
 }
 
 #[derive(Debug, Args, Getters)]
 pub struct SysSettingArgs {
     #[arg(long, help = "init sys setting")]
     pub init: bool,
+}
+
+#[derive(Debug, Args, Getters)]
+pub struct SysOpsArgs {
+    #[clap(flatten)]
+    pub debug_log: DebugLogArgs,
+
+    #[arg(long = "mod", help = "mod name")]
+    pub module: Option<String>,
+
+    #[arg(short, long = "env", help = "env name", default_value = "default")]
+    pub env: String,
 }
 
 #[derive(Debug, Parser)]
@@ -79,9 +96,83 @@ pub enum SysCmd {
     )]
     Localize(SysLocalizeArgs),
 
-    /// 为环境本地化系统配置 (Localize System Configuration for Environment)
-    #[command(about = "")]
+    /// 初始化系统设置 (Initialize System Settings)
+    #[command(
+        about = "初始化系统设置 (Initialize System Settings)",
+        long_about = "在当前目录下创建系统设置文件。这会生成一个包含默认配置的系统设置示例文件，\
+                     可作为系统配置的基础模板。\n\
+                     Create system settings files in the current directory. This generates a sample system settings \
+                     file with default configurations that can serve as a base template for system configuration."
+    )]
     Setting(SysSettingArgs),
+
+    /// 下载系统组件 (Download System Components)
+    #[command(
+        about = "下载系统组件 (Download System Components)",
+        long_about = "从指定源下载系统所需的组件、依赖或资源。支持指定特定的模块和环境，\
+                     便于在不同配置下获取相应的系统组件。\n\
+                     Download required components, dependencies, or resources for the system from specified sources. \
+                     Supports specifying particular modules and environments for obtaining corresponding system components \
+                     under different configurations."
+    )]
+    Download(SysOpsArgs),
+
+    /// 安装系统组件 (Install System Components)
+    #[command(
+        about = "安装系统组件 (Install System Components)",
+        long_about = "安装已下载的系统组件到目标环境。支持模块化安装和环境特定配置，\
+                     确保系统组件正确部署到指定的环境中。\n\
+                     Install downloaded system components to the target environment. Supports modular installation and \
+                     environment-specific configurations to ensure system components are properly deployed to specified environments."
+    )]
+    Install(SysOpsArgs),
+    /// 卸载系统组件 (Uninstall System Components)
+    #[command(
+        about = "卸载系统组件 (Uninstall System Components)",
+        long_about = "从系统中移除已安装的组件。支持安全卸载指定模块的组件，\
+                     清理相关配置和依赖，确保系统状态的完整性。\n\
+                     Remove installed components from the system. Supports safe uninstallation of specified module components, \
+                     cleaning up related configurations and dependencies to ensure system state integrity."
+    )]
+    Uninstall(SysOpsArgs),
+
+    /// 启动系统服务 (Start System Services)
+    #[command(
+        about = "启动系统服务 (Start System Services)",
+        long_about = "启动指定的系统服务或组件。支持按模块和环境启动服务，\
+                     提供调试日志输出，便于监控启动过程和故障排除。\n\
+                     Start specified system services or components. Supports starting services by module and environment, \
+                     providing debug log output for monitoring the startup process and troubleshooting."
+    )]
+    Start(SysOpsArgs),
+    /// 停止系统服务 (Stop System Services)
+    #[command(
+        about = "停止系统服务 (Stop System Services)",
+        long_about = "停止正在运行的系统服务或组件。支持优雅停机过程，\
+                     确保服务正常关闭并清理相关资源，维护系统稳定性。\n\
+                     Stop running system services or components. Supports graceful shutdown processes to ensure \
+                     services terminate normally and clean up related resources, maintaining system stability."
+    )]
+    Stop(SysOpsArgs),
+
+    /// 查询系统状态 (Query System Status)
+    #[command(
+        about = "查询系统状态 (Query System Status)",
+        long_about = "获取系统服务和组件的当前运行状态。支持按模块和环境过滤状态信息，\
+                     提供详细的运行时状态和健康检查结果。\n\
+                     Retrieve current runtime status of system services and components. Supports filtering status information \
+                     by module and environment, providing detailed runtime status and health check results."
+    )]
+    Status(SysOpsArgs),
+    /// 诊断系统问题 (Diagnose System Issues)
+    #[command(
+        about = "诊断系统问题 (Diagnose System Issues)",
+        long_about = "对系统进行全面诊断和故障排除。支持针对特定模块和环境进行诊断，\
+                     生成详细的诊断报告和建议解决方案。\n\
+                     Perform comprehensive system diagnosis and troubleshooting. Supports targeted diagnosis for specific \
+                     modules and environments, generating detailed diagnostic reports and suggested solutions."
+    )]
+    Diagnose(SysOpsArgs),
 }
 
 // === DfxArgsGetter 实现 ===
@@ -105,6 +196,14 @@ impl DfxArgsGetter for SysUpdateArgs {
 }
 
 impl DfxArgsGetter for SysLocalizeArgs {
+    fn debug_level(&self) -> usize {
+        self.debug_log.debug_level()
+    }
+    fn log_setting(&self) -> Option<String> {
+        self.debug_log.log_setting()
+    }
+}
+impl DfxArgsGetter for SysOpsArgs {
     fn debug_level(&self) -> usize {
         self.debug_log.debug_level()
     }
@@ -182,9 +281,12 @@ impl SysCommandHandler {
         let spec = SysOperator::load(&current_dir).err_conv()?;
         let val_path = SysValuePaths::from(current_dir.clone()).join(VALUE_DIR);
         let dict = OriginDict::from(ValueDict::from_yml(&val_path.sys_value_file()).owe_res()?);
-        spec.localize(val_path, LocalizeOptions::new(dict))
-            .await
-            .err_conv()?;
+        spec.localize(
+            val_path,
+            LocalizeOptions::new(dict).with_only_mod(args.module),
+        )
+        .await
+        .err_conv()?;
         Ok(())
     }
 
@@ -198,12 +300,150 @@ impl SysCommandHandler {
         Ok(())
     }
 
+    fn check_gflow_version() -> MainResult<()> {
+        // 检查 gflow 版本
+        let gflow_path = format!(
+            "{}/bin/gflow",
+            std::env::var("HOME").unwrap_or_else(|_| "".to_string())
+        );
+        let output = Command::new(&gflow_path)
+            .arg("-V")
+            .output()
+            .map_err(|e| format!("无法执行 gflow 命令: {}", e))
+            .owe_res()?;
+
+        if !output.status.success() {
+            return Err("gflow 命令执行失败").owe_res()?;
+        }
+
+        let version_str = String::from_utf8_lossy(&output.stdout);
+        // 解析版本号，假设输出格式为 "gflow x.y.z"
+        let version_parts: Vec<&str> = version_str.split_whitespace().collect();
+        if version_parts.len() < 2 {
+            return Err(format!("无法解析 gflow 版本: {}", version_str)).owe_res()?;
+        }
+
+        let version = version_parts[1];
+        let version_parts: Vec<&str> = version.split('.').collect();
+        if version_parts.len() < 3 {
+            return Err(format!("无效的 gflow 版本格式: {}", version)).owe_res()?;
+        }
+
+        // 解析主版本、次版本和修订版本
+        let major: u32 = version_parts[0]
+            .parse()
+            .map_err(|_| format!("无效的主版本号: {}", version_parts[0]))
+            .owe_res()?;
+        let minor: u32 = version_parts[1]
+            .parse()
+            .map_err(|_| format!("无效的次版本号: {}", version_parts[1]))
+            .owe_res()?;
+        let patch: u32 = version_parts[2]
+            .parse()
+            .map_err(|_| format!("无效的修订版本号: {}", version_parts[2]))
+            .owe_res()?;
+
+        // 检查版本是否 >= 0.11.2
+        if major > 0 || (major == 0 && minor > 11) || (major == 0 && minor == 11 && patch >= 2) {
+            Ok(())
+        } else {
+            Err(format!(
+                "gflow 版本过低，需要 >= 0.11.2，当前版本: {}",
+                version
+            ))
+            .owe_res()?
+        }
+    }
+
+    pub async fn handle_ops_cmd(cmd_name: &str, args: SysOpsArgs) -> MainResult<()> {
+        galaxy_ops::infra::configure_dfx_logging(&args);
+
+        // 检查 gflow 版本
+        Self::check_gflow_version()?;
+
+        // 构建并执行命令
+        let gflow_path = format!(
+            "{}/bin/gflow",
+            std::env::var("HOME").unwrap_or_else(|_| "".to_string())
+        );
+
+        // 直接执行 gflow 命令
+        let mut cmd = TokioCommand::new(&gflow_path);
+        cmd.arg("-e").arg(args.env());
+        cmd.arg(cmd_name);
+        cmd.arg("-d").arg(args.debug_level().to_string());
+
+        if let Some(module) = args.module() {
+            println!("use module :{module}");
+            cmd.arg("--").arg(module);
+        }
+
+        // 设置管道并启动进程
+        let mut child = cmd
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|e| anyhow::anyhow!("无法启动 gflow 命令: {}", e))
+            .owe_res()?;
+
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| anyhow::anyhow!("无法获取stdout"))
+            .owe_res()?;
+        let stderr = child
+            .stderr
+            .take()
+            .ok_or_else(|| anyhow::anyhow!("无法获取stderr"))
+            .owe_res()?;
+
+        // 创建异步读取器并并发处理stdout和stderr
+        let stdout_handle = tokio::spawn(async move {
+            let mut reader = BufReader::new(stdout).lines();
+            while let Ok(Some(line)) = reader.next_line().await {
+                println!("{}", line);
+            }
+        });
+
+        let stderr_handle = tokio::spawn(async move {
+            let mut reader = BufReader::new(stderr).lines();
+            while let Ok(Some(line)) = reader.next_line().await {
+                eprintln!("{}", line);
+            }
+        });
+
+        // 等待输出处理完成
+        let _ = tokio::try_join!(stdout_handle, stderr_handle);
+
+        // 等待子进程完成并检查退出状态
+        let exit_status = child
+            .wait()
+            .await
+            .map_err(|e| anyhow::anyhow!("等待子进程失败: {}", e))
+            .owe_res()?;
+
+        if !exit_status.success() {
+            return Err(anyhow::anyhow!("命令执行失败，退出状态: {}", exit_status)).owe_res()?;
+        }
+
+        Ok(())
+    }
+
     pub async fn execute(cmd: SysCmd) -> MainResult<()> {
         match cmd {
             SysCmd::New(args) => Self::handle_new(args).await,
             SysCmd::Update(args) => Self::handle_update(args).await,
             SysCmd::Localize(args) => Self::handle_localize(args).await,
             SysCmd::Setting(args) => Self::handle_setting(args).await,
+            SysCmd::Download(sys_ops_args) => Self::handle_ops_cmd("download", sys_ops_args).await,
+            SysCmd::Install(sys_ops_args) => Self::handle_ops_cmd("install", sys_ops_args).await,
+            SysCmd::Start(sys_ops_args) => Self::handle_ops_cmd("start", sys_ops_args).await,
+            SysCmd::Stop(sys_ops_args) => Self::handle_ops_cmd("stop", sys_ops_args).await,
+            SysCmd::Uninstall(sys_ops_args) => {
+                Self::handle_ops_cmd("uninstall", sys_ops_args).await
+            }
+            SysCmd::Status(sys_ops_args) => Self::handle_ops_cmd("status", sys_ops_args).await,
+            SysCmd::Diagnose(sys_ops_args) => Self::handle_ops_cmd("diagnose", sys_ops_args).await,
         }
     }
 }
@@ -309,15 +549,10 @@ mod tests {
                 debug: 1,
                 log: Some("debug".to_string()),
             },
-            localize: LocalizeArgs {
-                value: Some("test.yml".to_string()),
-                use_default_value: false,
-            },
+            module: None,
         };
 
         assert_eq!(args.debug_level(), 1);
         assert_eq!(args.log_setting(), Some("debug".to_string()));
-        assert_eq!(*args.localize.value(), Some("test.yml".to_string()));
-        assert!(!*args.localize.use_default_value());
     }
 }
