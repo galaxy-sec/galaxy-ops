@@ -1,54 +1,11 @@
-      - name: Build release binary with intelligent proc-macro handling
-        shell: bash
+      - name: Build release binary
         run: |
-          # Intelligent target-aware build logic for proc-macro compatibility
-          HOST_ARCH=$(uname -m)
-          HOST_OS=$(uname -s | tr '[:upper:]' '[:lower:]')
-
-          # Determine host arch mapping
-          case "$HOST_ARCH" in
-            x86_64) HOST_TARGET="x86_64" ;;
-            arm64|aarch64) HOST_TARGET="aarch64" ;;
-            *) HOST_TARGET="$HOST_ARCH" ;;
-          esac
-
-          # Determine host OS mapping
-          case "$HOST_OS" in
-            linux) HOST_OS="unknown-linux-gnu" ;;
-            darwin) HOST_OS="apple-darwin" ;;
-            *) HOST_OS="unknown-$HOST_OS" ;;
-          esac
-
-          HOST_FULL_TARGET="${HOST_TARGET}-${HOST_OS}"
-          echo "🎯 Host architecture: $HOST_FULL_TARGET"
-          echo "🎯 Target architecture: ${{ matrix.target }}"
-
-          # Build strategy based on host-target compatibility
-          if [ "${{ matrix.target }}" = "$HOST_FULL_TARGET" ]; then
-            echo "✅ Host and target match - building directly for target"
-            if [ "${{ matrix.target }}" = "x86_64-unknown-linux-musl" ]; then
-              echo "🔨 Building native musl static release binary..."
-              RUSTFLAGS="-C target-feature=+crt-static" cargo build --release --target ${{ matrix.target }}
-            else
-              echo "🔨 Building release binary for native target..."
-              cargo build --release --target ${{ matrix.target }}
-            fi
+          if [ "${{ matrix.target }}" = "x86_64-unknown-linux-musl" ]; then
+            echo "🔨 Building native musl static release binary..."
+            RUSTFLAGS="-C target-feature=+crt-static" cargo build --release --target ${{ matrix.target }}
           else
-            echo "🔄 Cross-compilation detected - building with proc-macro compatibility"
-
-            # First pass: build all dependencies (including proc-macros) for host
-            echo "🛠️  Building dependencies for host architecture..."
-            cargo build --release --all-features
-
-            # Second pass: build for target with dependencies already built for host
-            echo "🎯 Building target binary..."
-            if [ "${{ matrix.target }}" = "x86_64-unknown-linux-musl" ]; then
-              echo "🔨 Building musl static target binary..."
-              RUSTFLAGS="-C target-feature=+crt-static" cargo build --release --target ${{ matrix.target }}
-            else
-              echo "🔨 Building target binary..."
-              cargo build --release --target ${{ matrix.target }}
-            fi
+            echo "🔨 Building release binary for ${{ matrix.target }}..."
+            cargo build --release --target ${{ matrix.target }}
           fi
 
       - name: Strip binary
@@ -63,29 +20,12 @@
       - name: Verify musl static linking
         if: matrix.target == 'x86_64-unknown-linux-musl'
         run: |
-          echo "🔍 Verifying GitHub Actions native musl static binary:"
+          echo "🔍 Verifying musl static binary:"
           file ./target/${{ matrix.target }}/release/gops
           ldd ./target/${{ matrix.target }}/release/gops 2>&1 | grep -q "not a dynamic executable" && echo "✅ Confirmed: Static binary"
-          echo "✅ GitHub Actions native musl environment - no Cross/Docker needed"
 
-      - name: Prepare release assets
-        shell: bash
-        run: |
-          version="${{ env.VERSION }}"
-          echo "VERSION=$version" >> $GITHUB_ENV
 
-          # Create distribution directory
-          mkdir -p dist
-
-          # Copy binary and ensure correct name
-          cp ./target/${{ matrix.target }}/release/gops dist/
-
-          # Platform-specific optimizations
-          if [ "${{ matrix.target }}" = "x86_64-unknown-linux-musl" ]; then
-            echo "🔍 Verifying native musl static binary:"
-            echo "✅ Host architecture: $(uname -m) $(uname -s)"
-            file dist/gops
-            ldd dist/gops 2>&1 | grep "not a dynamic executable" && echo "✅ Native musl static linking confirmed in release"
+            ldd dist/gops 2>&1 | grep -q "not a dynamic executable" && echo "✅ Static linking confirmed"
             echo "📦 Package info for ${{ matrix.name }} (musl static):"
 +          else
 +            echo "📦 Package info for ${{ matrix.name }}:"
