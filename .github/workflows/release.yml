@@ -1,310 +1,143 @@
 name: Release
 
+# Only do the release on x.y.z tags.
 on:
   push:
-    tags: ["v*.*.*"]
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+*"
 
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
-
+# We need this to be able to create releases.
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  Release-Build:
-    runs-on: ${{ matrix.os }}
-    permissions:
-      contents: read
-      attestations: write
-      id-token: write
-    strategy:
-      matrix:
-        target:
-          - x86_64-unknown-linux-gnu
-          - x86_64-unknown-linux-musl # 静态链接版本
-          - aarch64-apple-darwin
-        rustup_toolchain: [stable]
-        include:
-          - os: ubuntu-22.04
-            target: x86_64-unknown-linux-gnu
-          - os: ubuntu-22.04
-            target: x86_64-unknown-linux-musl
-          - os: macos-14
-            target: aarch64-apple-darwin
+  # The create-release job runs purely to initialize the GitHub release itself,
+  # and names the release after the `x.y.z` tag that was pushed. It's separate
+  # from building the release so that we only create the release once.
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ env.VERSION }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: ${{ matrix.rustup_toolchain }}
+      - name: Get the release version from the tag
+        run: echo "VERSION=${{ github.ref_name }}" >> $GITHUB_ENV
 
-      - name: Cache cargo registry and build artifacts
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-${{ matrix.target }}-
-            ${{ runner.os }}-cargo-
+      - name: Show the version
+        run: |
+          echo "version is: $VERSION"
 
-      - name: Install musl tools (for musl target)
-        if: matrix.target == 'x86_64-unknown-linux-musl'
+      - name: Check that tag version and Cargo.toml version are the same
+        shell: bash
+        run: |
+          if ! grep -q "version = \"$VERSION\"" Cargo.toml; then
+            echo "version does not match Cargo.toml" >&2
+            echo "Expected version: $VERSION"
+            echo "Cargo.toml contains:"
+            grep "version" Cargo.toml
+            exit 1
+          fi
+
+      - name: Create GitHub release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create $VERSION --draft --verify-tag --title "GalaxyFlow $VERSION"
+
+  # Build and upload release artifacts
+  build-release:
+    name: Build Release
+    needs: ["create-release"]
+    runs-on: ${{ matrix.os }}
+    env:
+      # For cross compilation
+      CARGO: cargo
+      TARGET_FLAGS: ""
+      TARGET_DIR: ./target
+      # Cross version - pinned for stability
+      CROSS_VERSION: v0.2.5
+      # Emit backtraces on panics
+      RUST_BACKTRACE: 1
+      # Static linking environment
+      PKG_CONFIG_ALL_STATIC: "1"
+      LIBZ_SYS_STATIC: "1"
+      OPENSSL_STATIC: "1"
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Linux static builds (fully static)
+          - build: linux-musl
+            os: ubuntu-latest
+            rust: stable
+            target: x86_64-unknown-linux-musl
+            strip: x86_64-linux-musl-strip
+            static: true
+
+          - build: linux-gnu
+            os: ubuntu-latest
+            rust: stable
+            target: x86_64-unknown-linux-gnu
+            strip: x86_64-linux-gnu-strip
+
+          - build: linux-arm64
+            os: ubuntu-latest
+            rust: stable
+            target: aarch64-unknown-linux-gnu
+            strip: aarch64-linux-gnu-strip
+
+          # macOS builds
+          - build: macos-intel
+            os: macos-latest
+            rust: stable
+            target: x86_64-apple-darwin
+            strip: strip
+
+          - build: macos-arm
+            os: macos-latest
+            rust: stable
+            target: aarch64-apple-darwin
+            strip: strip
+
+          # Windows builds
+          - build: windows-msvc
+            os: windows-latest
+            rust: stable
+            target: x86_64-pc-windows-msvc
+
+          - build: windows-gnu
+            os: windows-latest
+            rust: stable
+            target: x86_64-pc-windows-gnu
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install packages (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
-          sudo apt-get install -y musl-tools musl-dev pkg-config libssl-dev
-          echo "musl-gcc --version" && musl-gcc --version || echo "musl-gcc not found"
-
-      - name: Add musl target (for musl target)
-        if: matrix.target == 'x86_64-unknown-linux-musl'
-        run: |
-          rustup target add x86_64-unknown-linux-musl
-          rustup component add rust-src --toolchain stable-x86_64-unknown-linux-gnu || true
-          rustup default stable
-          echo "Target added successfully"
-
-      - name: Cargo build (gnu target)
-        if: matrix.target == 'x86_64-unknown-linux-gnu'
-        run: |
-          set -x
-          echo "Building for ${{ matrix.target }} with static linking..."
-          if ! cargo build --release --target ${{ matrix.target }}; then
-            echo "❌ Standard GNU build failed! Trying debug mode diagnostics..."
-            cargo build --target ${{ matrix.target }} --verbose 2>&1 | tee build_error.log
-            exit 1
-          fi
-          echo "Build completed, checking results..."
-          ls -la target/${{ matrix.target }}/
-
-      - name: Cargo build (macOS target)
-        if: matrix.target == 'aarch64-apple-darwin'
-        run: |
-          set -x
-          echo "Building for ${{ matrix.target }}..."
-          if ! cargo build --release --target ${{ matrix.target }}; then
-            echo "❌ macOS build failed! Trying debug mode diagnostics..."
-            cargo build --target ${{ matrix.target }} --verbose 2>&1 | tee build_error.log
-            exit 1
-          fi
-          echo "Build completed, checking results..."
-          ls -la target/${{ matrix.target }}/
-
-      - name: Cargo build (musl static target)
-        if: matrix.target == 'x86_64-unknown-linux-musl'
-        env:
-          RUSTFLAGS: "-C target-feature=+crt-static -C link-arg=-static -C linker=musl-gcc"
-          OPENSSL_STATIC: "1"
-          OPENSSL_LIB_DIR: "/usr/lib/x86_64-linux-musl"
-          OPENSSL_INCLUDE_DIR: "/usr/include"
-          CC: "musl-gcc"
-          CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER: "musl-gcc"
-          PKG_CONFIG_SYSROOT_DIR: "/usr/lib/x86_64-linux-musl"
-          PKG_CONFIG_ALL_STATIC: "1"
-          LIBZ_SYS_STATIC: "1"
-          OPENSSL_NO_VENDOR: "0"
-        run: |
-          set -x
-          echo "Building for ${{ matrix.target }}..."
-          if ! cargo build --release --target ${{ matrix.target }}; then
-            echo "❌ Static musl build failed! Attempting diagnostic build..."
-            echo "=== Current musl environment ==="
-            pkg-config --libs --cflags openssl || echo "pk-config failed for OpenSSL"
-            echo "=== Musl compiler check ==="
-            musl-gcc --version || echo "musl-gcc version check failed"
-            echo "=== Trying debug build for diagnostics ==="
-            cargo build --target ${{ matrix.target }} --verbose 2>&1 | head -50
-            echo "=== Environment diagnostic complete ==="
-            exit 1
-          fi
-          echo "Build completed, checking results..."
-          ls -la target/${{ matrix.target }}/
-            echo "=== Rust toolchain info ==="
-            rustc --version
-            cargo --version
-            echo "=== Musl tools check ==="
-            which musl-gcc || echo "musl-gcc not found"
-            echo "=== OpenSSL search ==="
-            find /usr -name "libssl*" 2>/dev/null | head -10
-            echo "=== Environment variables ==="
-            env | grep -E "(OPENSSL|CC|PKG_CONFIG|RUSTFLAGS)"
-            echo "Trying fallback build without static flags..."
-            RUSTFLAGS="" cargo build --release --target ${{ matrix.target }} || {
-              echo "❌ Fallback build also failed"
-              exit 1
-            }
-          fi
-          echo "Build completed, checking results..."
-          ls -la target/${{ matrix.target }}/
-
-      - name: Show version
-        run: ./target/${{ matrix.target }}/release/gops --version
-
-      - name: Verify static linking (musl target)
-        if: matrix.target == 'x86_64-unknown-linux-musl'
-        run: |
-          echo "=== Verifying static linking ==="
-          file ./target/${{ matrix.target }}/release/gops
-          echo "Checking file type..."
-          file ./target/${{ matrix.target }}/release/gops | grep -i "static" && echo "✅ Confirmed static binary" || echo "⚠️ Warning: May not be fully static"
-          echo "Checking ldd output..."
-          ldd ./target/${{ matrix.target }}/release/gops || echo "✅ No dynamic dependencies - static binary confirmed"
-          echo "=== Size analysis ==="
-          ls -lh ./target/${{ matrix.target }}/release/gops
-          echo "=== Binary info ==="
-          file ./target/${{ matrix.target }}/release/gops
-          echo "=== Detailed ldd with error handling ==="
-          ldd ./target/${{ matrix.target }}/release/gops 2>&1 || true
-          echo "=== Size comparison if available ==="
-          if [ -f "./target/x86_64-unknown-linux-gnu/release/gops" ]; then
-            echo "GNU binary size: $(du -h ./target/x86_64-unknown-linux-gnu/release/gops | cut -f1)"
-            echo "MUSL binary size: $(du -h ./target/${{ matrix.target }}/release/gops | cut -f1)"
-          fi
-
-      - name: Archive (UNIX)
-        run: |
-          set -x
-          mkdir -p artifacts
-          cp -av target/${{ matrix.target }}/release/gops artifacts/
-          cat > LICENSE.txt << 'EOF'
-            ## License Information
-            This binary was built with static linking enabled to ensure maximum compatibility.
-            All dependencies are statically linked except for system kernel interfaces.
-          EOF
-          cp README.md artifacts
-
-          # Create tar.gz archive
-          cd artifacts
-          ARCHIVE_NAME="${{ github.event.repository.name }}-${{ github.ref_name }}-${{ matrix.target }}${{ matrix.target == 'x86_64-unknown-linux-musl' && '-static' || '' }}.tar.gz"
-          tar -czf "../$ARCHIVE_NAME" *
-          cd ..
-          ls -la *.tar.gz
-
-      - name: Attest Build Provenance
-        uses: actions/attest-build-provenance@v2
-        continue-on-error: true
-        with:
-          subject-path: ${{ github.event.repository.name }}-${{ github.ref_name }}-${{ matrix.target }}*.tar.gz
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ${{ github.event.repository.name }}-${{ github.ref_name }}-${{ matrix.target }}${{ matrix.target == 'x86_64-unknown-linux-musl' && '-static' || '' }}
-          path: |
-            ${{ github.event.repository.name }}-${{ github.ref_name }}-${{ matrix.target }}${{ matrix.target == 'x86_64-unknown-linux-musl' && '-static' || '' }}.tar.gz
-          if-no-files-found: error
-          retention-days: 7
-
-  coverage:
-    name: Release Coverage
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+          sudo apt-get install -y musl-tools pkg-config libssl-dev
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@master
         with:
-          components: llvm-tools-preview
+          toolchain: ${{ matrix.rust }}
+          target: ${{ matrix.target }}
 
-      - uses: Swatinem/rust-cache@v2
-      - uses: taiki-e/install-action@cargo-llvm-cov
-
-      - name: Generate coverage report
-        run: cargo llvm-cov --all-features --workspace --lcov --output-path lcov.info -- --test-threads=1
-
-      - name: Upload to Codecov
-        uses: codecov/codecov-action@v5
-        with:
-          file: ./lcov.info
-          flags: unittests
-          token: ${{ secrets.CODECOV_TOKEN }}
-          name: codecov-release-${{ github.ref_name }}
-          fail_ci_if_error: false
-
-      - name: Upload coverage artifact
-        uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: coverage-lcov-release-${{ github.ref_name }}
-          path: lcov.info
-          retention-days: 30
-
-  Release:
-    needs: [Release-Build, coverage]
-    runs-on: ubuntu-22.04
-    permissions:
-      contents: write
-
-    steps:
-      - name: Ensure artifacts dir exists
-        run: mkdir -p artifacts
-
-      - name: Download Artifact
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-          merge-multiple: true
-
-      - name: Release
-        uses: softprops/action-gh-release@c062e08bd532815e2082a85e87e3ef29c3e6d191
-        with:
-          name: ${{ github.ref_name }}
-          tag_name: ${{ github.ref_name }}
-          generate_release_notes: true
-          fail_on_unmatched_files: true
-          body: |
-            Welcome to this new release of GalaxyFlow ${{ github.ref_name }}!
-
-            ## 🆕 Static Binary Support (GitHub Actions Built)
-            This release includes static-linked binaries (`*-musl-static.tar.gz`) built natively on GitHub Actions Ubuntu runners.
-            These binaries work on any x86_64 Linux system without requiring specific glibc versions.
-
-            ## 💻 Installation Commands
-
-            **For old systems (Ubuntu 16.04+, CentOS 7+, Debian 8+):**
-            ```bash
-            # Download and install static version (no glibc required)
-            wget https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/galaxy-ops-${{ github.ref_name }}-x86_64-unknown-linux-musl-static.tar.gz
-            tar -xzf galaxy-ops-${{ github.ref_name }}-x86_64-unknown-linux-musl-static.tar.gz
-            sudo cp gops /usr/local/bin/
-            sudo chmod +x /usr/local/bin/gops
-            gops --version
-            ```
-
-            **For modern systems (Ubuntu 20.04+, CentOS 8+):**
-            ```bash
-            # Standard dynamic version
-            wget https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/galaxy-ops-${{ github.ref_name }}-x86_64-unknown-linux-gnu.tar.gz
-            tar -xzf galaxy-ops-${{ github.ref_name }}-x86_64-unknown-linux-gnu.tar.gz
-            sudo cp gops /usr/local/bin/
-            sudo chmod +x /usr/local/bin/gops
-            gops --version
-            ```
-
-            ## ⚙️ GitHub Actions Features
-            - Native Ubuntu 22.04 build environment
-            - Musl libc static linking for maximum compatibility
-            - Caching enabled for faster CI builds
-            - Automatic static binary verification
-
-            All artifacts are signed with this repos identity using Sigstore.
-            You can verify the signatures using the `GitHub` CLI.
-
-            ```shell
-            gh attestation verify --owner ${{ github.repository_owner }} <my-artifact>
-            ```
-
-            ## 📦 Binary Downloads
-            - **Linux (Standard)**: `galaxy-ops-${{ github.ref_name }}-x86_64-unknown-linux-gnu.tar.gz`
-            - **Linux (Static - No glibc deps)**: `galaxy-ops-${{ github.ref_name }}-x86_64-unknown-linux-musl-static.tar.gz`
-            - **macOS (Apple Silicon)**: `galaxy-ops-${{ github.ref_name }}-aarch64-apple-darwin.tar.gz`
-
-            ## Code Coverage
-            For this release, code coverage reports are available on [Codecov](https://codecov.io/gh/galaxy-sec/galaxy-ops/tree/${{ github.ref_name }}).
-          token: ${{ secrets.GITHUB_TOKEN }}
-          prerelease: ${{ contains(github.ref, '-pre') }}
-          files: artifacts/*
+      - name: Use Cross (Linux targets)
+        if: matrix.os == 'ubuntu-latest' && matrix.target != 'x86_64-unknown-linux-gnu'
+        shell: bash
+        run: |
+          # Pin cross version for stability
+          dir="$RUNNER_TEMP/cross-download"
+          mkdir "$dir"
+          echo "$dir" >> $GITHUB_PATH
+          cd "$dir"
+          curl -LO "https://github.com/cross-rs/cross/releases/download/$CROSS_VERSION/cross-x86_64-unknown-linux-musl.tar.gz"
+          tar xf cross-x86_64-unknown-linux-musl.tar.gz
+          echo "CARGO=cross" >> $GITHUB_ENV
+          echo "TARGET_FLAGS=--target

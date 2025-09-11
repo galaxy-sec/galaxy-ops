@@ -1,0 +1,51 @@
+[target.x86_64-unknown-linux-musl]
+# Use musl-cross for static linking
+image = "ghcr.io/cross-rs/x86_64-unknown-linux-musl:edge"
+
+# Environment variables for static compilation
+env.passthrough = [
+    "OPENSSL_STATIC",
+    "OPENSSL_LIB_DIR",
+    "OPENSSL_INCLUDE_DIR",
+    "PKG_CONFIG_ALL_STATIC",
+    "LIBZ_SYS_STATIC",
+]
+
+# Build with static OpenSSL
+pre-build = [
+    "apt-get update && apt-get install -y pkg-config libssl-dev musl-tools",
+    "echo 'Static linking environment configured for musl'"
+]
+
+[target.aarch64-unknown-linux-gnu]
+# ARM64 Linux cross-compilation
+image = "ghcr.io/cross-rs/aarch64-unknown-linux-gnu:edge"
+pre-build = [
+    "apt-get update && apt-get install -y pkg-config libssl-dev",
+]
+
+[target.armv7-unknown-linux-gnueabihf]
+# 32-bit ARM with hard-float
+image = "ghcr.io/cross-rs/armv7-unknown-linux-gnueabihf:edge"
+pre-build = [
+    "apt-get update && apt-get install -y pkg-config libssl-dev",
+]
+
+[target.x86_64-pc-windows-gnu]
+# Windows GNU target
+image = "ghcr.io/cross-rs/x86_64-pc-windows-gnu:edge"
+
+[build.env]
+passthrough = [
+    "RUST_BACKTRACE",
+    "RUST_LOG",
+    "CARGO_TERM_COLOR",
+    "PKG_CONFIG_ALL_STATIC",
+    "LIBZ_SYS_STATIC",
+    "OPENSSL_STATIC",
+]
+
+# Default build configuration
+[build]
+# Use all available CPU cores for faster builds
+cpu = "max"
