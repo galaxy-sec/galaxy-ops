@@ -5,6 +5,7 @@ use tokio::process::Command as TokioCommand;
 
 use clap::{Args, Parser};
 use derive_getters::Getters;
+use dialoguer::Select;
 use galaxy_ops::const_vars::{SETTING_DIR, VALUE_DIR};
 use galaxy_ops::error::MainResult;
 use galaxy_ops::infra::DfxArgsGetter;
@@ -13,7 +14,6 @@ use galaxy_ops::system::SysValuePaths;
 use galaxy_ops::system::operator::SysOperator;
 use galaxy_ops::system::setting::SysSetting;
 use galaxy_ops::types::{LocalizeOptions, RefUpdateable};
-use inquire::Select;
 use orion_conf::Yamlable;
 use orion_error::{ErrorConv, ErrorOwe};
 use orion_infra::path::{ensure_path, make_new_path};
@@ -234,12 +234,11 @@ impl SysCommandHandler {
             }
         }
 
-        let selection = Select::new("请选择系统型号配置:", options.clone())
-            .prompt()
+        let index = Select::new()
+            .with_prompt("请选择系统型号配置:")
+            .items(&options)
+            .interact()
             .unwrap();
-
-        // 从预定义选项中选择
-        let index = options.iter().position(|s| s == &selection).unwrap();
         if index < support_models.len() {
             Ok(support_models[index].clone())
         } else {

@@ -43,7 +43,7 @@ tokio = { version = "1.47", features = ["full"] }
 reqwest = { version = "~0.12", features = ["multipart"] }
 url = "2.5"
 os_info = "3"
-inquire = "~0.7"
+dialoguer = "~0.12"
 serde_derive = "~1.0"
 anyhow = "~1.0"
 serde_json = "~1.0"
@@ -133,7 +133,7 @@ chrono = "0.4"
 #tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "registry"] }
 flate2.workspace = true
 tar.workspace = true
-inquire.workspace = true
+dialoguer.workspace = true
 #validator = { version = "~0.20", features = ["derive"] }
 #axum = "~0.8"
 

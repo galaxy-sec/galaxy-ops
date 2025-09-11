@@ -65,7 +65,7 @@ impl OpsProject {
         system_name: &str,
         interactive: bool,
     ) -> MainResult<()> {
-        use inquire::{Confirm, Text};
+        use dialoguer::{Confirm, Input};
 
         let value_file = value_path.join(SYS_VALUE_FILE);
 
@@ -90,9 +90,10 @@ impl OpsProject {
             };
             let mut default_value = var.value().clone();
             let value_str = if interactive {
-                Text::new(&prompt)
-                    .with_default(&var.value().to_string())
-                    .prompt()
+                Input::new()
+                    .with_prompt(&prompt)
+                    .default(var.value().to_string())
+                    .interact_text()
                     .owe_data()?
             } else {
                 // 非交互模式，如果已有值则保留，否则使用默认值
@@ -108,8 +109,9 @@ impl OpsProject {
 
         // 如果用户确认保存更改
         let should_save = if interactive {
-            Confirm::new("Do you want to save these changes?")
-                .prompt()
+            Confirm::new()
+                .with_prompt("Do you want to save these changes?")
+                .interact()
                 .owe_data()?
         } else {
             // 非交互模式，自动保存
