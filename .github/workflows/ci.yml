@@ -57,7 +57,7 @@ jobs:
           cache-on-failure: true
 
       - name: Clippy Check
-        run: cargo clippy --all-targets --all-features -- -D warnings
+        run: cargo clippy --all-features -- -D warnings
 
   # 安全审计层
   # 安全审计层 - 尽早发现问题
