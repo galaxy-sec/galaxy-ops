@@ -81,6 +81,19 @@ jobs:
           echo "Build completed, checking results..."
           ls -la target/${{ matrix.target }}/
 
+      - name: Cargo build (macOS target)
+        if: matrix.target == 'aarch64-apple-darwin'
+        run: |
+          set -x
+          echo "Building for ${{ matrix.target }}..."
+          if ! cargo build --release --target ${{ matrix.target }}; then
+            echo "❌ macOS build failed! Trying debug mode diagnostics..."
+            cargo build --target ${{ matrix.target }} --verbose 2>&1 | tee build_error.log
+            exit 1
+          fi
+          echo "Build completed, checking results..."
+          ls -la target/${{ matrix.target }}/
+
       - name: Cargo build (musl static target)
         if: matrix.target == 'x86_64-unknown-linux-musl'
         env:
