@@ -55,6 +55,20 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
+  musl-check:
+    name: Musl Compatibility Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install musl target
+        run: rustup target add x86_64-unknown-linux-musl
+      - name: Check musl compatibility
+        run: cargo check --target x86_64-unknown-linux-musl --all-features
+      - name: Clippy musl check
+        run: cargo clippy --target x86_64-unknown-linux-musl --all-features -- -D warnings
+
   coverage:
     name: Code Coverage
     runs-on: ubuntu-latest

@@ -22,11 +22,14 @@ jobs:
       matrix:
         target:
           - x86_64-unknown-linux-gnu
+          - x86_64-unknown-linux-musl
           - aarch64-apple-darwin
         rustup_toolchain: [stable]
         include:
           - os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-musl
           - os: macos-14
             target: aarch64-apple-darwin
     steps:
@@ -38,17 +41,30 @@ jobs:
         with:
           toolchain: ${{ matrix.rustup_toolchain }}
 
+      - name: Install musl target
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+        run: rustup target add ${{ matrix.target }}
+
       - name: Cargo build
         run: cargo build --release --target ${{ matrix.target }}
 
       - name: Show version
-        run: ./target/${{ matrix.target }}/release/gmod --version
+        run: ./target/${{ matrix.target }}/release/gops --version
+
+      - name: Verify musl static linking
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+        run: |
+          echo "Verifying musl static linking..."
+          if ldd ./target/${{ matrix.target }}/release/gops 2>&1 | grep -q "not a dynamic executable"; then
+            echo "✓ musl binary verified as statically linked"
+          else
+            echo "✗ musl binary is not statically linked"
+            exit 1
+          fi
 
       - name: Archive (UNIX)
         run: |
           mkdir -p artifacts
-          cp -av target/${{ matrix.target }}/release/gmod artifacts/
-          cp -av target/${{ matrix.target }}/release/gsys artifacts/
           cp -av target/${{ matrix.target }}/release/gops artifacts/
           tar -czf ${{ github.event.repository.name }}-${{ github.ref_name }}-${{ matrix.target }}.tar.gz  artifacts
         if: ${{ ! startsWith(matrix.os, 'windows') }}
