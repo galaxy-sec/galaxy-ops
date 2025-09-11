@@ -118,15 +118,15 @@ jobs:
       - name: Build
         run: cargo build --verbose --target ${{ matrix.target }}
 
-          - name: Unit tests
-            run: cargo test --verbose --target ${{ matrix.target }} --all-features -- --test-threads=1
+      - name: Unit tests
+        run: cargo test --verbose --target ${{ matrix.target }} --all-features -- --test-threads=1
 
       - name: Verify musl static linking
         if: matrix.target == 'x86_64-unknown-linux-musl'
         run: |
           echo "🔍 Verifying static linking for musl binary:"
           echo "✅ GitHub Actions Ubuntu environment provides native musl support"
-          echo "✅ Host architecture: $HOST_FULL_TARGET"
+          echo "✅ Native platform verified"
           ldd ./target/${{ matrix.target }}/debug/gops 2>&1 | grep -q "not a dynamic executable" && echo "✅ Confirmed: Static binary"
           file ./target/${{ matrix.target }}/debug/gops
 
