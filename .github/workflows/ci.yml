@@ -72,6 +72,24 @@ jobs:
         run: cargo check --target x86_64-unknown-linux-musl --all-features
       - name: Clippy musl check
         run: cargo clippy --target x86_64-unknown-linux-musl --all-features -- -D warnings
+      - name: Configure static linking environment
+        run: |
+          echo "RUSTFLAGS=-C target-feature=+crt-static" >> $GITHUB_ENV
+          echo "PKG_CONFIG_ALL_STATIC=1" >> $GITHUB_ENV
+          echo "OPENSSL_STATIC=1" >> $GITHUB_ENV
+          echo "LIBZ_SYS_STATIC=1" >> $GITHUB_ENV
+
+      - name: Build musl debug binary for verification
+        run: cargo build --target x86_64-unknown-linux-musl --all-features
+      - name: Verify musl static linking
+        run: |
+          echo "Verifying musl static linking..."
+          if file ./target/x86_64-unknown-linux-musl/debug/gops | grep -q "statically linked"; then
+            echo "✓ musl binary verified as statically linked"
+          else
+            echo "✗ musl binary is not statically linked"
+            exit 1
+          fi
 
   coverage:
     name: Code Coverage

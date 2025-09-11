@@ -51,6 +51,14 @@ jobs:
         if: matrix.target == 'x86_64-unknown-linux-musl'
         run: rustup target add ${{ matrix.target }}
 
+      - name: Configure static linking environment
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+        run: |
+          echo "RUSTFLAGS=-C target-feature=+crt-static" >> $GITHUB_ENV
+          echo "PKG_CONFIG_ALL_STATIC=1" >> $GITHUB_ENV
+          echo "OPENSSL_STATIC=1" >> $GITHUB_ENV
+          echo "LIBZ_SYS_STATIC=1" >> $GITHUB_ENV
+
       - name: Cargo build
         run: cargo build --release --target ${{ matrix.target }}
 
@@ -61,7 +69,7 @@ jobs:
         if: matrix.target == 'x86_64-unknown-linux-musl'
         run: |
           echo "Verifying musl static linking..."
-          if ldd ./target/${{ matrix.target }}/release/gops 2>&1 | grep -q "not a dynamic executable"; then
+          if file ./target/${{ matrix.target }}/release/gops | grep -q "statically linked"; then
             echo "✓ musl binary verified as statically linked"
           else
             echo "✗ musl binary is not statically linked"
