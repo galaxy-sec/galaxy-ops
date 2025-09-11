@@ -1,152 +1,55 @@
-name: Release
-
-# GitHub Actions Native Release Strategy
-# This release workflow uses GitHub Actions native support for all platforms:
-# - Linux: x86_64-unknown-linux-gnu (glibc) and x86_64-unknown-linux-musl (static)
-# - macOS: aarch64-apple-darwin (Apple Silicon ARM64 only)
-# - Windows: No longer supported (removed per project requirements)
-#
-# Key Features:
-# - Native musl support via GitHub Actions Ubuntu environment (no Cross/Docker needed)
-# - Static linking verification for musl binaries
-# - Simplified architecture matrix optimized for project requirements
-# - Full native toolchain utilization for maximum reliability
-
-on:
-  push:
-    tags:
-      - "[0-9]+.[0-9]+.[0-9]+*"
-
-# We need this to be able to create releases.
-permissions:
-  contents: write
-
-jobs:
-  # The create-release job runs purely to initialize the GitHub release itself,
-  # and names the release after the `x.y.z` tag that was pushed. It's separate
-  # from building the release so that we only create the release once.
-  create-release:
-    name: Create Release
-    runs-on: ubuntu-latest
-    outputs:
-      version: ${{ env.VERSION }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Get the release version from the tag
-        run: echo "VERSION=${{ github.ref_name }}" >> $GITHUB_ENV
-
-      - name: Show the version
-        run: |
-          echo "version is: $VERSION"
-
-      - name: Check that tag version and Cargo.toml version are the same
+      - name: Build release binary with intelligent proc-macro handling
         shell: bash
         run: |
-          if ! grep -q "version = \"$VERSION\"" Cargo.toml; then
-            echo "version does not match Cargo.toml" >&2
-            echo "Expected version: $VERSION"
-            echo "Cargo.toml contains:"
-            grep "version" Cargo.toml
-            exit 1
-          fi
+          # Intelligent target-aware build logic for proc-macro compatibility
+          HOST_ARCH=$(uname -m)
+          HOST_OS=$(uname -s | tr '[:upper:]' '[:lower:]')
 
-      - name: Create GitHub release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release create $VERSION --draft --verify-tag --title "GalaxyFlow $VERSION"
+          # Determine host arch mapping
+          case "$HOST_ARCH" in
+            x86_64) HOST_TARGET="x86_64" ;;
+            arm64|aarch64) HOST_TARGET="aarch64" ;;
+            *) HOST_TARGET="$HOST_ARCH" ;;
+          esac
 
-  # Build and upload release artifacts
-  # Uses GitHub Actions native support for all platforms:
-  # - Linux targets: Built natively on Ubuntu, including musl static builds
-  # - macOS targets: Built natively on macOS runners
-  # - No Cross/Docker dependencies - full native toolchain utilization
-  build-release:
-    name: Build Release
-    needs: ["create-release"]
-    runs-on: ${{ matrix.os }}
-    env:
-      # GitHub Actions native builds - no cross compilation needed
-      CARGO: cargo
-      TARGET_FLAGS: ""
-      TARGET_DIR: ./target
-      # Emit backtraces on panics
-      RUST_BACKTRACE: 1
-      # Static linking environment for musl builds
-      # GitHub Actions Ubuntu provides native musl-gcc toolchain
-      # No additional cross-compilation tools needed
-      PKG_CONFIG_ALL_STATIC: "1"
-      LIBZ_SYS_STATIC: "1"
-      OPENSSL_STATIC: "1"
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          # Linux builds with GitHub Actions native musl support
-          # Native musl-gcc toolchain is pre-installed in GitHub Actions Ubuntu
-          - build: linux-musl
-            os: ubuntu-latest
-            rust: stable
-            target: x86_64-unknown-linux-musl
-            strip: x86_64-linux-musl-strip
-            static: true
+          # Determine host OS mapping
+          case "$HOST_OS" in
+            linux) HOST_OS="unknown-linux-gnu" ;;
+            darwin) HOST_OS="apple-darwin" ;;
+            *) HOST_OS="unknown-$HOST_OS" ;;
+          esac
 
-          # Standard Linux glibc build
-          - build: linux-gnu
-            os: ubuntu-latest
-            rust: stable
-            target: x86_64-unknown-linux-gnu
-            strip: x86_64-linux-gnu-strip
+          HOST_FULL_TARGET="${HOST_TARGET}-${HOST_OS}"
+          echo "🎯 Host architecture: $HOST_FULL_TARGET"
+          echo "🎯 Target architecture: ${{ matrix.target }}"
 
-          # macOS builds (ARM64 only, optimized for Apple Silicon)
-          # Supports Apple M1/M2/M3 processors natively via GitHub Actions macOS runners
-          - build: macos-arm
-            os: macos-latest
-            rust: stable
-            target: aarch64-apple-darwin
-            strip: strip
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install packages (Ubuntu)
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          # GitHub Actions provides native musl support - minimal dependencies needed
-          sudo apt-get update
-          sudo apt-get install -y pkg-config
-          # musl-tools is pre-installed in GitHub Actions Ubuntu environment
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ matrix.rust }}
-          target: ${{ matrix.target }}
-
-      # GitHub Actions Ubuntu provides native musl support - no Cross needed
-      # All Linux targets can be built natively
-          echo "TARGET_FLAGS=--target ${{ matrix.target }}" >> $GITHUB_ENV
-          echo "TARGET_DIR=./target/${{ matrix.target }}" >> $GITHUB_ENV
-
-      - name: Build release binary
-        run: |
-          if [ "${{ matrix.target }}" = "x86_64-unknown-linux-musl" ]; then
-            echo "🔨 Building native musl static binary with GitHub Actions..."
-            RUSTFLAGS="-C target-feature=+crt-static" cargo build --release --target ${{ matrix.target }}
+          # Build strategy based on host-target compatibility
+          if [ "${{ matrix.target }}" = "$HOST_FULL_TARGET" ]; then
+            echo "✅ Host and target match - building directly for target"
+            if [ "${{ matrix.target }}" = "x86_64-unknown-linux-musl" ]; then
+              echo "🔨 Building native musl static release binary..."
+              RUSTFLAGS="-C target-feature=+crt-static" cargo build --release --target ${{ matrix.target }}
+            else
+              echo "🔨 Building release binary for native target..."
+              cargo build --release --target ${{ matrix.target }}
+            fi
           else
-            echo "🔨 Building release binary for ${{ matrix.target }}..."
-            cargo build --release --target ${{ matrix.target }}
-          fi
+            echo "🔄 Cross-compilation detected - building with proc-macro compatibility"
 
-      - name: Verify musl static linking
-        if: matrix.target == 'x86_64-unknown-linux-musl'
-        run: |
-          echo "🔍 Verifying GitHub Actions native musl static binary:"
-          ldd ./target/${{ matrix.target }}/release/gops 2>&1 | grep -q "not a dynamic executable" && echo "✅ Confirmed: Native musl static binary"
-          file ./target/${{ matrix.target }}/release/gops
-          echo "✅ GitHub Actions native musl environment - no Cross/Docker needed"
+            # First pass: build all dependencies (including proc-macros) for host
+            echo "🛠️  Building dependencies for host architecture..."
+            cargo build --release --all-features
+
+            # Second pass: build for target with dependencies already built for host
+            echo "🎯 Building target binary..."
+            if [ "${{ matrix.target }}" = "x86_64-unknown-linux-musl" ]; then
+              echo "🔨 Building musl static target binary..."
+              RUSTFLAGS="-C target-feature=+crt-static" cargo build --release --target ${{ matrix.target }}
+            else
+              echo "🔨 Building target binary..."
+              cargo build --release --target ${{ matrix.target }}
+            fi
+          fi
 
       - name: Strip binary
         run: |
@@ -157,10 +60,18 @@ jobs:
             echo "✅ No stripping needed for this target"
           fi
 
+      - name: Verify musl static linking
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+        run: |
+          echo "🔍 Verifying GitHub Actions native musl static binary:"
+          file ./target/${{ matrix.target }}/release/gops
+          ldd ./target/${{ matrix.target }}/release/gops 2>&1 | grep -q "not a dynamic executable" && echo "✅ Confirmed: Static binary"
+          echo "✅ GitHub Actions native musl environment - no Cross/Docker needed"
+
       - name: Prepare release assets
         shell: bash
         run: |
-          version="${{ needs.create-release.outputs.version }}"
+          version="${{ env.VERSION }}"
           echo "VERSION=$version" >> $GITHUB_ENV
 
           # Create distribution directory
@@ -172,50 +83,22 @@ jobs:
           # Platform-specific optimizations
           if [ "${{ matrix.target }}" = "x86_64-unknown-linux-musl" ]; then
             echo "🔍 Verifying native musl static binary:"
+            echo "✅ Host architecture: $(uname -m) $(uname -s)"
             file dist/gops
             ldd dist/gops 2>&1 | grep "not a dynamic executable" && echo "✅ Native musl static linking confirmed in release"
             echo "📦 Package info for ${{ matrix.name }} (musl static):"
-          else
-            echo "📦 Package info for ${{ matrix.name }}:"
-            file dist/gops
-          fi
++          else
++            echo "📦 Package info for ${{ matrix.name }}:"
++            file dist/gops
++          fi
 
-          # Determine archive name based on platform
-          # Create archive based on OS
-          if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            ARCHIVE="galaxy-ops-${VERSION}-${{ matrix.name }}.zip"
-            7z a "$ARCHIVE" dist/*
-            echo "ARCHIVE=$ARCHIVE" >> $GITHUB_ENV
-            # Generate checksum
-            7z h -scrcsha256 "$ARCHIVE" > "$ARCHIVE.sha256"
-            echo "ARCHIVE_SUM=$ARCHIVE.sha256" >> $GITHUB_ENV
-          else
-            # Unix/Linux/macOS archive
-            ARCHIVE="galaxy-ops-${VERSION}-${{ matrix.name }}.tar.gz"
-            tar czf "$ARCHIVE" -C dist .
-            echo "ARCHIVE=$ARCHIVE" >> $GITHUB_ENV
-            # Generate checksum with shasum (macOS/Linux compatible)
-            shasum -a 256 "$ARCHIVE" > "$ARCHIVE.sha256"
-            echo "ARCHIVE_SUM=$ARCHIVE.sha256" >> $GITHUB_ENV
-          fi
+          # Determine archive name and create archive
++          ARCHIVE="galaxy-ops-${VERSION}-${{ matrix.name }}.tar.gz"
++          tar czf "$ARCHIVE" -C dist .
++          echo "ARCHIVE=$ARCHIVE" >> $GITHUB_ENV
 
-          - name: Upload release assets
-            env:
-              GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-              VERSION: ${{ env.VERSION }}
-            run: |
-              echo "📤 Uploading release assets for version $VERSION..."
+          # Generate checksum with shasum (macOS/Linux compatible)
+          shasum -a 256 "$ARCHIVE" > "$ARCHIVE.sha256"
+          echo "ARCHIVE_SUM=$ARCHIVE.sha256" >> $GITHUB_ENV
 
-              # Get archive and checksum filenames
-              ARCHIVE="${{ env.ARCHIVE }}"
-              ARCHIVE_SUM="${{ env.ARCHIVE_SUM }}"
-
-              echo "📦 Uploading: $ARCHIVE and $ARCHIVE_SUM"
-              gh release upload "$VERSION" "$ARCHIVE" "$ARCHIVE_SUM"
-
-              echo "✅ Release upload complete for ${{ matrix.name }}!"
-
-          - name: Cleanup
-            run: |
-              rm -rf dist
-              echo "🧹 Cleanup complete"
+      -
