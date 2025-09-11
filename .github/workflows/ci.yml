@@ -39,12 +39,20 @@ jobs:
         with:
           components: clippy
 
+      - name: Install cross-compilation dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-multilib
+
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
 
-      - name: Clippy Check
+      - name: Clippy Check (native)
         run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Clippy Check (cross-compile)
+        run: cargo clippy --all-targets --all-features --target x86_64-unknown-linux-musl -- -D warnings
 
   # 基础测试层
   test-stable:
@@ -107,6 +115,23 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
           target: ${{ matrix.target }}
+          components: rustfmt, clippy
+
+      - name: Install cross-compilation toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-multilib
+          case "${{ matrix.target }}" in
+            x86_64-unknown-linux-musl)
+              sudo apt-get install -y musl-tools
+              ;;
+            aarch64-unknown-linux-gnu)
+              sudo apt-get install -y gcc-aarch64-linux-gnu
+              ;;
+            armv7-unknown-linux-gnueabihf)
+              sudo apt-get install -y gcc-arm-linux-gnueabihf
+              ;;
+          esac
 
       - name: Use Cross
         run: |
@@ -115,16 +140,7 @@ jobs:
           echo "$dir" >> $GITHUB_PATH
           cd "$dir"
           curl -LO "https://github.com/cross-rs/cross/releases/download/$CROSS_VERSION/cross-x86_64-unknown-linux-musl.tar.gz"
-          tar xf cross-x86_64-unknown-linux-musl.tar.gz
-          echo "CARGO=cross" >> $GITHUB_ENV
-          echo "TARGET_FLAGS=--target ${{ matrix.target }}" >> $GITHUB_ENV
-
-      - name: Build with Cross
-        run: cross build --verbose --target ${{ matrix.target }}
-        env:
-          RUSTFLAGS: "-C target-feature=+crt-static"
-          OPENSSL_STATIC: "1"
-          PKG_CONFIG_ALL_STATIC: "1"
+          tar xf cross-x86_64-unknown-linux
 
   # 安全检查
   security:
