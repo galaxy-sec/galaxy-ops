@@ -1,0 +1,25 @@
+[target.x86_64-unknown-linux-musl]
+rustflags = [
+    "-C", "target-feature=+crt-static",
+    "-C", "link-arg=-static",
+    "-C", "link-arg=-Wl,--strip-all"
+]
+linker = "x86_64-linux-musl-gcc"
+
+[build]
+# target = "x86_64-unknown-linux-musl"
+
+[target.x86_64-unknown-linux-gnu]
+rustflags = [
+    "-C", "target-feature=+crt-static",
+    "-C", "link-arg=-static",
+    "-C", "link-arg=-Wl,--strip-all"
+]
+
+# Environment variables for static compilation
+[env]
+OPENSSL_STATIC = "1"
+OPENSSL_NO_VENDOR = "0"
+PKG_CONFIG_ALLOW_CROSS = "1"
+PKG_CONFIG_ALL_STATIC = "1"
+LIBZ_SYS_STATIC = "1"

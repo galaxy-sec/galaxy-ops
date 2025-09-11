@@ -91,6 +91,9 @@ jobs:
           CC: "musl-gcc"
           CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER: "musl-gcc"
           PKG_CONFIG_SYSROOT_DIR: "/usr/lib/x86_64-linux-musl"
+          PKG_CONFIG_ALL_STATIC: "1"
+          LIBZ_SYS_STATIC: "1"
+          OPENSSL_NO_VENDOR: "0"
         run: |
           set -x
           echo "Building for ${{ matrix.target }}..."
