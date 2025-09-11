@@ -59,7 +59,7 @@ flate2 = "~1.1"
 tracing = "0.1"
 getset = "0.1.6"
 handlebars = "6.3"
-async-trait = "=0.1.83"
+async-trait = "0.1.73"  # Use older stable version to avoid proc-macro issues
 env_logger = "~0.11"
 scopeguard = "1.2.0"
 # env_logger = "~0.11"

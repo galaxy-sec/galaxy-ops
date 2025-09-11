@@ -43,10 +43,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
+      - name: Rust toolchain setup
+        run: |
+          rustup set profile minimal
+          rustup component add rustfmt clippy
+          rustup target add ${{ matrix.target }}
+          rustc --version --verbose
+          cargo --version --verbose
 
       - name: Cache cargo registry
         uses: actions/cache@v4
@@ -139,8 +142,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+      - name: Rust toolchain setup
+        run: |
+          rustup set profile minimal
+          rustup component add rustfmt clippy
+          rustc --version --verbose
+          cargo --version --verbose
 
       - name: Publish to crates.io
         run: cargo publish --token ${{ secrets.CRATES_TOKEN }}

@@ -37,10 +37,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config libssl-dev
+
+      - name: Rust toolchain setup
+        run: |
+          rustup set profile minimal
+          rustup component add rustfmt clippy
+          rustup target add ${{ matrix.target }}
+          rustc --version --verbose
+          cargo --version --verbose
 
       - name: Cache cargo registry
         uses: actions/cache@v4
@@ -62,6 +70,8 @@ jobs:
 
       - name: Build
         run: cargo build --verbose --target ${{ matrix.target }}
+        env:
+          PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig:/usr/lib/pkgconfig
 
       - name: Unit tests
         run: cargo test --verbose --target ${{ matrix.target }} --all-features -- --test-threads=1
@@ -82,10 +92,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt
+      - name: Rust toolchain setup
+        run: |
+          rustup set profile minimal
+          rustup component add rustfmt
+          rustc --version --verbose
+          cargo --version --verbose
 
       - name: Check formatting
         run: cargo fmt -- --check
@@ -97,10 +109,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy
+      - name: Rust toolchain setup
+        run: |
+          rustup set profile minimal
+          rustup component add clippy
+          rustc --version --verbose
+          cargo --version --verbose
 
       - name: Run clippy
         run: cargo clippy -- -D warnings
