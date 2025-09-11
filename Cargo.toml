@@ -139,6 +139,6 @@ inquire.workspace = true
 
 [dev-dependencies]
 mockall = "~0.13"
-mockito = "1.0"
+mockito = "0.31.1"
 criterion = "~0.7"
 tempfile = "3.3"

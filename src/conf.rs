@@ -153,7 +153,7 @@ mod tests {
     use crate::accessor::accessor_for_test;
 
     use super::*;
-
+    use mockito::mock;
     use orion_error::TestAssert;
     use orion_variate::{
         addr::{HttpResource, LocalPath},
@@ -213,26 +213,18 @@ mod tests {
 
     #[tokio::test(flavor = "current_thread")]
     async fn test_conf_with_http_addr() -> MainResult<()> {
-        // 使用 std::thread 初始化服务器以避免 runtime 嵌套问题
-        let server = std::thread::spawn(|| {
-            let mut server = mockito::Server::new();
-            let _mock = server
-                .mock("GET", "/global.yml")
-                .with_status(200)
-                .with_body("[settings]\nenv=\"test\"")
-                .create();
-            server
-        })
-        .join()
-        .expect("Failed to create mock server");
+        // 创建mock服务器 - mockito 0.31 版本API
+        let _m = mock("GET", "/global.yml")
+            .with_status(200)
+            .with_body("[settings]\nenv=\"test\"")
+            .create();
 
         // 创建包含HttpResource的配置
         let mut conf = ConfSpec::new("1.0", CONFS_DIR);
         conf.add(
             ConfFile::new("remote.yml").with_addr(HttpResource::from(format!(
-                "{}{}",
-                server.url(),
-                "/global.yml"
+                "{}/global.yml",
+                mockito::server_url()
             ))),
         );
 
