@@ -41,6 +41,12 @@ jobs:
         with:
           toolchain: ${{ matrix.rustup_toolchain }}
 
+      - name: Install cross-compilation tools
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+        uses: taiki-e/setup-cross-toolchain-action@v1
+        with:
+          target: ${{ matrix.target }}
+
       - name: Install musl target
         if: matrix.target == 'x86_64-unknown-linux-musl'
         run: rustup target add ${{ matrix.target }}
