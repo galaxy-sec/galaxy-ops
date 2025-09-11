@@ -84,10 +84,14 @@ jobs:
       - name: Verify musl static linking
         run: |
           echo "Verifying musl static linking..."
-          if file ./target/x86_64-unknown-linux-musl/debug/gops | grep -q "statically linked"; then
+          echo "Debug info: Testing binary with ldd..."
+          ldd_result=$(ldd ./target/x86_64-unknown-linux-musl/debug/gops 2>&1)
+          echo "ldd output: $ldd_result"
+          if echo "$ldd_result" | grep -q "not a dynamic executable"; then
             echo "✓ musl binary verified as statically linked"
           else
-            echo "✗ musl binary is not statically linked"
+            echo "✗ musl binary is dynamically linked:"
+            echo "$ldd_result"
             exit 1
           fi
 
