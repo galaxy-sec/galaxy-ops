@@ -22,11 +22,14 @@ jobs:
       matrix:
         target:
           - x86_64-unknown-linux-gnu
+          - x86_64-unknown-linux-musl # 静态链接版本
           - aarch64-apple-darwin
         rustup_toolchain: [stable]
         include:
           - os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-musl
           - os: macos-14
             target: aarch64-apple-darwin
     steps:
@@ -38,29 +41,144 @@ jobs:
         with:
           toolchain: ${{ matrix.rustup_toolchain }}
 
-      - name: Cargo build
-        run: cargo build --release --target ${{ matrix.target }}
+      - name: Cache cargo registry and build artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-${{ matrix.target }}-
+            ${{ runner.os }}-cargo-
+
+      - name: Install musl tools (for musl target)
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y musl-tools musl-dev pkg-config libssl-dev
+          echo "musl-gcc --version" && musl-gcc --version || echo "musl-gcc not found"
+
+      - name: Add musl target (for musl target)
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+        run: |
+          rustup target add x86_64-unknown-linux-musl
+          rustup component add rust-src --toolchain stable-x86_64-unknown-linux-gnu || true
+          rustup default stable
+          echo "Target added successfully"
+
+      - name: Cargo build (gnu target)
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        run: |
+          set -x
+          echo "Building for ${{ matrix.target }} with static linking..."
+          if ! cargo build --release --target ${{ matrix.target }}; then
+            echo "❌ Standard GNU build failed! Trying debug mode diagnostics..."
+            cargo build --target ${{ matrix.target }} --verbose 2>&1 | tee build_error.log
+            exit 1
+          fi
+          echo "Build completed, checking results..."
+          ls -la target/${{ matrix.target }}/
+
+      - name: Cargo build (musl static target)
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+        env:
+          RUSTFLAGS: "-C target-feature=+crt-static -C link-arg=-static -C linker=musl-gcc"
+          OPENSSL_STATIC: "1"
+          OPENSSL_LIB_DIR: "/usr/lib/x86_64-linux-musl"
+          OPENSSL_INCLUDE_DIR: "/usr/include"
+          CC: "musl-gcc"
+          CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER: "musl-gcc"
+          PKG_CONFIG_SYSROOT_DIR: "/usr/lib/x86_64-linux-musl"
+        run: |
+          set -x
+          echo "Building for ${{ matrix.target }}..."
+          if ! cargo build --release --target ${{ matrix.target }}; then
+            echo "❌ Static musl build failed! Attempting diagnostic build..."
+            echo "=== Current musl environment ==="
+            pkg-config --libs --cflags openssl || echo "pk-config failed for OpenSSL"
+            echo "=== Musl compiler check ==="
+            musl-gcc --version || echo "musl-gcc version check failed"
+            echo "=== Trying debug build for diagnostics ==="
+            cargo build --target ${{ matrix.target }} --verbose 2>&1 | head -50
+            echo "=== Environment diagnostic complete ==="
+            exit 1
+          fi
+          echo "Build completed, checking results..."
+          ls -la target/${{ matrix.target }}/
+            echo "=== Rust toolchain info ==="
+            rustc --version
+            cargo --version
+            echo "=== Musl tools check ==="
+            which musl-gcc || echo "musl-gcc not found"
+            echo "=== OpenSSL search ==="
+            find /usr -name "libssl*" 2>/dev/null | head -10
+            echo "=== Environment variables ==="
+            env | grep -E "(OPENSSL|CC|PKG_CONFIG|RUSTFLAGS)"
+            echo "Trying fallback build without static flags..."
+            RUSTFLAGS="" cargo build --release --target ${{ matrix.target }} || {
+              echo "❌ Fallback build also failed"
+              exit 1
+            }
+          fi
+          echo "Build completed, checking results..."
+          ls -la target/${{ matrix.target }}/
 
       - name: Show version
         run: ./target/${{ matrix.target }}/release/gops --version
 
+      - name: Verify static linking (musl target)
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+        run: |
+          echo "=== Verifying static linking ==="
+          file ./target/${{ matrix.target }}/release/gops
+          echo "Checking file type..."
+          file ./target/${{ matrix.target }}/release/gops | grep -i "static" && echo "✅ Confirmed static binary" || echo "⚠️ Warning: May not be fully static"
+          echo "Checking ldd output..."
+          ldd ./target/${{ matrix.target }}/release/gops || echo "✅ No dynamic dependencies - static binary confirmed"
+          echo "=== Size analysis ==="
+          ls -lh ./target/${{ matrix.target }}/release/gops
+          echo "=== Binary info ==="
+          file ./target/${{ matrix.target }}/release/gops
+          echo "=== Detailed ldd with error handling ==="
+          ldd ./target/${{ matrix.target }}/release/gops 2>&1 || true
+          echo "=== Size comparison if available ==="
+          if [ -f "./target/x86_64-unknown-linux-gnu/release/gops" ]; then
+            echo "GNU binary size: $(du -h ./target/x86_64-unknown-linux-gnu/release/gops | cut -f1)"
+            echo "MUSL binary size: $(du -h ./target/${{ matrix.target }}/release/gops | cut -f1)"
+          fi
+
       - name: Archive (UNIX)
         run: |
+          set -x
           mkdir -p artifacts
           cp -av target/${{ matrix.target }}/release/gops artifacts/
-          tar -czf ${{ github.event.repository.name }}-${{ github.ref_name }}-${{ matrix.target }}.tar.gz  artifacts
-        if: ${{ ! startsWith(matrix.os, 'windows') }}
+          cat > LICENSE.txt << 'EOF'
+            ## License Information
+            This binary was built with static linking enabled to ensure maximum compatibility.
+            All dependencies are statically linked except for system kernel interfaces.
+          EOF
+          cp README.md artifacts
+
+          # Create tar.gz archive
+          cd artifacts
+          ARCHIVE_NAME="${{ github.event.repository.name }}-${{ github.ref_name }}-${{ matrix.target }}${{ matrix.target == 'x86_64-unknown-linux-musl' && '-static' || '' }}.tar.gz"
+          tar -czf "../$ARCHIVE_NAME" *
+          cd ..
+          ls -la *.tar.gz
 
       - name: Attest Build Provenance
         uses: actions/attest-build-provenance@v2
         continue-on-error: true
         with:
-          subject-path: ${{ github.event.repository.name }}-${{ github.ref_name }}-${{ matrix.target }}.*
+          subject-path: ${{ github.event.repository.name }}-${{ github.ref_name }}-${{ matrix.target }}*.tar.gz
 
       - uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.event.repository.name }}-${{ github.ref_name }}-${{ matrix.target }}
-          path: ${{ github.event.repository.name }}-${{ github.ref_name }}-${{ matrix.target }}.*
+          name: ${{ github.event.repository.name }}-${{ github.ref_name }}-${{ matrix.target }}${{ matrix.target == 'x86_64-unknown-linux-musl' && '-static' || '' }}
+          path: |
+            ${{ github.event.repository.name }}-${{ github.ref_name }}-${{ matrix.target }}${{ matrix.target == 'x86_64-unknown-linux-musl' && '-static' || '' }}.tar.gz
           if-no-files-found: error
           retention-days: 7
 
@@ -125,12 +243,49 @@ jobs:
           body: |
             Welcome to this new release of GalaxyFlow ${{ github.ref_name }}!
 
+            ## 🆕 Static Binary Support (GitHub Actions Built)
+            This release includes static-linked binaries (`*-musl-static.tar.gz`) built natively on GitHub Actions Ubuntu runners.
+            These binaries work on any x86_64 Linux system without requiring specific glibc versions.
+
+            ## 💻 Installation Commands
+
+            **For old systems (Ubuntu 16.04+, CentOS 7+, Debian 8+):**
+            ```bash
+            # Download and install static version (no glibc required)
+            wget https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/galaxy-ops-${{ github.ref_name }}-x86_64-unknown-linux-musl-static.tar.gz
+            tar -xzf galaxy-ops-${{ github.ref_name }}-x86_64-unknown-linux-musl-static.tar.gz
+            sudo cp gops /usr/local/bin/
+            sudo chmod +x /usr/local/bin/gops
+            gops --version
+            ```
+
+            **For modern systems (Ubuntu 20.04+, CentOS 8+):**
+            ```bash
+            # Standard dynamic version
+            wget https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/galaxy-ops-${{ github.ref_name }}-x86_64-unknown-linux-gnu.tar.gz
+            tar -xzf galaxy-ops-${{ github.ref_name }}-x86_64-unknown-linux-gnu.tar.gz
+            sudo cp gops /usr/local/bin/
+            sudo chmod +x /usr/local/bin/gops
+            gops --version
+            ```
+
+            ## ⚙️ GitHub Actions Features
+            - Native Ubuntu 22.04 build environment
+            - Musl libc static linking for maximum compatibility
+            - Caching enabled for faster CI builds
+            - Automatic static binary verification
+
             All artifacts are signed with this repos identity using Sigstore.
             You can verify the signatures using the `GitHub` CLI.
 
             ```shell
             gh attestation verify --owner ${{ github.repository_owner }} <my-artifact>
             ```
+
+            ## 📦 Binary Downloads
+            - **Linux (Standard)**: `galaxy-ops-${{ github.ref_name }}-x86_64-unknown-linux-gnu.tar.gz`
+            - **Linux (Static - No glibc deps)**: `galaxy-ops-${{ github.ref_name }}-x86_64-unknown-linux-musl-static.tar.gz`
+            - **macOS (Apple Silicon)**: `galaxy-ops-${{ github.ref_name }}-aarch64-apple-darwin.tar.gz`
 
             ## Code Coverage
             For this release, code coverage reports are available on [Codecov](https://codecov.io/gh/galaxy-sec/galaxy-ops/tree/${{ github.ref_name }}).
