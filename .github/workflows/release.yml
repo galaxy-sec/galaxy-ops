@@ -22,14 +22,11 @@ jobs:
       matrix:
         target:
           - x86_64-unknown-linux-gnu
-          - x86_64-unknown-linux-musl
           - aarch64-apple-darwin
         rustup_toolchain: [stable]
         include:
           - os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
-          - os: ubuntu-22.04
-            target: x86_64-unknown-linux-musl
           - os: macos-14
             target: aarch64-apple-darwin
     steps:
@@ -40,21 +37,18 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ matrix.rustup_toolchain }}
-          targets: ${{ matrix.target }}
-
-      - name: Install musl-tools for musl target
-        run: sudo apt-get update && sudo apt-get install -y musl-tools
-        if: contains(matrix.target, 'musl')
 
       - name: Cargo build
         run: cargo build --release --target ${{ matrix.target }}
 
       - name: Show version
-        run: ./target/${{ matrix.target }}/release/gops --version
+        run: ./target/${{ matrix.target }}/release/gmod --version
 
       - name: Archive (UNIX)
         run: |
           mkdir -p artifacts
+          cp -av target/${{ matrix.target }}/release/gmod artifacts/
+          cp -av target/${{ matrix.target }}/release/gsys artifacts/
           cp -av target/${{ matrix.target }}/release/gops artifacts/
           tar -czf ${{ github.event.repository.name }}-${{ github.ref_name }}-${{ matrix.target }}.tar.gz  artifacts
         if: ${{ ! startsWith(matrix.os, 'windows') }}
@@ -63,7 +57,7 @@ jobs:
         uses: actions/attest-build-provenance@v2
         continue-on-error: true
         with:
-          subject-path: ${{ github.event.repository.name }}-${{ github.ref_name }}-${{ matrix.target }}.tar.gz
+          subject-path: ${{ github.event.repository.name }}-${{ github.ref_name }}-${{ matrix.target }}.*
 
       - uses: actions/upload-artifact@v4
         with:
