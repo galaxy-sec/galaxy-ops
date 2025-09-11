@@ -2,153 +2,102 @@ name: Release
 
 on:
   push:
-    tags:
-      - "v*"
-  workflow_dispatch:
+    tags: ["v*.*.*"]
 
 env:
-  CARGO_TERM_COLOR: always
-  RUST_BACKTRACE: 1
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+permissions:
+  contents: read
 
 jobs:
-  build-release:
-    name: Build Release
+  Release-Build:
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+      attestations: write
+      id-token: write
     strategy:
-      fail-fast: false
       matrix:
+        target:
+          - x86_64-unknown-linux-gnu
+          - aarch64-apple-darwin
+        rustup_toolchain: [stable]
         include:
-          # Linux x86_64 with glibc
-          - os: ubuntu-latest
+          - os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
-            name: linux-x86_64
-            artifact_name: gops
-            asset_name: gops-linux-x86_64
-
-          # Linux x86_64 with musl (static linking)
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-musl
-            name: linux-x86_64-musl
-            artifact_name: gops
-            asset_name: gops-linux-x86_64-musl
-
-          # macOS ARM64 (Apple Silicon)
-          - os: macos-latest
+          - os: macos-14
             target: aarch64-apple-darwin
-            name: macos-arm64
-            artifact_name: gops
-            asset_name: gops-macos-arm64
-
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Rust toolchain setup
-        run: |
-          rustup set profile minimal
-          rustup component add rustfmt clippy
-          rustup target add ${{ matrix.target }}
-          rustc --version --verbose
-          cargo --version --verbose
-
-      - name: Cache cargo registry
-        uses: actions/cache@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
         with:
-          path: ~/.cargo/registry
-          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          toolchain: ${{ matrix.rustup_toolchain }}
 
-      - name: Cache cargo index
-        uses: actions/cache@v4
-        with:
-          path: ~/.cargo/git
-          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Cache cargo build
-        uses: actions/cache@v4
-        with:
-          path: target
-          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Build release binary
+      - name: Cargo build
         run: cargo build --release --target ${{ matrix.target }}
 
-      - name: Build musl static binary (if musl target)
-        if: matrix.target == 'x86_64-unknown-linux-musl'
-        run: RUSTFLAGS="-C target-feature=+crt-static" cargo build --release --target ${{ matrix.target }}
+      - name: Show version
+        run: ./target/${{ matrix.target }}/release/gmod --version
 
-      - name: Verify musl static linking
-        if: matrix.target == 'x86_64-unknown-linux-musl'
+      - name: Archive (UNIX)
         run: |
-          ldd ./target/${{ matrix.target }}/release/gops | grep -q "not a dynamic executable" && echo "✅ Static binary confirmed" || exit 1
+          mkdir -p artifacts
+          cp -av target/${{ matrix.target }}/release/gmod artifacts/
+          cp -av target/${{ matrix.target }}/release/gsys artifacts/
+          cp -av target/${{ matrix.target }}/release/gops artifacts/
+          tar -czf ${{ github.event.repository.name }}-${{ github.ref_name }}-${{ matrix.target }}.tar.gz  artifacts
+        if: ${{ ! startsWith(matrix.os, 'windows') }}
 
-      - name: Strip binary
-        if: matrix.name != 'macos-arm64'
-        run: strip ./target/${{ matrix.target }}/release/${{ matrix.artifact_name }}
-
-      - name: Create artifact
-        run: |
-          mkdir -p dist
-          cp ./target/${{ matrix.target }}/release/${{ matrix.artifact_name }} dist/${{ matrix.asset_name }}
-          chmod +x dist/${{ matrix.asset_name }}
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - name: Attest Build Provenance
+        uses: actions/attest-build-provenance@v2
+        continue-on-error: true
         with:
-          name: ${{ matrix.name }}
-          path: dist/${{ matrix.asset_name }}
+          subject-path: ${{ github.event.repository.name }}-${{ github.ref_name }}-${{ matrix.target }}.*
 
-  create-release:
-    name: Create Release
-    needs: build-release
-    runs-on: ubuntu-latest
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.event.repository.name }}-${{ github.ref_name }}-${{ matrix.target }}
+          path: ${{ github.event.repository.name }}-${{ github.ref_name }}-${{ matrix.target }}.*
+          if-no-files-found: error
+          retention-days: 7
+
+  Release:
+    needs: [Release-Build]
+    runs-on: ubuntu-22.04
     permissions:
       contents: write
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
 
-      - name: Download all artifacts
+    steps:
+      - name: Ensure artifacts dir exists
+        run: mkdir -p artifacts
+
+      - name: Download Artifact
         uses: actions/download-artifact@v4
         with:
           path: artifacts
+          merge-multiple: true
 
-      - name: Display structure of downloaded files
-        run: ls -R artifacts
-
-      - name: Get version
-        id: get_version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-
-      - name: Create Release
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v1
+      - name: Release
+        uses: softprops/action-gh-release@c062e08bd532815e2082a85e87e3ef29c3e6d191
         with:
-          files: |
-            artifacts/linux-x86_64/gops-linux-x86_64
-            artifacts/linux-x86_64-musl/gops-linux-x86_64-musl
-            artifacts/macos-arm64/gops-macos-arm64
-          draft: false
-          prerelease: false
+          name: ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
           generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          fail_on_unmatched_files: true
+          body: |
+            Welcome to this new release of GalaxyFlow ${{ github.ref_name }}!
 
-  publish-crate:
-    name: Publish to crates.io
-    needs: build-release
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+            All artifacts are signed with this repos identity using Sigstore.
+            You can verify the signatures using the `GitHub` CLI.
 
-      - name: Rust toolchain setup
-        run: |
-          rustup set profile minimal
-          rustup component add rustfmt clippy
-          rustc --version --verbose
-          cargo --version --verbose
-
-      - name: Publish to crates.io
-        run: cargo publish --token ${{ secrets.CRATES_TOKEN }}
-        continue-on-error: true
+            ```shell
+            gh attestation verify --owner ${{ github.repository_owner }} <my-artifact>
+            ```
+          token: ${{ secrets.GITHUB_TOKEN }}
+          prerelease: ${{ contains(github.ref, '-pre') }}
+          files: artifacts/*
