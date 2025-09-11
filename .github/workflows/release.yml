@@ -1,44 +1,147 @@
-      - name: Build release binary
-        run: |
-          if [ "${{ matrix.target }}" = "x86_64-unknown-linux-musl" ]; then
-            echo "🔨 Building native musl static release binary..."
-            RUSTFLAGS="-C target-feature=+crt-static" cargo build --release --target ${{ matrix.target }}
-          else
-            echo "🔨 Building release binary for ${{ matrix.target }}..."
-            cargo build --release --target ${{ matrix.target }}
-          fi
+name: Release
 
-      - name: Strip binary
-        run: |
-          if [ -n "${{ matrix.strip }}" ]; then
-            echo "✂️ Stripping binary for optimized size..."
-            ${{ matrix.strip }} ./target/${{ matrix.target }}/release/gops
-          else
-            echo "✅ No stripping needed for this target"
-          fi
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  build-release:
+    name: Build Release
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Linux x86_64 with glibc
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            name: linux-x86_64
+            artifact_name: gops
+            asset_name: gops-linux-x86_64
+
+          # Linux x86_64 with musl (static linking)
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            name: linux-x86_64-musl
+            artifact_name: gops
+            asset_name: gops-linux-x86_64-musl
+
+          # macOS ARM64 (Apple Silicon)
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            name: macos-arm64
+            artifact_name: gops
+            asset_name: gops-macos-arm64
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache cargo index
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache cargo build
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build release binary
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Build musl static binary (if musl target)
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+        run: RUSTFLAGS="-C target-feature=+crt-static" cargo build --release --target ${{ matrix.target }}
 
       - name: Verify musl static linking
         if: matrix.target == 'x86_64-unknown-linux-musl'
         run: |
-          echo "🔍 Verifying musl static binary:"
-          file ./target/${{ matrix.target }}/release/gops
-          ldd ./target/${{ matrix.target }}/release/gops 2>&1 | grep -q "not a dynamic executable" && echo "✅ Confirmed: Static binary"
+          ldd ./target/${{ matrix.target }}/release/gops | grep -q "not a dynamic executable" && echo "✅ Static binary confirmed" || exit 1
 
+      - name: Strip binary
+        if: matrix.name != 'macos-arm64'
+        run: strip ./target/${{ matrix.target }}/release/${{ matrix.artifact_name }}
 
-            ldd dist/gops 2>&1 | grep -q "not a dynamic executable" && echo "✅ Static linking confirmed"
-            echo "📦 Package info for ${{ matrix.name }} (musl static):"
-+          else
-+            echo "📦 Package info for ${{ matrix.name }}:"
-+            file dist/gops
-+          fi
+      - name: Create artifact
+        run: |
+          mkdir -p dist
+          cp ./target/${{ matrix.target }}/release/${{ matrix.artifact_name }} dist/${{ matrix.asset_name }}
+          chmod +x dist/${{ matrix.asset_name }}
 
-          # Determine archive name and create archive
-+          ARCHIVE="galaxy-ops-${VERSION}-${{ matrix.name }}.tar.gz"
-+          tar czf "$ARCHIVE" -C dist .
-+          echo "ARCHIVE=$ARCHIVE" >> $GITHUB_ENV
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: dist/${{ matrix.asset_name }}
 
-          # Generate checksum with shasum (macOS/Linux compatible)
-          shasum -a 256 "$ARCHIVE" > "$ARCHIVE.sha256"
-          echo "ARCHIVE_SUM=$ARCHIVE.sha256" >> $GITHUB_ENV
+  create-release:
+    name: Create Release
+    needs: build-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      -
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Display structure of downloaded files
+        run: ls -R artifacts
+
+      - name: Get version
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            artifacts/linux-x86_64/gops-linux-x86_64
+            artifacts/linux-x86_64-musl/gops-linux-x86_64-musl
+            artifacts/macos-arm64/gops-macos-arm64
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish-crate:
+    name: Publish to crates.io
+    needs: build-release
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Publish to crates.io
+        run: cargo publish --token ${{ secrets.CRATES_TOKEN }}
+        continue-on-error: true
