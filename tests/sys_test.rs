@@ -100,7 +100,7 @@ fn make_sys_operator(prj_path: &Path, name: &str) -> MainResult<SysOperator> {
     res.push(
         Dependency::new(
             Address::from(HttpResource::from(
-                "https://e.coding.net/dy-sec/galaxy-open/bitnami-common.git",
+                "https://github.com/galaxy-sec/hello-word.git",
             )),
             PathTemplate::from(prj_path.join("test_res")),
         )
