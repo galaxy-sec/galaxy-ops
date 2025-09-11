@@ -2,7 +2,7 @@ use std::path::Path;
 
 use orion_error::{ErrorOwe, ErrorWith};
 
-use crate::{error::MainResult, task::OperationType, workflow::gxl::GxlAction};
+use crate::{error::MainResult, workflow::gxl::GxlAction};
 
 const SYS_SETUP_GXL: &str = include_str!("init/workflows/setup.gxl");
 const SYS_UPDATE_GXL: &str = include_str!("init/workflows/update.gxl");
@@ -17,18 +17,10 @@ pub trait SysPrjIniter {
 
 impl WorkOperatsIniter for GxlAction {
     fn sys_setup_tpl() -> Self {
-        Self::new(
-            OperationType::Setup,
-            "setup.gxl".into(),
-            SYS_SETUP_GXL.to_string(),
-        )
+        Self::new("setup.gxl".into(), SYS_SETUP_GXL.to_string())
     }
     fn sys_update_tpl() -> Self {
-        Self::new(
-            OperationType::Update,
-            "update.gxl".into(),
-            SYS_UPDATE_GXL.to_string(),
-        )
+        Self::new("update.gxl".into(), SYS_UPDATE_GXL.to_string())
     }
 }
 

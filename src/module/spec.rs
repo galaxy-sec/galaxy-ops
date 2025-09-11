@@ -14,9 +14,9 @@ const POSTGRESQL_MD5_URL: &str =
 const POSTGRESQL_README_URL: &str = "https://mirrors.aliyun.com/postgresql/README";
 const POSTGRESQL_ARCHIVE: &str = "postgresql-17.4.tar.gz";
 const POSTGRESQL_MD5_ARCHIVE: &str = "postgresql-17.4.tar.gz.md5";
+use crate::artifact::{Artifact, ArtifactPackage};
 use async_trait::async_trait;
 use indexmap::IndexMap;
-use orion_variate::ext::{Artifact, ArtifactPackage};
 use orion_variate::{addr::HttpResource, vars::VarDefinition};
 
 use super::{
@@ -78,10 +78,15 @@ impl ModuleSpec {
 }
 
 #[async_trait]
-impl LocalUpdate for ModuleSpec {
-    async fn update_local(&self, path: &Path, options: &DownloadOptions) -> AddrResult<UpdateUnit> {
+impl RefUpdateable<UpdateUnit> for ModuleSpec {
+    async fn update_local(
+        &self,
+        accessor: Accessor,
+        path: &Path,
+        options: &DownloadOptions,
+    ) -> MainResult<UpdateUnit> {
         for (target, node) in &self.targets {
-            node.update_local(&path.join(target.to_string()), options)
+            node.update_local(accessor.clone(), &path.join(target.to_string()), options)
                 .await?;
         }
         Ok(UpdateUnit::from(path.to_path_buf()))

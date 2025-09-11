@@ -1,0 +1,59 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.12s
+     Running unittests app/gsys/main.rs (target/debug/deps/gsys-116db45c5b46a760)
+
+running 30 tests
+test args::tests::test_dfx_args_getter_update ... ok
+test args::tests::test_dfx_args_getter_localize ... ok
+test args::tests::test_long_help_output ... ok
+test args::tests::test_gsys_cmd_app_creation ... ok
+test args::tests::test_update_args_with_force ... ok
+test args::tests::test_update_args_parsing ... ok
+test args::tests::test_localize_args_with_debug ... ok
+test args::tests::test_localize_args_parsing ... ok
+test args::tests::test_new_args_parsing ... ok
+test args::tests::test_invalid_system_name ... ok
+test args::tests::test_invalid_debug_level ... ok
+test args::tests::test_subcommand_help ... ok
+test args::tests::test_help_output ... ok
+test spec::tests::test_model_std_support ... ok
+test tests::test_command_structure ... ok
+test spec::tests::test_configure_dfx_logging_compiles ... ok
+test tests::test_error_handling ... ok
+test tests::test_main_function_exists ... ok
+test tests::test_version_display ... ok
+[flexi_logger][ERRCODE::Palette] Failed to initialize the palette, as it is already initialized
+    See https://docs.rs/flexi_logger/latest/flexi_logger/error_info/index.html#palette
+[flexi_logger][ERRCODE::Palette] Failed to initialize the palette, as it is already initialized
+    See https://docs.rs/flexi_logger/latest/flexi_logger/error_info/index.html#palette
+[flexi_logger][ERRCODE::Palette] Failed to initialize the palette, as it is already initialized
+    See https://docs.rs/flexi_logger/latest/flexi_logger/error_info/index.html#palette
+[flexi_logger][ERRCODE::Palette] Failed to initialize the palette, as it is already initialized
+    See https://docs.rs/flexi_logger/latest/flexi_logger/error_info/index.html#palette
+[flexi_logger][ERRCODE::Palette] Failed to initialize the palette, as it is already initialized
+    See https://docs.rs/flexi_logger/latest/flexi_logger/error_info/index.html#palette
+test spec::tests::test_ia_model_std_success ... ok
+test spec::tests::test_do_sys_cmd_localize_with_values ... ok
+test spec::tests::test_do_sys_cmd_update_with_debug ... ok
+test spec::tests::test_do_sys_cmd_update_no_project ... ok
+test spec::tests::test_do_sys_cmd_localize_with_defaults ... ok
+test spec::tests::test_do_sys_cmd_localize_no_project ... ok
+test spec::tests::test_current_system_model ... ok
+test tests::test_setup_environment_vars ... ok
+Galaxy System Management Tool
+
+Usage: gsys-116db45c5b46a760 <COMMAND>
+
+Commands:
+  new       Create new system operator 
+  update    Update system configuration
+  localize  Localize system configuration
+  help      Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help     Print help (see more with '--help')
+  -V, --version  Print version
+error: test failed, to rerun pass `--bin gsys`
+
+Caused by:
+  process didn't exit successfully: `/Users/zuowenjian/devspace/galaxy/galaxy-ops/target/debug/deps/gsys-116db45c5b46a760` (exit status: 2)
+note: test exited abnormally; to see the full output pass --nocapture to the harness.

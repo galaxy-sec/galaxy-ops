@@ -1,0 +1,36 @@
+
+Coverage	∆	File	Lines	Relevant	Covered	Missed	Hits/Line
+0.0		app/gmod/args.rs	135	18	0	18	0.0
+0.0		app/gmod/main.rs	36	16	0	16	0.0
+0.0		app/gmod/spec.rs	49	28	0	28	0.0
+0.0		app/gops/args.rs	196	24	0	24	0.0
+0.0		app/gops/main.rs	35	16	0	16	0.0
+0.0		app/gops/spec.rs	58	32	0	32	0.0
+0.0		app/gsys/args.rs	115	12	0	12	0.0
+0.0		app/gsys/main.rs	36	16	0	16	0.0
+0.0		app/gsys/spec.rs	71	41	0	41	0.0
+0.0		src/tools.rs	36	15	0	15	0.0
+0.0		src/artifact/package.rs	24	6	0	6	0.0
+0.0		src/task.rs	75	21	0	21	0.0
+0.0		src/infra.rs	64	46	0	46	0.0
+0.0		src/module/metrc.rs	13	5	0	5	0.0
+5.34		src/error.rs	255	131	7	124	13.0
+13.04		src/spec.rs	107	23	3	20	1.0
+15.22		src/system/refs.rs	112	46	7	39	2.0
+16.95		src/artifact/core.rs	125	59	10	49	24.0
+32.47		src/system/mod.rs	191	77	25	52	7.0
+42.86		src/ops_prj/init.rs	43	21	9	12	3.0
+46.61		src/ops_prj/import.rs	184	118	55	63	1.0
+50.0		src/accessor.rs	36	18	9	9	11.0
+70.77		src/module/spec.rs	302	195	138	57	5.0
+71.68		src/module/refs.rs	183	113	81	32	8.0
+72.73		src/resource.rs	181	88	64	24	1.0
+74.47		src/module/mod.rs	194	94	70	24	18.0
+75.41		src/software.rs	156	61	46	15	1.0
+77.14		src/workflow/gxl.rs	58	35	27	8	24.0
+79.31		src/ops_prj/conf.rs	68	29	23	6	2.0
+81.82		src/system/init.rs	61	22	18	4	5.0
+83.96		src/module/depend.rs	188	106	89	17	4.0
+89.24		src/conf.rs	293	158	141	17	3.0
+89.41		src/ops_prj/proj.rs	171	85	76	9	2.0
+89.47		src/types.rs	130	57	51	6	8.0
