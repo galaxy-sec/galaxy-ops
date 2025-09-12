@@ -5,8 +5,8 @@ use orion_variate::addr::HttpResource;
 use orion_variate::vars::VarToValue;
 
 use crate::const_vars::{
-    BITNAMI_COMMON_GIT_URL, MOD_PRJ_CONF_FILE_V1, MOD_PRJ_CONF_FILE_V2, MOD_PRJ_TEST_ROOT,
-    MOD_VALUE_FILE, SYS_VALUE_FILE, USED_READABLE_FILE, VALUE_DIR,
+    EXAMPLE_GIT_URL, MOD_PRJ_CONF_FILE_V1, MOD_PRJ_CONF_FILE_V2, MOD_PRJ_TEST_ROOT, MOD_VALUE_FILE,
+    SYS_VALUE_FILE, USED_READABLE_FILE, VALUE_DIR,
 };
 use crate::module::init::MOD_PRJ_ROOT_FILE;
 use crate::types::{Accessor, RefUpdateable};
@@ -253,7 +253,7 @@ pub fn make_mod_prj_testins(prj_path: &Path) -> MainResult<ModOperator> {
     let mut res = DependencySet::default();
     res.push(
         Dependency::new(
-            Address::from(HttpResource::from(BITNAMI_COMMON_GIT_URL)),
+            Address::from(HttpResource::from(EXAMPLE_GIT_URL)),
             PathTemplate::from(prj_path.join("test_res")),
         )
         .with_rename("bit-common"),

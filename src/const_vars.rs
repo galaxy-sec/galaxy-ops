@@ -42,8 +42,7 @@ pub const SYS_LOCAL_PRJ: &str = "sys_local_prj.yml";
 pub const MOD_PRJ_CONF_FILE_V1: &str = "mod_prj.yml";
 pub const MOD_PRJ_CONF_FILE_V2: &str = "mod-prj.yml";
 pub const MOD_PRJ_TEST_ROOT: &str = "/home/galaxy";
-pub const BITNAMI_COMMON_GIT_URL: &str =
-    "https://e.coding.net/dy-sec/galaxy-open/bitnami-common.git";
+pub const EXAMPLE_GIT_URL: &str = "https://github.com/galaxy-sec/hello-word.git";
 // Constants for OpsProject
 pub const OPS_PRJ_CONF_FILE: &str = "ops-prj.yml";
 // Constants for SysProject

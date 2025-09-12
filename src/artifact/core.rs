@@ -49,18 +49,6 @@ impl Artifact {
     }
 }
 
-#[derive(Getters, Clone, Debug, Deserialize, Serialize)]
-pub struct DockImage {
-    cep: String,
-    addr: Address,
-}
-
-#[derive(Getters, Clone, Debug, Deserialize, Serialize)]
-pub struct BinPackage {
-    cep: String,
-    addr: Address,
-}
-
 #[cfg(test)]
 mod tests {
     use home::home_dir;
