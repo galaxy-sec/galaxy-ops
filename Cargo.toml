@@ -1,6 +1,6 @@
 [package]
 name = "galaxy-ops"
-version = "1.0.4"
+version = "1.0.5"
 edition = "2024"
 
 
@@ -29,7 +29,7 @@ orion-error = "~0.5"
 #orion_infra = { path = "../orion_infra" }
 orion_conf = { git = "https://github.com/galaxy-sec/orion-conf.git", tag = "v0.1.5" }
 orion_infra = { git = "https://github.com/galaxy-sec/orion-infra.git", tag = "v0.3.1" }
-orion_variate = { git = "https://github.com/galaxy-sec/orion-variate.git", tag = "v0.9.0" }
+orion_variate = { git = "https://github.com/galaxy-sec/orion-variate.git", tag = "v0.9.2" }
 #orion_variate = { git = "https://github.com/galaxy-sec/orion-variate.git", tag = "v0.7.4" }
 
 thiserror = "~2.0"
