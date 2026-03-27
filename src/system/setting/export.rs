@@ -1,6 +1,6 @@
-use crate::prelude::*;
+use crate::internal_prelude::*;
 
-use orion_variate::vars::EnvEvalable;
+use orion_vars::vars::EnvEvalable;
 
 use super::LocalizeConf;
 
@@ -20,7 +20,7 @@ impl Setting {
 }
 
 impl EnvEvalable<Setting> for Setting {
-    fn env_eval(self, dict: &orion_variate::vars::EnvDict) -> Self {
+    fn env_eval(self, dict: &orion_vars::vars::EnvDict) -> Self {
         Self {
             localize: self.localize.map(|l| l.env_eval(dict)),
         }
@@ -32,18 +32,17 @@ mod tests {
     use std::env::temp_dir;
 
     use super::*;
-    use orion_conf::Configable;
     use orion_error::TestAssert;
-    use orion_variate::vars::{EnvDict, EnvEvalable, ValueType};
+    use orion_vars::vars::{EnvDict, EnvEvalable, ValueType};
 
     #[test]
     fn test_setting_serialization() {
         let temp_dir = temp_dir();
         let save_path = temp_dir.join("setting.yml");
         let setting = Setting::example();
-        setting.save_conf(&save_path).assert();
+        orion_conf::ConfigIO::save_conf(&setting, &save_path).assert();
         println!("{}", std::fs::read_to_string(&save_path).unwrap());
-        Setting::from_conf(&save_path).assert();
+        Setting::load_conf(&save_path).assert();
     }
 
     // 测试辅助函数

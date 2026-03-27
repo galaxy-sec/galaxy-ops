@@ -1,5 +1,5 @@
 // 导入全局prelude
-pub use crate::prelude::*;
+pub use crate::internal_prelude::*;
 
 // ops_prj特定的导入
 pub use crate::error::OpsReason;

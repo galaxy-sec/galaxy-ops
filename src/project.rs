@@ -1,6 +1,4 @@
-use orion_conf::Yamlable;
-
-use crate::prelude::*;
+use crate::internal_prelude::*;
 
 use crate::{
     const_vars::{MOD_VALUE_FILE, SYS_VALUE_FILE, SYS_VARS_YML, USER_VALUE_FILE, VALUE_DIR},
@@ -13,24 +11,24 @@ pub fn load_mod_opr_value(root: &Path, model: &str) -> MainResult<OriginDict> {
     if !sys_v_file.exists() {
         let mut ctx = OperationContext::want("build sys-value.yml").with_auto_log();
         let vars_file = root.join("mod").join(model).join("vars.yml");
-        let vars_vec = VarCollection::from_conf(&vars_file).owe_res()?;
+        let vars_vec = VarCollection::load_conf(&vars_file).owe_res()?;
         let sys_value = vars_vec.system_vars();
         ctx.record("sys-value", &sys_v_file);
-        sys_value.save_conf(&sys_v_file).owe_res()?;
+        orion_conf::ConfigIO::save_conf(sys_value, &sys_v_file).owe_res()?;
         ctx.mark_suc();
     }
-    let mut sys_dict = OriginDict::from(ValueDict::from_yml(&sys_v_file).owe_logic()?);
+    let mut sys_dict = OriginDict::from(ValueDict::load_yaml(&sys_v_file).owe_logic()?);
     sys_dict.set_source("sys-setting");
 
     let mod_v_file = value_root.join(model).join(MOD_VALUE_FILE);
     if !mod_v_file.exists() {
         ensure_path(&value_root.join(model)).owe_res()?;
         let vars_file = root.join("mod").join(model).join("vars.yml");
-        let vars_vec = VarCollection::from_conf(&vars_file).owe_res()?;
+        let vars_vec = VarCollection::load_conf(&vars_file).owe_res()?;
         let sys_value = vars_vec.module_vars();
-        sys_value.save_conf(&mod_v_file).owe_res()?;
+        orion_conf::ConfigIO::save_conf(sys_value, &mod_v_file).owe_res()?;
     }
-    let mut mod_dict = OriginDict::from(ValueDict::from_yml(&mod_v_file).owe_logic()?);
+    let mut mod_dict = OriginDict::from(ValueDict::load_yaml(&mod_v_file).owe_logic()?);
     mod_dict.set_source("mod-setting");
     sys_dict.merge(&mod_dict);
     Ok(sys_dict)
@@ -42,13 +40,13 @@ pub fn load_sys_opr_value(prj_root: &Path) -> MainResult<OriginDict> {
     if !sys_v_file.exists() {
         let mut ctx = OperationContext::want("build sys-value.yml").with_auto_log();
         let vars_file = prj_root.join("sys").join(SYS_VARS_YML);
-        let vars_vec = VarCollection::from_conf(&vars_file).owe_res()?;
+        let vars_vec = VarCollection::load_conf(&vars_file).owe_res()?;
         let sys_value = vars_vec.system_vars();
         ctx.record("sys-value", &sys_v_file);
-        sys_value.save_conf(&sys_v_file).owe_res()?;
+        orion_conf::ConfigIO::save_conf(sys_value, &sys_v_file).owe_res()?;
         ctx.mark_suc();
     }
-    let mut sys_dict = OriginDict::from(ValueDict::from_yml(&sys_v_file).owe_logic()?);
+    let mut sys_dict = OriginDict::from(ValueDict::load_yaml(&sys_v_file).owe_logic()?);
     sys_dict.set_source("sys-setting");
     Ok(sys_dict)
 }
@@ -66,12 +64,12 @@ pub fn mix_used_value(
     // 加载用户值文件（如果存在）
     let user_value_path = mod_value.parent().unwrap().join(USER_VALUE_FILE);
     if user_value_path.exists() {
-        let mut user_dict = OriginDict::from(ValueDict::from_yml(&user_value_path).owe_res()?);
+        let mut user_dict = OriginDict::from(ValueDict::load_yaml(&user_value_path).owe_res()?);
         user_dict.set_source("mod-cust");
         used.merge(&user_dict);
     }
 
-    let mut mod_dict = OriginDict::from(ValueDict::from_yml(mod_value).owe_res()?);
+    let mut mod_dict = OriginDict::from(ValueDict::load_yaml(mod_value).owe_res()?);
     mod_dict.set_source("mod-setting");
     let mut global = options.raw_value().clone();
     global.set_source("global");
@@ -89,7 +87,7 @@ mod tests {
 
     use super::*;
     use orion_error::TestAssert;
-    use orion_variate::vars::{Mutability, OriginValue, ValueType, VarDefinition};
+    use orion_vars::vars::{Mutability, OriginValue, ValueType, VarDefinition};
     use tempfile::tempdir;
 
     fn test_init() {
@@ -306,7 +304,7 @@ mod tests {
         let temp_dir = tempdir().unwrap();
         let mod_value_path = temp_dir.path().join(MOD_VALUE_FILE);
 
-        let vars = VarCollection::from_yml(&PathBuf::from("./src/data/vars.yml")).assert();
+        let vars = VarCollection::load_yaml(&PathBuf::from("./src/data/vars.yml")).assert();
         //let mut global_dict = OriginDict::from(vars);
         // 创建 mod_value.yml 文件，使用给定的输入数据（扁平结构）
         let mod_value_content = r#"
@@ -317,7 +315,7 @@ mod tests {
         let result = mix_used_value(options.clone(), &vars, &mod_value_path).unwrap();
 
         // 验证：没有环境变量时，use_ver 保持原样
-        let use_ver_result = result.ucase_get("use_ver").assert();
+        let use_ver_result = result.get_case_insensitive("use_ver").assert();
         assert_eq!(use_ver_result.value(), &ValueType::from("v0.12.6-beta"));
     }
 

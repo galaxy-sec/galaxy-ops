@@ -1,6 +1,6 @@
-use crate::prelude::*;
+use crate::internal_prelude::*;
 
-use orion_variate::vars::EnvEvalable;
+use orion_vars::vars::EnvEvalable;
 
 use super::{TemplateCustom, TemplateTargets};
 
@@ -23,7 +23,7 @@ impl LocalizeConf {
 }
 
 impl EnvEvalable<LocalizeConf> for LocalizeConf {
-    fn env_eval(self, dict: &orion_variate::vars::EnvDict) -> Self {
+    fn env_eval(self, dict: &orion_vars::vars::EnvDict) -> Self {
         Self {
             templatize_path: self.templatize_path.map(|t| t.env_eval(dict)),
             templatize_cust: self.templatize_cust.map(|t| t.env_eval(dict)),
@@ -34,7 +34,7 @@ impl EnvEvalable<LocalizeConf> for LocalizeConf {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use orion_variate::vars::{EnvDict, EnvEvalable, ValueType};
+    use orion_vars::vars::{EnvDict, EnvEvalable, ValueType};
 
     // 测试辅助函数
     fn create_test_env_dict() -> EnvDict {

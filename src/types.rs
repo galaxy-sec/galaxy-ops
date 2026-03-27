@@ -1,4 +1,4 @@
-use super::prelude::*;
+use crate::internal_prelude::*;
 
 use orion_variate::addr::accessor::UniversalAccessor;
 

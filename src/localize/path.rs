@@ -1,4 +1,4 @@
-use crate::prelude::*;
+use crate::internal_prelude::*;
 
 use crate::system::setting::Setting;
 
@@ -11,7 +11,7 @@ pub struct LocalizeVarPath {
     setting: Option<Setting>,
 }
 impl EnvEvalable<LocalizeVarPath> for LocalizeVarPath {
-    fn env_eval(self, dict: &orion_variate::vars::EnvDict) -> Self {
+    fn env_eval(self, dict: &orion_vars::vars::EnvDict) -> Self {
         Self {
             src: self.src.env_eval(dict),
             dst: self.dst.env_eval(dict),

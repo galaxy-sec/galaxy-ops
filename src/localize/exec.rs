@@ -1,13 +1,12 @@
 use crate::localize::path::LocalizeVarPath;
 use crate::localize::{LocalizeTemplate, TemplateConfig};
-use crate::prelude::*;
+use crate::internal_prelude::*;
 
 use crate::system::setting::Setting;
 use crate::{
     error::MainReason,
     types::{LocalizeOptions, ModuleLocalizable},
 };
-use orion_conf::JsonAble;
 
 #[derive(Getters, Clone, Debug, Serialize, Deserialize)]
 #[getset(get = "pub")]
@@ -76,14 +75,13 @@ impl ModuleLocalizable<PathBuf> for LocalizeExecPath {
         }
 
         if !value_file.exists() {
-            return MainReason::from_res(format!(
+            return Err(MainReason::resource_detail(format!(
                 "sys value file not exists: {}",
                 value_file.display()
-            ))
-            .err_result();
+            )));
         }
         ctx.record("value_file", &value_file);
-        let dict = ValueDict::from_json(&value_file).owe_res()?;
+        let dict = ValueDict::load_json(&value_file).owe_res()?;
 
         // Handle template configuration if available
         if let Some(setting) = self
@@ -114,7 +112,7 @@ impl ModuleLocalizable<PathBuf> for LocalizeExecPath {
                 .render_path(self.src(), &self.dst, &value_file, &tpl_path)
                 .with(&ctx)?;
         } else {
-            return MainReason::from_res("sys value file miss").err_result();
+            return Err(MainReason::resource_detail("sys value file miss"));
         }
 
         ctx.mark_suc();
@@ -133,9 +131,8 @@ pub fn assert_file_content(path: &Path, expected_content: &str) {
 mod tests {
     use super::*;
     use crate::system::setting::Setting;
-    use orion_conf::{Configable, JsonAble};
     use orion_error::TestAssert;
-    use orion_variate::vars::{ValueDict, ValueType};
+    use orion_vars::vars::{ValueDict, ValueType};
     // serde_json not currently used
     use std::io::Write;
     use tempfile::{NamedTempFile, TempDir, tempdir};
@@ -171,7 +168,7 @@ Date: {{date}}"#;
             ValueType::String("2025-01-14".to_string()),
         );
 
-        test_values.save_json(&value_path).assert();
+        orion_conf::JsonIO::save_json(&test_values, &value_path).assert();
         (test_values, value_path, temp_dir)
     }
 
@@ -234,11 +231,11 @@ Date: {{date}}"#;
         };
 
         // 测试序列化
-        original.save_json(&config_path).assert();
+        orion_conf::JsonIO::save_json(&original, &config_path).assert();
         assert!(config_path.exists());
 
         // 测试反序列化
-        let deserialized: LocalizeExecPath = LocalizeExecPath::from_conf(&config_path).assert();
+        let deserialized: LocalizeExecPath = LocalizeExecPath::load_conf(&config_path).assert();
         assert_eq!(deserialized.src(), original.src());
         assert_eq!(deserialized.dst(), original.dst());
         assert!(deserialized.setting().is_some());

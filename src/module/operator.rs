@@ -2,7 +2,7 @@ use super::prelude::*;
 use core::str;
 use orion_infra::path::PathResult;
 use orion_variate::addr::HttpResource;
-use orion_variate::vars::VarToValue;
+use orion_vars::vars::VarToValue;
 
 use crate::const_vars::{
     EXAMPLE_GIT_URL, MOD_PRJ_CONF_FILE_V1, MOD_PRJ_CONF_FILE_V2, MOD_PRJ_TEST_ROOT, MOD_VALUE_FILE,
@@ -113,9 +113,9 @@ impl ModOperator {
             let model_mod_value = model_value_path.mod_value_file();
             if !model_sys_value.exists() {
                 let sys_vars = model.vars().system_vars().to_val();
-                sys_vars.save_conf(&model_sys_value).owe_res()?;
+                orion_conf::ConfigIO::save_conf(&sys_vars, &model_sys_value).owe_res()?;
                 let mod_vars = model.vars().module_vars().to_val();
-                mod_vars.save_conf(&model_mod_value).owe_res()?;
+                orion_conf::ConfigIO::save_conf(&mod_vars, &model_mod_value).owe_res()?;
             }
         }
         Ok(value_root)
@@ -137,7 +137,7 @@ impl ModOperator {
         if conf_file_v1.exists() {
             std::fs::rename(&conf_file_v1, &conf_file_v2).owe_res()?;
         };
-        let conf = ModConf::from_conf(&conf_file_v2).owe_logic()?;
+        let conf = ModConf::load_conf(&conf_file_v2).owe_logic()?;
         let root_local = root_local.to_path_buf();
         let mod_spec = ModuleSpec::load_from(&root_local).owe(ModReason::Load.into())?;
         let project = GxlProject::load_from(&root_local).owe(ModReason::Load.into())?;
@@ -161,7 +161,7 @@ impl ModOperator {
             )
         );
         let conf_file = self.root_local().join("mod-prj.yml");
-        self.conf.save_conf(&conf_file).owe_res()?;
+        orion_conf::ConfigIO::save_conf(&self.conf, &conf_file).owe_res()?;
         self.mod_spec
             .save_to(self.root_local(), Some("./".into()))
             .owe(ModReason::Save.into())?;
@@ -185,7 +185,7 @@ impl RefUpdateable<()> for ModConf {
         self.test_envs
             .update_local(accessor, _path, options)
             .await
-            .owe(ModReason::Update.into())
+            .with(("mod-conf", "update test envs"))
     }
 }
 
@@ -203,7 +203,7 @@ impl RefUpdateable<()> for ModOperator {
         self.mod_spec()
             .update_local(accessor, self.root_local(), options)
             .await
-            .owe(ModReason::Update.into())?;
+            .with(("mod-operator", "update module spec"))?;
         Ok(())
     }
 }
@@ -265,19 +265,25 @@ pub fn make_mod_prj_testins(prj_path: &Path) -> MainResult<ModOperator> {
 pub mod tests {
     use crate::{
         accessor::accessor_for_test,
-        prelude::*,
+        module::{
+            depend::{Dependency, DependencySet},
+            spec::ModuleSpec,
+        },
         types::{LocalizeOptions, ModuleLocalizable, RefUpdateable},
     };
+    use super::super::prelude::*;
     use std::path::PathBuf;
 
     use orion_error::TestAssertWithMsg;
     use orion_infra::path::make_clean_path;
-    use orion_variate::{tools::test_init, update::DownloadOptions, vars::OriginDict};
-
-    use crate::{
-        const_vars::MOD_OPERATORS_ROOT,
-        module::operator::{ModOperator, make_mod_prj_testins},
+    use orion_variate::{
+        addr::{Address, LocalPath, types::PathTemplate},
+        tools::test_init,
+        update::DownloadOptions,
     };
+    use orion_vars::vars::OriginDict;
+
+    use crate::{const_vars::MOD_OPERATORS_ROOT, module::operator::ModOperator};
     #[tokio::test]
     async fn test_mod_prj_new() -> MainResult<()> {
         test_init();
@@ -293,11 +299,23 @@ pub mod tests {
         test_init();
 
         let prj_path = PathBuf::from(MOD_OPERATORS_ROOT).join("postgresql");
-        let project = make_mod_prj_testins(&prj_path).assert("make cust");
         if prj_path.exists() {
             std::fs::remove_dir_all(&prj_path).assert("ok");
         }
         std::fs::create_dir_all(&prj_path).assert("yes");
+        let dep_src = prj_path.join("fixture-source");
+        std::fs::create_dir_all(&dep_src).assert("create fixture dir");
+        std::fs::write(dep_src.join("README.md"), "fixture").assert("write fixture");
+
+        let mut res = DependencySet::default();
+        res.push(
+            Dependency::new(
+                Address::from(LocalPath::from(dep_src.to_str().unwrap())),
+                PathTemplate::from(prj_path.join("test_res")),
+            )
+            .with_rename("bit-common"),
+        );
+        let project = ModOperator::new(ModuleSpec::for_example(), res, prj_path.clone());
         project.save().assert("save dss_prj");
         let operator = ModOperator::load(&prj_path).assert("dss-project");
         let accessor = accessor_for_test();
@@ -305,6 +323,7 @@ pub mod tests {
             .update_local(accessor, &prj_path, &DownloadOptions::default())
             .await
             .assert("spec.update_local");
+        assert!(prj_path.join("test_res").join("bit-common").exists());
 
         let value_path = operator.init_setting_value()?;
         operator

@@ -7,7 +7,7 @@ use galaxy_ops::types::InsUpdateable;
 use orion_error::{ErrorConv, ErrorOwe};
 use orion_infra::path::make_new_path;
 use orion_variate::update::DownloadOptions;
-use orion_variate::vars::ValueDict;
+use orion_vars::vars::ValueDict;
 
 use crate::commands::common::{DebugLogArgs, ForceArgs};
 

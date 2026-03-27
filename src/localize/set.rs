@@ -1,4 +1,4 @@
-use crate::prelude::*;
+use crate::internal_prelude::*;
 
 use crate::{
     localize::exec::LocalizeExecPath,
@@ -63,9 +63,8 @@ impl ModuleLocalizable<PathBuf> for LocalizeSet {
 
 #[cfg(test)]
 mod tests {
-    use orion_conf::JsonAble;
     use orion_error::TestAssert;
-    use orion_variate::vars::ValueDict;
+    use orion_vars::vars::ValueDict;
     use tempfile::tempdir;
 
     use crate::{
@@ -95,7 +94,7 @@ mod tests {
             ],
         };
         let value_path = temp_dir.path().join("used.json");
-        ValueDict::default().save_json(&value_path).assert();
+        orion_conf::JsonIO::save_json(&ValueDict::default(), &value_path).assert();
         let result = localize_set
             .mod_localize(value_path, LocalizeOptions::default())
             .await;

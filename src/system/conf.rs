@@ -25,7 +25,7 @@ impl RefUpdateable<()> for SysConf {
         self.test_envs
             .update_local(accessor, path, options)
             .await
-            .owe(SysReason::Update.into())
+            .with(("sys-conf", "update test envs"))
     }
 }
 #[async_trait]

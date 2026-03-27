@@ -1,4 +1,4 @@
-use crate::prelude::*;
+use crate::internal_prelude::*;
 
 use thiserror::Error;
 #[derive(Clone, Debug, Serialize, PartialEq, Error, From)]
@@ -15,6 +15,8 @@ pub enum MainReason {
     Sys(SysReason),
     #[error("sys {0}")]
     Ops(OpsReason),
+    #[error("accessor {0}")]
+    Accessor(AddrReason),
     #[error("{0}")]
     Uvs(UvsReason),
 }
@@ -124,6 +126,7 @@ impl ErrorCode for MainReason {
     fn error_code(&self) -> i32 {
         match self {
             MainReason::UnKnow => 500,
+            MainReason::Accessor(r) => r.error_code(),
             MainReason::Uvs(r) => r.error_code(),
             MainReason::Localize(r) => r.error_code(),
             MainReason::Element(r) => r.error_code(),
@@ -134,32 +137,32 @@ impl ErrorCode for MainReason {
     }
 }
 
-impl From<AddrReason> for MainReason {
-    fn from(value: AddrReason) -> Self {
-        match value {
-            AddrReason::Brief(msg) => Self::Uvs(UvsReason::from_res(msg)),
-            AddrReason::Uvs(uvs_reason) => Self::Uvs(uvs_reason),
-            AddrReason::OperationTimeoutExceeded { timeout, attempts } => {
-                Self::Uvs(UvsReason::from_res(format!(
-                    "timeout:{}s attempts: {attempts}",
-                    timeout.as_secs()
-                )))
-            }
-            AddrReason::TotalTimeoutExceeded {
-                total_timeout,
-                elapsed,
-            } => Self::Uvs(UvsReason::from_res(format!(
-                "timeout:{}s elapsed: {}",
-                total_timeout.as_secs(),
-                elapsed.as_secs()
-            ))),
-            AddrReason::RetryExhausted {
-                attempts,
-                last_error,
-            } => Self::Uvs(UvsReason::from_res(format!(
-                "attempts:{attempts} last_error: {last_error}",
-            ))),
-        }
+impl MainReason {
+    pub fn conf_detail(msg: impl Into<String>) -> MainError {
+        Self::from(UvsReason::core_conf())
+            .to_err()
+            .with_detail(msg.into())
+    }
+
+    pub fn logic_detail(msg: impl Into<String>) -> MainError {
+        Self::from(UvsReason::logic_error())
+            .to_err()
+            .with_detail(msg.into())
+    }
+
+    pub fn resource_detail(msg: impl Into<String>) -> MainError {
+        Self::from(UvsReason::resource_error())
+            .to_err()
+            .with_detail(msg.into())
+    }
+
+    pub fn from_addr_error(error: StructError<AddrReason>) -> MainError {
+        StructError::new(
+            Self::Accessor(error.get_reason().clone()),
+            error.imp().detail().clone(),
+            error.imp().position().clone(),
+            error.contexts().to_vec(),
+        )
     }
 }
 pub type MainResult<T> = Result<T, StructError<MainReason>>;
@@ -175,42 +178,72 @@ pub fn report_error(e: StructError<MainReason>) {
     }
     println!("[REASON]:");
     match e.get_reason() {
+        MainReason::Accessor(addr_reason) => match addr_reason {
+            AddrReason::Brief(msg) => {
+                println!("ACCESSOR ERROR: {msg}\n");
+            }
+            AddrReason::Uvs(uvs_reason) => {
+                println!("ACCESSOR ERROR: {uvs_reason}\n");
+            }
+            AddrReason::OperationTimeoutExceeded { timeout, attempts } => {
+                println!("ACCESSOR TIMEOUT: timeout={timeout:?}, attempts={attempts}\n");
+            }
+            AddrReason::TotalTimeoutExceeded {
+                total_timeout,
+                elapsed,
+            } => {
+                println!(
+                    "ACCESSOR TIMEOUT: total_timeout={total_timeout:?}, elapsed={elapsed:?}\n"
+                );
+            }
+            AddrReason::RetryExhausted {
+                attempts,
+                last_error,
+            } => {
+                println!(
+                    "ACCESSOR RETRY EXHAUSTED: attempts={attempts}, last_error={last_error}\n"
+                );
+            }
+        },
         MainReason::Uvs(uvs_reason) => match uvs_reason {
-            UvsReason::LogicError(e) => {
-                println!("LOGIC ERROR: {e}\n",);
+            UvsReason::LogicError => {
+                println!("LOGIC ERROR\n");
             }
-            UvsReason::BusinessError(e) => {
-                println!("BIZ ERROR: {e}\n",);
+            UvsReason::BusinessError => {
+                println!("BIZ ERROR\n");
             }
-            UvsReason::DataError(e, _) => {
-                println!("DATA ERROR: {e}\n",);
+            UvsReason::DataError => {
+                println!("DATA ERROR\n");
             }
-            UvsReason::SystemError(e) => {
-                println!("SYS ERROR: {e}\n",);
+            UvsReason::SystemError => {
+                println!("SYS ERROR\n");
             }
-            UvsReason::ResourceError(e) => {
-                println!("RES ERROR: {e}\n",);
+            UvsReason::ResourceError => {
+                println!("RES ERROR\n");
             }
             UvsReason::ConfigError(e) => {
-                println!("CONF ERROR: {e}\n",);
+                println!("CONF ERROR: {e}\n");
             }
-            UvsReason::ValidationError(e) => {
-                println!("validation ERROR: {e}\n",);
+            UvsReason::ValidationError => {
+                println!("VALIDATION ERROR\n");
             }
-            UvsReason::NotFoundError(e) => {
-                println!("ERROR: {e}\n",);
+            UvsReason::NotFoundError => {
+                println!("NOT FOUND ERROR\n");
             }
-            UvsReason::PermissionError(e) => {
-                println!("Permission ERROR: {e}\n",);
+            UvsReason::PermissionError => {
+                println!("PERMISSION ERROR\n");
             }
-            UvsReason::NetworkError(e) => {
-                println!("Network ERROR: {e}\n",);
+            UvsReason::NetworkError => {
+                println!("NETWORK ERROR\n");
             }
-            UvsReason::TimeoutError(e) => {
-                println!("Timeout ERROR: {e}\n",);
+            UvsReason::TimeoutError => {
+                println!("TIMEOUT ERROR\n");
             }
-            UvsReason::ExternalError(e) => {
-                println!("External ERROR: {e}\n",);
+            UvsReason::ExternalError => {
+                println!("EXTERNAL ERROR\n");
+            }
+            UvsReason::RunRuleError => {
+                println!("RUN RULE ERROR\n");
             }
         },
 
@@ -237,7 +270,51 @@ pub fn report_error(e: StructError<MainReason>) {
         println!("\n[DETAIL]:\n{detail}",);
     }
     println!("\n[CONTEXT]:\n");
-    for x in e.context() {
+    for x in e.context().iter() {
         println!("{x}",)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+
+    #[test]
+    fn test_from_addr_error_keeps_accessor_reason_and_detail() {
+        let source = StructError::new(
+            AddrReason::RetryExhausted {
+                attempts: 3,
+                last_error: "connection reset".into(),
+            },
+            Some("download failed".into()),
+            Some("src/error.rs:1:1".into()),
+            vec![],
+        );
+
+        let converted = MainReason::from_addr_error(source);
+
+        assert_eq!(converted.error_code(), 504);
+        assert_eq!(converted.detail().as_deref(), Some("download failed"));
+        assert!(matches!(
+            converted.get_reason(),
+            MainReason::Accessor(AddrReason::RetryExhausted {
+                attempts: 3,
+                last_error,
+            }) if last_error == "connection reset"
+        ));
+    }
+
+    #[test]
+    fn test_main_reason_from_addr_reason_preserves_variant() {
+        let reason = MainReason::from(AddrReason::OperationTimeoutExceeded {
+            timeout: Duration::from_secs(5),
+            attempts: 2,
+        });
+
+        assert!(matches!(
+            reason,
+            MainReason::Accessor(AddrReason::OperationTimeoutExceeded { attempts: 2, .. })
+        ));
     }
 }

@@ -1,7 +1,6 @@
-use orion_conf::Yamlable;
 use orion_variate::addr::{access_ctrl::serv::NetAccessCtrl, accessor::UniversalConfig};
 
-use crate::prelude::*;
+use crate::internal_prelude::*;
 use std::env::home_dir;
 
 use crate::const_vars::NET_ACCS_CTRL_FILE;
@@ -10,7 +9,7 @@ pub fn build_accessor(dict: &EnvDict) -> UniversalAccessor {
     if let Some(path) = home_dir().map(|x| x.join(NET_ACCS_CTRL_FILE))
         && path.exists()
     {
-        match NetAccessCtrl::from_yml(&path) {
+        match NetAccessCtrl::load_yaml(&path) {
             Ok(redirect) => {
                 let ctrl = redirect.env_eval(dict);
                 return UniversalAccessor::new(UniversalConfig::default().with_ctrl(ctrl));

@@ -1,9 +1,7 @@
-use orion_conf::{Configable, error::SerdeResult};
 use orion_error::{ContextRecord, OperationContext};
 
 use super::prelude::*;
 use crate::localize::{LocalizeTemplate, TemplateConfig};
-use crate::prelude::*;
 use crate::system::setting::Setting;
 use crate::{
     artifact::ArtifactPackage,
@@ -135,7 +133,7 @@ impl From<&PathBuf> for TargetValuePaths {
     }
 }
 
-impl Persistable<MMOperator> for MMOperator {
+impl FilePersist<MMOperator> for MMOperator {
     fn save_to(&self, root: &Path, name: Option<String>) -> SerdeResult<()> {
         let target_path = root.join(name.unwrap_or(self.model().to_string()));
 
@@ -148,23 +146,19 @@ impl Persistable<MMOperator> for MMOperator {
             .with(format!("path: {}", paths.spec_path().display()))?;
 
         if let Some(setting) = &self.setting {
-            setting
-                .save_conf(paths.setting_path())
+            orion_conf::ConfigIO::save_conf(setting, paths.setting_path())
                 .owe_logic()
                 .with(&ctx)?;
         }
         self.workflow.save_to(paths.workflow_path(), None)?;
-        self.artifact
-            .save_conf(paths.artifact_path())
+        orion_conf::ConfigIO::save_conf(&self.artifact, paths.artifact_path())
             .owe_logic()
             .with(&ctx)?;
 
-        self.depends
-            .save_conf(paths.depends_path())
+        orion_conf::ConfigIO::save_conf(&self.depends, paths.depends_path())
             .owe_logic()
             .with(&ctx)?;
-        self.vars
-            .save_conf(paths.vars_path())
+        orion_conf::ConfigIO::save_conf(&self.vars, paths.vars_path())
             .owe_logic()
             .with(&ctx)?;
         self.gxl_prj.save_to(&paths.target_root, None).with(&ctx)?;
@@ -188,25 +182,25 @@ impl Persistable<MMOperator> for MMOperator {
         let actions = ModWorkflows::load_from(paths.workflow_path()).with(&ctx)?;
 
         let setting = if paths.setting_path().exists() {
-            Some(Setting::from_conf(paths.setting_path()).owe_logic()?)
+            Some(Setting::load_conf(paths.setting_path()).owe_logic()?)
         } else {
             None
         };
         ctx.record("artifact", paths.artifact_path());
-        let artifact = ArtifactPackage::from_conf(paths.artifact_path())
+        let artifact = ArtifactPackage::load_conf(paths.artifact_path())
             .with(&ctx)
             .owe_logic()?;
 
         //ctx.record("conf_spec", paths.conf_path());
-        //let conf_spec = ConfSpec::from_conf(paths.conf_path()).with(&ctx)?;
+        //let conf_spec = ConfSpec::load_conf(paths.conf_path()).with(&ctx)?;
 
         ctx.record("depends", paths.depends_path());
-        let depends = DependencySet::from_conf(paths.depends_path())
+        let depends = DependencySet::load_conf(paths.depends_path())
             .with(&ctx)
             .owe_logic()?;
         ctx.record("vars", paths.vars_path());
         //let vars = VarCollection::eval_from_file(&ValueDict::default(), paths.vars_path())
-        let vars = VarCollection::from_conf(paths.vars_path())
+        let vars = VarCollection::load_conf(paths.vars_path())
             .with(&ctx)
             .owe_logic()?;
 
@@ -288,12 +282,14 @@ impl ModuleLocalizable<ModValuePaths> for MMOperator {
         make_clean_path(&local_path).owe_logic()?;
 
         let used = self.build_used_value(options, &val_path.mod_value_file())?;
-        used.export_origin()
-            .save_valconf(&val_path.used_with_origon())
+        orion_conf::TextConfigIO::save_valconf(
+            &used.export_origin(),
+            &val_path.used_with_origon(),
+        )
             .owe_res()?;
         let used_value_file = self.used_value_path()?;
         ctx.record("value_file", &used_value_file);
-        used.export_value().save_json(&used_value_file).owe_res()?;
+        orion_conf::JsonIO::save_json(&used.export_value(), &used_value_file).owe_res()?;
 
         debug!(target : "/mod/target/loc", "use value: {}", used_value_file.display());
         let tpl_path_opt = self

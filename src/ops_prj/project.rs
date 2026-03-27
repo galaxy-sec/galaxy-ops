@@ -46,7 +46,7 @@ impl OpsProject {
         let paths = ProjectPath::new(root_local);
         let conf = ProjectConf::load(paths.root())?;
 
-        let ops_target = OpsTarget::from_conf(&paths.target_file()).owe_conf()?;
+        let ops_target = OpsTarget::load_conf(&paths.target_file()).owe_conf()?;
         let project = GxlProject::load_from(paths.root()).owe(OpsReason::Load.into())?;
         flag.mark_suc();
         Ok(Self {
@@ -67,10 +67,8 @@ impl OpsProject {
                 "save project  to {} fail!", self.paths.root().display()
             )
         );
-        self.ops_target
-            .save_conf(&self.paths.target_file())
-            .owe_res()?;
-        self.conf.save_conf(&self.paths.conf_file()).owe_res()?;
+        orion_conf::ConfigIO::save_conf(&self.ops_target, &self.paths.target_file()).owe_res()?;
+        orion_conf::ConfigIO::save_conf(&self.conf, &self.paths.conf_file()).owe_res()?;
         self.project.save_to(self.paths.root(), None).owe_logic()?;
 
         workins_init_gitignore(self.paths.root())?;
@@ -126,7 +124,8 @@ mod tests {
         ops_prj::project::OpsProject,
     };
     use orion_error::TestAssert;
-    use orion_variate::{tools::test_init, vars::ValueDict};
+    use orion_variate::tools::test_init;
+    use orion_vars::vars::ValueDict;
 
     use tempfile::TempDir;
 
@@ -210,13 +209,19 @@ system:
 
         // Read and verify the value file was created with default values
         assert!(value_file.exists());
-        let updated_vals = ValueDict::from_conf(&value_file).unwrap();
+        let updated_vals = ValueDict::load_conf(&value_file).unwrap();
         assert_eq!(
-            updated_vals.ucase_get("test_var").unwrap().to_string(),
+            updated_vals
+                .get_case_insensitive("test_var")
+                .unwrap()
+                .to_string(),
             "default_value"
         );
         assert_eq!(
-            updated_vals.ucase_get("immutable_var").unwrap().to_string(),
+            updated_vals
+                .get_case_insensitive("immutable_var")
+                .unwrap()
+                .to_string(),
             "immutable_value"
         );
     }
@@ -267,7 +272,7 @@ immutable_var: "existing_immutable"
 
         // Verify value file still exists and contains expected values
         assert!(value_file.exists());
-        let updated_vals = ValueDict::from_conf(&value_file).unwrap();
+        let updated_vals = ValueDict::load_conf(&value_file).unwrap();
 
         // Both mutable and immutable variables should retain their existing values
         // because in non-interactive mode, we use the existing values from value file

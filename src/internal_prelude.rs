@@ -1,3 +1,5 @@
+#![allow(unused_imports)]
+
 pub use getset::{Getters, MutGetters, Setters, WithSetters};
 pub use log::{debug, error, info, warn};
 pub use orion_error::{ContextRecord, DomainReason, ErrorCode, OperationContext};
@@ -22,45 +24,17 @@ pub use crate::error::MainResult;
 pub use async_trait::async_trait;
 pub use contracts::requires;
 pub use orion_conf::error::{OrionConfResult as SerdeResult, SerdeReason};
+pub use orion_conf::{ConfigIO, FilePersist, JsonIO, LoadHook, TextConfigIO, YamlIO};
 pub use serde::ser::Serializer;
 
-// 添加高频重复的orion生态导入
-#[allow(deprecated)]
-pub use crate::compat::{
-    Configable, JsonAble, Persistable, StorageLoadEvent, ValueConfable, YamlStorageExt, Yamlable,
-};
 pub use orion_error::ErrorConv;
 pub use orion_error::ToStructError;
 pub use orion_infra::auto_exit_log;
 pub use orion_infra::path::{PathResult, ensure_path, make_clean_path};
-pub use orion_variate::update::DownloadOptions;
-
 pub use orion_variate::addr::accessor::UniversalAccessor;
-// 常用类型和trait
 pub use orion_variate::addr::Address;
 pub use orion_variate::types::ResourceDownloader;
+pub use orion_variate::update::DownloadOptions;
 pub use orion_vars::vars::{
     EnvDict, EnvEvalable, OriginDict, ValueDict, VarCollection, VarDefinition,
 };
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::system::setting::Setting;
-    use orion_error::TestAssert;
-    use tempfile::tempdir;
-
-    #[allow(deprecated)]
-    #[test]
-    fn test_legacy_prelude_still_supports_legacy_io_methods() {
-        let temp_dir = tempdir().unwrap();
-        let conf_path = temp_dir.path().join("setting.conf");
-        let yaml_path = temp_dir.path().join("setting.yml");
-
-        let setting = Setting::example();
-        setting.save_conf(&conf_path).assert();
-
-        let loaded = Setting::from_conf(&conf_path).assert();
-        loaded.save_yml(&yaml_path).assert();
-    }
-}

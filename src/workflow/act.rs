@@ -1,9 +1,6 @@
 use super::prelude::*;
 use derive_getters::Getters;
-use orion_conf::{
-    ErrorOwe,
-    error::{SerdeReason, SerdeResult},
-};
+use orion_conf::ErrorOwe;
 use serde::Serialize;
 
 use crate::const_vars::WORKFLOWS_DIR;
@@ -23,7 +20,7 @@ impl Workflows {
     }
 }
 
-impl Persistable<Workflows> for Workflows {
+impl FilePersist<Workflows> for Workflows {
     fn save_to(&self, path: &Path, name: Option<String>) -> SerdeResult<()> {
         let action_path = path.join(WORKFLOWS_DIR);
         std::fs::create_dir_all(&action_path)
@@ -69,7 +66,7 @@ pub enum Workflow {
     Gxl(GxlAction),
 }
 
-impl Persistable<Workflow> for Workflow {
+impl FilePersist<Workflow> for Workflow {
     fn save_to(&self, path: &Path, name: Option<String>) -> SerdeResult<()> {
         match self {
             Workflow::Gxl(act) => act.save_to(path, name),
@@ -79,19 +76,17 @@ impl Persistable<Workflow> for Workflow {
     fn load_from(path: &Path) -> SerdeResult<Workflow> {
         // 首先检查文件是否存在且是普通文件
         if !path.exists() {
-            return Err(SerdeReason::from_conf("path not exists".to_string()).to_err()).with(path);
+            return Err(SerdeReason::from("path not exists".to_string()).to_err()).with(path);
         }
 
         if !path.is_file() {
-            return Err(SerdeReason::from_conf("path not file".to_string()).to_err()).with(path);
+            return Err(SerdeReason::from("path not file".to_string()).to_err()).with(path);
         }
 
         // 根据扩展名分发加载逻辑
         match path.extension().and_then(|s| s.to_str()) {
             Some("gxl") => GxlAction::load_from(path).map(Workflow::Gxl),
-            _ => {
-                Err(SerdeReason::from_conf("file type not support".to_string()).to_err()).with(path)
-            }
+            _ => Err(SerdeReason::from("file type not support".to_string()).to_err()).with(path),
         }
     }
 }

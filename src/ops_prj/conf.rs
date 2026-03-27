@@ -31,7 +31,7 @@ impl ProjectConf {
     }
     pub fn load(path: &Path) -> MainResult<Self> {
         let conf_file = path.join(OPS_PRJ_CONF_FILE);
-        let ins = Self::from_conf(&conf_file).owe_conf()?;
+        let ins = Self::load_conf(&conf_file).owe_conf()?;
         Ok(ins)
     }
 }
@@ -56,7 +56,7 @@ impl InsUpdateable<ProjectConf> for ProjectConf {
         self.work_envs
             .update_local(accessor, path, options)
             .await
-            .owe(OpsReason::Update.into())?;
+            .with(("ops-conf", "update work envs"))?;
         flag.mark_suc();
         Ok(self)
     }

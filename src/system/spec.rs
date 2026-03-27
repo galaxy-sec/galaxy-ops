@@ -8,9 +8,8 @@ use crate::{
     types::SystemLocalizable,
     workflow::act::SysWorkflows,
 };
-use orion_conf::Yamlable;
 use orion_variate::addr::{GitRepository, LocalPath};
-use orion_variate::vars::VarDefinition;
+use orion_vars::vars::VarDefinition;
 
 use super::init::{SysIniter, sys_init_gitignore};
 use crate::{
@@ -66,8 +65,8 @@ impl SysModelSpec {
         let paths = SysTargetPaths::from(&root);
         std::fs::create_dir_all(paths.spec_path()).owe_conf()?;
         sys_init_gitignore(&root)?;
-        self.define.save_yml(paths.define_path()).owe_res()?;
-        self.mod_list.save_yml(paths.modlist_path()).owe_res()?;
+        self.define.save_yaml(paths.define_path()).owe_res()?;
+        self.mod_list.save_yaml(paths.modlist_path()).owe_res()?;
         ensure_path(&paths.setting_path()).owe_res()?;
         self.setting().save_local(paths.setting_path())?;
 
@@ -83,7 +82,7 @@ impl SysModelSpec {
         let _name = root
             .file_name()
             .and_then(|f| f.to_str())
-            .ok_or_else(|| MainReason::from_conf("bad name".to_string()).to_err())?;
+            .ok_or_else(|| MainReason::conf_detail("bad name"))?;
 
         let mut flag = auto_exit_log!(
             info!(target: "sys", "load sys spec success!:{}", root.display()),
@@ -93,18 +92,17 @@ impl SysModelSpec {
 
         ctx.record("mod_list", paths.modlist_path());
         let define = if !paths.define_path().exists() {
-            return MainReason::from_logic(format!(
-                "miss define file : {}",
+            return Err(MainReason::logic_detail(format!(
+                "miss define file: {}",
                 paths.define_path().display()
-            ))
-            .err_result();
+            )));
         } else {
-            SysDefine::from_yml(paths.define_path())
+            SysDefine::load_yaml(paths.define_path())
                 .with("load define".to_string())
                 .with(&ctx)
                 .owe_data()?
         };
-        let mut mod_list = ModulesList::from_yml(paths.modlist_path())
+        let mut mod_list = ModulesList::load_yaml(paths.modlist_path())
             .with("load mod-list".to_string())
             .with(&ctx)
             .owe_data()?;
@@ -149,7 +147,7 @@ impl RefUpdateable<()> for SysModelSpec {
                 std::fs::remove_file(&path).owe_sys()?;
             }
             let sys_vars = value.vars.merge_system(self.setting().vars().clone());
-            sys_vars.save_yml(&path).owe_res()?;
+            sys_vars.save_yaml(&path).owe_res()?;
             Ok(())
         } else {
             MainReason::from(ElementReason::Miss("local path".into())).err_result()

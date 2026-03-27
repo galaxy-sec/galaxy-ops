@@ -6,7 +6,7 @@ use clap::Parser;
 use commands::{CommandDispatcher, GInsCmd};
 use galaxy_ops::error::{MainResult, report_error};
 use orion_error::ErrorOwe;
-use orion_variate::vars::setup_start_env_vars;
+use orion_vars::vars::setup_start_env_vars;
 
 #[tokio::main]
 async fn main() {

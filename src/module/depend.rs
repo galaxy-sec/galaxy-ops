@@ -1,11 +1,11 @@
 use crate::{
-    prelude::*,
+    error::MainReason,
+    module::prelude::*,
     types::{Accessor, RefUpdateable},
 };
 
 use async_trait::async_trait;
 use getset::Getters;
-use orion_error::ErrorConv;
 use orion_variate::{
     addr::{Address, GitRepository, LocalPath, types::PathTemplate},
     types::ResourceDownloader,
@@ -51,12 +51,12 @@ impl RefUpdateable<()> for Dependency {
             accessor
                 .download_rename(self.addr(), &path, rename, options)
                 .await
-                .err_conv()?;
+                .map_err(MainReason::from_addr_error)?;
         } else {
             accessor
                 .download_to_local(self.addr(), &path, options)
                 .await
-                .err_conv()?;
+                .map_err(MainReason::from_addr_error)?;
         }
         Ok(())
     }

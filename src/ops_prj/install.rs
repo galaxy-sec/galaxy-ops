@@ -89,11 +89,10 @@ impl SystemPackageInstaller {
                 value_path: self.project_paths.value_dir().join(sys_name),
             })
         } else {
-            Err(crate::error::MainReason::from_conf(format!(
+            Err(crate::error::MainReason::conf_detail(format!(
                 "import package failed, bad path: {}",
                 sys_src.display()
-            ))
-            .to_err())
+            )))
         }
     }
 

@@ -4,3 +4,7 @@
 [![Rust](https://img.shields.io/badge/rust-1.70%2B-blue.svg)](https://www.rust-lang.org)
 
 galaxy-ops 是一个现代化的运维管理平台，提供模块化管理、系统配置、包管理、工作流自动化等核心功能。项目采用 Rust 语言开发。
+
+## 文档
+
+- [升级迁移指南](./UPGRADE.md)

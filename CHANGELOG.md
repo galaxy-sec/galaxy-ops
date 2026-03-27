@@ -5,6 +5,37 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/),
 并且本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.1.0] - 2026-03-27
+
+### 重大变更
+- **依赖升级定版**: 正式切换到新一轮 `orion_*` 生态版本，不再回退旧版兼容实现
+  - `orion-error` 升级到 `0.6`
+  - `orion_conf` 升级到 `0.5`
+  - `orion-infra` 升级到 `0.5`
+  - `orion-accessor` 通过别名 `orion_variate` 升级到 `0.6`
+  - `orion-variate` 通过别名 `orion_vars` 升级到 `0.11`
+
+### 新增功能
+- **升级迁移文档**: 新增 `UPGRADE.md`，集中说明配置读写 API、错误处理、变量访问和兼容迁移路径
+- **兼容层恢复**: 重新提供 `galaxy_ops::compat::*` 公开过渡入口，保留旧 trait 名用于下游渐进迁移
+
+### 改进优化
+- **兼容入口分层**: 将公开兼容 `prelude` 与内部升级用导入层拆开，避免新旧配置读写 trait 同时进入作用域时出现方法解析歧义
+- **变量访问统一**: 大小写不敏感读取统一切换为 `get_case_insensitive()`
+- **错误语义保留**: 升级后不再把细粒度新错误统一压平回旧的大类错误，尽量保留上游 detail / context / position
+- **模板渲染收敛**: 模板渲染链路统一到新语义，不再依赖旧的隐式兼容行为
+
+### Bug 修复
+- **系统设置加载初始化**: 修复 `SysSetting::load_from()` 在新版本下未触发加载后初始化，导致变量作用域未正确标记的问题
+- **Shell 注释剥离**: 修复 `$((1 << 2))` 算术移位被误判为 heredoc 的问题
+- **多 heredoc 处理**: 修复同一条 shell 命令包含多个 heredoc 时仅记录最后一个，导致前续 body 中注释被误删的问题
+- **兼容导出入口**: 修复升级后 `prelude::*` / `compat::*` 对下游老调用方的源码级 break
+
+### 测试
+- 补充 legacy `prelude` 与 `compat` 读写路径回归测试
+- 补充 `SysSetting` 加载后变量作用域初始化测试
+- 补充 shell heredoc、算术移位和 YAML 注释剥离边界测试
+
 ## [0.13.0-alpha] - 2025-09-01
 
 ### 重大变更

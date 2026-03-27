@@ -8,10 +8,9 @@ use crate::workflow::prj::GxlProject;
 
 use super::init::{SYS_PRJ_ADM, SYS_PRJ_WORK, sys_init_gitignore};
 use super::{conf::SysConf, path::SysOperatorPath};
-use orion_conf::{Configable, Persistable, Yamlable};
 use orion_infra::path::{ensure_path, make_clean_path};
 use orion_variate::update::DownloadOptions;
-use orion_variate::vars::{VarCollection, VarToValue, find_project_define_base};
+use orion_vars::vars::{VarCollection, VarToValue, find_project_define_base};
 
 #[derive(Getters, Clone, Debug)]
 #[getset(get = "pub")]
@@ -46,7 +45,7 @@ impl SysOperator {
         paths.migrate_conf_file().with(&ctx).want("migrate conf")?;
 
         ctx.record("sys-conf", &paths.conf_file_v2());
-        let conf = SysConf::from_conf(&paths.conf_file_v2())
+        let conf = SysConf::load_conf(&paths.conf_file_v2())
             .owe_res()
             .with(&ctx)?;
         let sys_path = paths.sys_dir();
@@ -71,7 +70,9 @@ impl SysOperator {
             .with_mod_path("sys/prj");
         ctx.record("root", self.paths.root());
         let conf_file_v2 = self.paths.conf_file_v2();
-        self.conf.save_conf(&conf_file_v2).owe_res().with(&ctx)?;
+        orion_conf::ConfigIO::save_conf(&self.conf, &conf_file_v2)
+            .owe_res()
+            .with(&ctx)?;
         self.sys_spec.save_local(self.paths.root(), "sys")?;
         self.project
             .save_to(self.paths.root(), None)
@@ -150,7 +151,7 @@ impl SysOperator {
                 //all_vars = all_vars.merge(mmo.vars().clone());
                 if !mm_path.mod_value_file().exists() {
                     let mod_vars = mmo.vars().module_vars().to_val();
-                    mod_vars.save_yml(&mm_path.mod_value_file()).owe_res()?;
+                    mod_vars.save_yaml(&mm_path.mod_value_file()).owe_res()?;
                 }
 
                 //mm.vars()
@@ -160,16 +161,16 @@ impl SysOperator {
         if !setting_val_path.mod_value_file().exists() {
             let setting_vars = self.sys_spec().setting().vars().module_vars().to_val();
             setting_vars
-                .save_yml(&setting_val_path.mod_value_file())
+                .save_yaml(&setting_val_path.mod_value_file())
                 .owe_res()?;
         }
         if !value_root.sys_value_file().exists() {
-            let sys_vars = VarCollection::from_yml(&self.paths.sys_vars_file())
+            let sys_vars = VarCollection::load_yaml(&self.paths.sys_vars_file())
                 .owe_res()?
                 .system_vars()
                 .to_val();
             //all_vars.system_vars().to_val();
-            sys_vars.save_yml(&value_root.sys_value_file()).owe_res()?;
+            sys_vars.save_yaml(&value_root.sys_value_file()).owe_res()?;
         }
         Ok(value_root)
     }
@@ -185,15 +186,15 @@ pub fn setup_prj_root_env_vars(base: PathBuf) -> MainResult<()> {
 pub mod tests {
     use std::path::{Path, PathBuf};
 
-    use orion_conf::Yamlable;
+    use orion_conf::YamlIO;
     use orion_error::{ErrorOwe, TestAssertWithMsg};
     use orion_infra::path::make_clean_path;
     use orion_variate::{
         addr::{Address, HttpResource, types::PathTemplate},
         tools::test_init,
         update::DownloadOptions,
-        vars::{OriginDict, ValueDict},
     };
+    use orion_vars::vars::{OriginDict, ValueDict};
 
     use crate::{
         accessor::accessor_for_test,
@@ -235,7 +236,7 @@ pub mod tests {
             .assert("spec.update_local");
         let value_path = project.init_setting_value()?;
         let mut dict =
-            OriginDict::from(ValueDict::from_yml(&value_path.sys_value_file()).owe_res()?);
+            OriginDict::from(ValueDict::load_yaml(&value_path.sys_value_file()).owe_res()?);
         dict.set_source("sys-setting");
         setup_prj_root_env_vars(prj_path.clone()).owe_sys()?;
         project

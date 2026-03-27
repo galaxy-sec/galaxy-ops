@@ -1,6 +1,5 @@
 use super::prelude::*;
 
-use orion_error::UvsLogicFrom;
 use orion_variate::types::ResourceDownloader;
 
 use super::ModelSTD;
@@ -92,7 +91,7 @@ impl RefUpdateable<UpdateUnit> for ModuleSpecRef {
                 let prj_path = accessor
                     .download_rename(self.addr(), local, tmp_name, options)
                     .await
-                    .owe(MainReason::from(ModReason::Update))?;
+                    .map_err(MainReason::from_addr_error)?;
                 let mod_path = prj_path.position().join(MOD_DIR);
                 let tmp_path = local.join(tmp_name);
                 make_clean_path(&target_root).owe_res()?;
@@ -114,12 +113,12 @@ impl RefUpdateable<UpdateUnit> for ModuleSpecRef {
             let unit = spec
                 .update_local(accessor, &target_path, options)
                 .await
-                .owe(MainReason::from(ModReason::Update))?;
+                .with(("module", self.name().to_string()))?;
             MMOperator::clean_other(&target_root, self.model())?;
             flag.mark_suc();
             return Ok(unit);
         } else {
-            Err(MainReason::from_logic("no local value in ModuleSpecRef ").to_err())
+            Err(MainReason::logic_detail("no local value in ModuleSpecRef"))
         }
     }
 }

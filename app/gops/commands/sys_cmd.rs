@@ -14,11 +14,11 @@ use galaxy_ops::system::SysValuePaths;
 use galaxy_ops::system::operator::SysOperator;
 use galaxy_ops::system::setting::SysSetting;
 use galaxy_ops::types::{LocalizeOptions, RefUpdateable};
-use orion_conf::Yamlable;
+use orion_conf::YamlIO;
 use orion_error::{ErrorConv, ErrorOwe};
 use orion_infra::path::{ensure_path, make_new_path};
 use orion_variate::update::DownloadOptions;
-use orion_variate::vars::{OriginDict, ValueDict};
+use orion_vars::vars::{OriginDict, ValueDict};
 
 use crate::commands::common::DebugLogArgs;
 
@@ -279,7 +279,7 @@ impl SysCommandHandler {
 
         let spec = SysOperator::load(&current_dir).err_conv()?;
         let val_path = SysValuePaths::from(current_dir.clone()).join(VALUE_DIR);
-        let dict = OriginDict::from(ValueDict::from_yml(&val_path.sys_value_file()).owe_res()?);
+        let dict = OriginDict::from(ValueDict::load_yaml(&val_path.sys_value_file()).owe_res()?);
         spec.localize(
             val_path,
             LocalizeOptions::new(dict).with_only_mod(args.module),

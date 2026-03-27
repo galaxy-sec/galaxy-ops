@@ -1,7 +1,6 @@
 use super::prelude::*;
 use crate::error::MainReason;
 
-use orion_error::{UvsLogicFrom, UvsReason};
 use orion_variate::{addr::Address, types::ResourceDownloader};
 
 use super::spec::SysModelSpec;
@@ -81,7 +80,7 @@ impl InsUpdateable<SysModelSpecRef> for SysModelSpecRef {
         let update_v = accessor
             .download_rename(&spec_addr, path, self.name.as_str(), options)
             .await
-            .owe(SysReason::Update.into())?;
+            .map_err(MainReason::from_addr_error)?;
         let spec = SysModelSpec::load_from(update_v.position())?;
         spec.update_local(accessor, path, options).await?;
         self.spec = Some(spec);
@@ -101,7 +100,7 @@ impl SystemLocalizable<SysValuePaths> for SysModelSpecRef {
             spec.sys_localize(val_path, options).await?;
             Ok(())
         } else {
-            MainReason::from(UvsReason::from_logic("miss spec from spec-ref")).err_result()
+            Err(MainReason::logic_detail("miss spec from spec-ref"))
         }
     }
 }

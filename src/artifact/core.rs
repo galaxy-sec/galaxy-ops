@@ -1,4 +1,4 @@
-use crate::prelude::*;
+use crate::internal_prelude::*;
 use crate::types::Accessor;
 use orion_variate::addr::AddrResult;
 use orion_variate::types::{ResourceDownloader, UpdateUnit};

@@ -1,9 +1,9 @@
 use crate::{
     localize::{TemplateConfig, TemplatePath},
-    prelude::*,
+    internal_prelude::*,
 };
 
-use orion_variate::vars::EnvEvalable;
+use orion_vars::vars::EnvEvalable;
 
 #[derive(Clone, Debug, Serialize, Deserialize, Getters)]
 #[getset(get = "pub")]
@@ -47,7 +47,7 @@ impl TemplateTargets {
 }
 
 impl EnvEvalable<TemplateTargets> for TemplateTargets {
-    fn env_eval(self, dict: &orion_variate::vars::EnvDict) -> Self {
+    fn env_eval(self, dict: &orion_vars::vars::EnvDict) -> Self {
         Self {
             includes: self
                 .includes
@@ -73,7 +73,7 @@ impl TemplateCustom {
 }
 
 impl EnvEvalable<TemplateCustom> for TemplateCustom {
-    fn env_eval(self, dict: &orion_variate::vars::EnvDict) -> Self {
+    fn env_eval(self, dict: &orion_vars::vars::EnvDict) -> Self {
         Self {
             label_beg: self.label_beg.env_eval(dict),
             label_end: self.label_end.env_eval(dict),
@@ -84,7 +84,7 @@ impl EnvEvalable<TemplateCustom> for TemplateCustom {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use orion_variate::vars::{EnvDict, EnvEvalable, ValueType};
+    use orion_vars::vars::{EnvDict, EnvEvalable, ValueType};
 
     // 测试辅助函数
     fn create_test_env_dict() -> EnvDict {

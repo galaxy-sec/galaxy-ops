@@ -3,7 +3,7 @@ use std::net::Ipv4Addr;
 
 use crate::types::{SysUpdateValue, ValuePath};
 use derive_more::Deref;
-use orion_variate::vars::{ValueDict, ValueType, VarCollection};
+use orion_vars::vars::{ValueDict, ValueType, VarCollection};
 
 use crate::error::MainResult;
 use crate::module::refs::ModuleSpecRef;

@@ -1,4 +1,5 @@
-use super::prelude::*;
+use crate::internal_prelude::*;
+use crate::error::MainReason;
 
 use crate::{
     const_vars::CONFS_DIR,
@@ -67,12 +68,12 @@ impl ConfSpecRef {
     pub fn new<S: Into<String>>(path: S) -> MainResult<Self> {
         let path = path.into();
         let file_path = PathBuf::from(path.as_str());
-        let obj = ConfSpec::from_conf(&file_path).owe_conf()?;
+        let obj = ConfSpec::load_conf(&file_path).owe_conf()?;
         Ok(Self { path, obj })
     }
     fn load_ref(path: &str) -> MainResult<ConfSpec> {
         let path = PathBuf::from(path);
-        ConfSpec::from_conf(&path).owe_conf()
+        ConfSpec::load_conf(&path).owe_conf()
     }
 }
 
@@ -139,7 +140,7 @@ impl RefUpdateable<UpdateUnit> for ConfSpec {
                 let x = accessor
                     .download_rename(addr, &root, filename.as_str(), options)
                     .await
-                    .err_conv()?;
+                    .map_err(MainReason::from_addr_error)?;
                 ctx.mark_suc();
                 return Ok(x);
             }
@@ -266,11 +267,21 @@ mod tests {
     }
     #[tokio::test(flavor = "current_thread")]
     async fn test_conf_with_addr_addr() -> MainResult<()> {
+        let server = std::thread::spawn(|| {
+            let mut server = Server::new();
+            let _mock = server
+                .mock("GET", "/bitnami")
+                .with_status(200)
+                .with_body("name=bitnami")
+                .create();
+            server
+        })
+        .join()
+        .expect("Failed to create mock server");
+
         // 创建包含HttpResource的配置
         let mut conf = ConfSpec::new("1.0", CONFS_DIR);
-        conf.add(ConfFile::new("bitnami").with_addr(HttpResource::from(
-            "https://github.com/galaxy-sec/hello-word.git",
-        )));
+        conf.add(ConfFile::new("bitnami").with_addr(HttpResource::from(server.url() + "/bitnami")));
 
         // 测试更新
         //let src_dir = PathBuf::from("./temp/src");
@@ -290,6 +301,11 @@ mod tests {
             updated_v.position(),
             &temp_dir.join(CONFS_DIR).join("bitnami")
         );
+        let content = fs::read_to_string(updated_v.position())
+            .await
+            .owe_res()
+            .with(format!("path: {}", updated_v.position().display()))?;
+        assert_eq!(content, "name=bitnami");
 
         Ok(())
     }

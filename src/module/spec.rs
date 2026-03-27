@@ -2,7 +2,6 @@ use super::prelude::*;
 use crate::conf::{ConfFile, ConfSpec};
 use crate::system::setting::Setting;
 use crate::workflow::prj::GxlProject;
-use orion_conf::Yamlable;
 
 // 常量定义
 const POSTGRESQL_URL: &str = "https://mirrors.aliyun.com/postgresql/latest/postgresql-17.4.tar.gz";
@@ -13,7 +12,6 @@ const POSTGRESQL_ARCHIVE: &str = "postgresql-17.4.tar.gz";
 const POSTGRESQL_MD5_ARCHIVE: &str = "postgresql-17.4.tar.gz.md5";
 use crate::artifact::{Artifact, ArtifactPackage};
 use indexmap::IndexMap;
-use orion_conf::error::SerdeResult;
 use orion_variate::addr::HttpResource;
 
 use super::{
@@ -90,7 +88,7 @@ impl RefUpdateable<UpdateUnit> for ModuleSpec {
     }
 }
 
-impl Persistable<ModuleSpec> for ModuleSpec {
+impl FilePersist<ModuleSpec> for ModuleSpec {
     fn save_to(&self, path: &Path, name: Option<String>) -> SerdeResult<()> {
         let mod_path = path.join(name.unwrap_or(self.name().clone()));
         let src_path = mod_path.join(MOD_DIR);
@@ -142,7 +140,7 @@ impl ModuleLocalizable<ModValuePaths> for ModuleSpec {
             ctx.record("sys-value", &model_path.sys_value_file());
             //let cur_options = if model_path.sys_value_file().exists() {
             let mut sys_vars =
-                OriginDict::from(ValueDict::from_yml(&model_path.sys_value_file()).owe_res()?);
+                OriginDict::from(ValueDict::load_yaml(&model_path.sys_value_file()).owe_res()?);
             sys_vars.set_source("sys-setting");
             let mut cur_dict = options.raw_value().clone();
             cur_dict.merge(&sys_vars);

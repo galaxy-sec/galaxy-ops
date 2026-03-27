@@ -6,10 +6,10 @@ use galaxy_ops::module::operator::ModOperator;
 use galaxy_ops::module::spec::make_mod_spec_example;
 use galaxy_ops::types::{LocalizeOptions, ModuleLocalizable, RefUpdateable};
 use galaxy_ops::{error::MainResult, module::operator::ModValuePaths};
-use orion_conf::Persistable;
+use orion_conf::FilePersist;
 use orion_error::{ErrorConv, ErrorOwe};
 use orion_variate::update::DownloadOptions;
-use orion_variate::vars::{OriginDict, ValueDict};
+use orion_vars::vars::{OriginDict, ValueDict};
 
 use crate::commands::common::{DebugLogArgs, ForceArgs, LocalizeArgs};
 

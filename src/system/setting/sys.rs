@@ -1,4 +1,4 @@
-use crate::prelude::*;
+use crate::internal_prelude::*;
 
 use crate::system::SysValuePaths;
 use crate::types::{LocalizeOptions, SystemLocalizable};
@@ -11,8 +11,7 @@ use crate::{
 
 use async_trait::async_trait;
 use indexmap::IndexMap;
-use orion_conf::YamlStorageExt;
-use orion_variate::vars::EnvEvalable;
+use orion_vars::vars::EnvEvalable;
 
 use crate::{error::MainResult, module::ModelSTD};
 
@@ -53,7 +52,7 @@ impl LocalizeDict {
         Self { dicts }
     }
 }
-impl StorageLoadEvent for LocalizeDict {
+impl LoadHook for LocalizeDict {
     fn loaded_event_do(&mut self) {}
 }
 
@@ -64,12 +63,17 @@ pub struct SysSetting {
     list: LocalizeDict,
     root: Option<PathBuf>,
 }
-impl StorageLoadEvent for SysSetting {
+impl LoadHook for SysSetting {
     fn loaded_event_do(&mut self) {
         self.vars.mark_vars_scope();
     }
 }
 impl SysSetting {
+    fn finalize_loaded(mut self) -> Self {
+        self.loaded_event_do();
+        self
+    }
+
     pub fn new(vars: VarCollection) -> Self {
         SysSetting {
             vars,
@@ -95,17 +99,17 @@ impl SysSetting {
     pub fn save_local(&self, path: &Path) -> MainResult<()> {
         let vars_file_name = path.join(VARS_YML);
         let list_file_name = path.join("list.yml");
-        self.vars.save_yml(&vars_file_name).owe_res()?;
-        self.list.save_yml(&list_file_name).owe_res()?;
+        self.vars.save_yaml(&vars_file_name).owe_res()?;
+        self.list.save_yaml(&list_file_name).owe_res()?;
         Ok(())
     }
     pub fn load_from(root: &Path) -> MainResult<Self> {
         let vars_file_name = root.join(VARS_YML);
         let list_file_name = root.join("list.yml");
-        let vars = VarCollection::from_yml(&vars_file_name).owe_res()?;
-        let list = LocalizeDict::from_yml(&list_file_name).owe_res()?;
+        let vars = VarCollection::load_yaml(&vars_file_name).owe_res()?;
+        let list = LocalizeDict::load_yaml(&list_file_name).owe_res()?;
         let root = Some(root.to_path_buf());
-        Ok(SysSetting { vars, list, root })
+        Ok(SysSetting { vars, list, root }.finalize_loaded())
     }
 }
 
@@ -133,10 +137,11 @@ impl SystemLocalizable<SysValuePaths> for SysSetting {
             let exe_setting = LocalizeExecPath::from(v.localize.clone().env_eval(&dict));
 
             let used = mix_used_value(options.clone(), &self.vars, &val_path.mod_value_file())?;
-            orion_conf::Yamlable::save_yml(&used.export_origin(), &val_path.used_with_origon())
+            used.export_origin()
+                .save_yaml(&val_path.used_with_origon())
                 .owe_res()?;
             ctx.record("value_file", &cur_used_file);
-            used.export_value().save_json(&cur_used_file).owe_res()?;
+            orion_conf::JsonIO::save_json(&used.export_value(), &cur_used_file).owe_res()?;
 
             exe_setting
                 .mod_localize(cur_used_file, options.clone())
@@ -144,5 +149,35 @@ impl SystemLocalizable<SysValuePaths> for SysSetting {
             ctx.mark_suc();
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use orion_error::TestAssert;
+    use orion_vars::vars::Mutability;
+    use tempfile::tempdir;
+
+    #[test]
+    fn test_load_from_marks_var_scopes() {
+        let temp_dir = tempdir().unwrap();
+        let setting = SysSetting::example();
+
+        setting.save_local(temp_dir.path()).assert();
+        let loaded = SysSetting::load_from(temp_dir.path()).assert();
+
+        assert_eq!(
+            loaded.vars().immutable_vars()[0].mutability(),
+            &Mutability::Immutable
+        );
+        assert_eq!(
+            loaded.vars().system_vars()[0].mutability(),
+            &Mutability::System
+        );
+        assert_eq!(
+            loaded.vars().module_vars()[0].mutability(),
+            &Mutability::Module
+        );
     }
 }

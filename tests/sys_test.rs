@@ -9,7 +9,7 @@ use galaxy_ops::{
     system::{SysValuePaths, operator::SysOperator, spec::SysModelSpec},
     types::{InsUpdateable, LocalizeOptions, RefUpdateable},
 };
-use orion_conf::Yamlable;
+use orion_conf::YamlIO;
 use orion_error::{ErrorOwe, TestAssertWithMsg};
 use orion_infra::path::make_clean_path;
 use orion_variate::{
@@ -17,8 +17,8 @@ use orion_variate::{
     archive::compress,
     tools::test_init,
     update::DownloadOptions,
-    vars::{OriginDict, ValueDict},
 };
+use orion_vars::vars::{OriginDict, ValueDict};
 #[tokio::test]
 async fn test_full_flow() -> MainResult<()> {
     test_init();
@@ -42,7 +42,7 @@ async fn test_full_flow() -> MainResult<()> {
     let sys_proj = SysOperator::load(&sys_path)?;
     let sys_value_path = SysValuePaths::from(sys_path.clone()).join(VALUE_DIR);
     let sys_value_dict =
-        OriginDict::from(ValueDict::from_yml(&sys_value_path.sys_value_file()).owe_conf()?)
+        OriginDict::from(ValueDict::load_yaml(&sys_value_path.sys_value_file()).owe_conf()?)
             .with_origin("sys-setting");
     sys_proj
         .update_local(accessor, &sys_path, &DownloadOptions::default())

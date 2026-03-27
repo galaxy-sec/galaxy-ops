@@ -34,7 +34,7 @@ impl OpsProject {
             let up_unit = accessor
                 .download_to_local(&addr, &work_path, up_opt)
                 .await
-                .owe_data()?;
+                .map_err(crate::error::MainReason::from_addr_error)?;
             up_unit.position().clone()
         };
 
@@ -69,9 +69,9 @@ impl OpsProject {
 
         let value_file = value_path.join(SYS_VALUE_FILE);
 
-        let vars_vec = VarCollection::from_conf(vars_path).owe_res()?;
+        let vars_vec = VarCollection::load_conf(vars_path).owe_res()?;
         let mut vals_dict = if value_file.exists() {
-            ValueDict::from_conf(&value_file).owe_res()?
+            ValueDict::load_conf(&value_file).owe_res()?
         } else {
             ValueDict::default()
         };
@@ -83,7 +83,7 @@ impl OpsProject {
             if !var.is_mutable() {
                 continue;
             }
-            let prompt = if let Some(desp) = var.desp() {
+            let prompt = if let Some(desp) = var.desc() {
                 format!("{}\n{desp}", var.name())
             } else {
                 var.name().to_string()
@@ -103,7 +103,9 @@ impl OpsProject {
                     var.value().to_string()
                 }
             };
-            default_value.update_by_str(value_str.as_str()).owe_data()?;
+            default_value
+                .update_from_str(value_str.as_str())
+                .owe_data()?;
             vals_dict.insert(var.name().to_string(), default_value);
         }
 
@@ -121,7 +123,7 @@ impl OpsProject {
             // 保存修改后的vars到文件
             // vars.save_to_file(&vars_path)?; // 假设的方法
             println!("Changes saved to {}", value_file.display());
-            vals_dict.save_conf(&value_file).owe_res()?;
+            orion_conf::ConfigIO::save_conf(&vals_dict, &value_file).owe_res()?;
         }
         Ok(())
     }
