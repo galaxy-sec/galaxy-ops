@@ -252,7 +252,7 @@ pub mod tests {
         res.push(
             Dependency::new(
                 Address::from(HttpResource::from(
-                    "https://github.com/galaxy-sec/hello-word.git",
+                    "https://github.com/galaxio-labs/hello-word.git",
                 )),
                 PathTemplate::from(prj_path.join("test_res")),
             )

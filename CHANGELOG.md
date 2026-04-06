@@ -5,6 +5,21 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/),
 并且本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.1.1] - 2026-04-06
+
+### 改进优化
+- **版本与元信息同步**: 版本号更新到 `1.1.1`，并同步整理 `Cargo.toml`、`version.txt`、许可证声明等发布元信息
+- **仓库地址统一**: 项目内引用的 GitHub 组织从旧地址统一切换到 `galaxio-labs`
+- **工作区依赖清理**: 收敛 `Cargo.toml` 中的 workspace 依赖声明，移除历史遗留注释与无效配置，降低维护噪音
+
+### 文档更新
+- **README 重写**: 重新整理项目定位、核心对象、CLI 用法、仓库结构以及“单系统、多客户交付”设计说明
+- **模块文档收敛**: 更新 `src/README.md`、`src/module/README.md`、`src/system/README.md`、`src/ops_prj/README.md` 等文档，使表达与当前实现和产品定位对齐
+- **说明文档精简**: 清理并压缩部分历史说明文稿，减少过时或重复内容
+
+### 测试
+- **测试资源地址更新**: 将测试中的示例 Git 资源地址同步切换到新的 GitHub 组织路径
+
 ## [1.1.0] - 2026-03-27
 
 ### 重大变更
@@ -89,7 +104,7 @@
 ### 新增功能
 - **本地化系统**: 新增完整的本地化功能
   - 添加 `LocalizeVarPath` 和 `LocalizeSet` 类型
-  - 支持模块级别的本地化配置  [mod_list](https://galaxy-sec.github.io/operator-docs/operator/sys/structure/file-organization.html)
+  - 支持模块级别的本地化配置  [mod_list](https://galaxio-labs.github.io/operator-docs/operator/sys/structure/file-organization.html)
   - 添加模板化和设置导出功能
 - **通用访问器**: 新增 accessor 模块
   - 统一管理下载操作和资源访问
@@ -257,14 +272,14 @@
 - **0.9.0**: 工作流项目管理系统
 - **0.8.0**: 初始版本发布
 
-[0.13.0-alpha]: https://github.com/galaxy-sec/galaxy-ops/compare/v0.12.5-beta...v0.13.0-alpha
-[0.11.0-beta]: https://github.com/galaxy-sec/galaxy-ops/compare/v0.10.6...v0.11.0-beta
-[0.10.6]: https://github.com/galaxy-sec/galaxy-ops/compare/v0.10.5...v0.10.6
-[0.10.5]: https://github.com/galaxy-sec/galaxy-ops/compare/v0.10.4...v0.10.5
-[0.10.4]: https://github.com/galaxy-sec/galaxy-ops/compare/v0.10.3...v0.10.4
-[0.10.3]: https://github.com/galaxy-sec/galaxy-ops/compare/v0.10.2...v0.10.3
-[0.10.2]: https://github.com/galaxy-sec/galaxy-ops/compare/v0.10.1...v0.10.2
-[0.10.1]: https://github.com/galaxy-sec/galaxy-ops/compare/v0.10.0...v0.10.1
-[0.10.0]: https://github.com/galaxy-sec/galaxy-ops/compare/v0.9.0...v0.10.0
-[0.9.0]: https://github.com/galaxy-sec/galaxy-ops/compare/v0.8.0...v0.9.0
-[0.8.0]: https://github.com/galaxy-sec/galaxy-ops/releases/tag/v0.8.0
+[0.13.0-alpha]: https://github.com/galaxio-labs/galaxy-ops/compare/v0.12.5-beta...v0.13.0-alpha
+[0.11.0-beta]: https://github.com/galaxio-labs/galaxy-ops/compare/v0.10.6...v0.11.0-beta
+[0.10.6]: https://github.com/galaxio-labs/galaxy-ops/compare/v0.10.5...v0.10.6
+[0.10.5]: https://github.com/galaxio-labs/galaxy-ops/compare/v0.10.4...v0.10.5
+[0.10.4]: https://github.com/galaxio-labs/galaxy-ops/compare/v0.10.3...v0.10.4
+[0.10.3]: https://github.com/galaxio-labs/galaxy-ops/compare/v0.10.2...v0.10.3
+[0.10.2]: https://github.com/galaxio-labs/galaxy-ops/compare/v0.10.1...v0.10.2
+[0.10.1]: https://github.com/galaxio-labs/galaxy-ops/compare/v0.10.0...v0.10.1
+[0.10.0]: https://github.com/galaxio-labs/galaxy-ops/compare/v0.9.0...v0.10.0
+[0.9.0]: https://github.com/galaxio-labs/galaxy-ops/compare/v0.8.0...v0.9.0
+[0.8.0]: https://github.com/galaxio-labs/galaxy-ops/releases/tag/v0.8.0

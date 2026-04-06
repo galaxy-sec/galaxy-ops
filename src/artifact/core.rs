@@ -65,7 +65,7 @@ mod tests {
         let artifact = Artifact::new(
             "hello-word",
             "0.1.0",
-            HttpResource::from("https://github.com/galaxy-sec/hello-word.git"),
+            HttpResource::from("https://github.com/galaxio-labs/hello-word.git"),
             "hello-word",
         );
         let path = home_dir()
@@ -88,7 +88,7 @@ mod tests {
             "https://dy-sec-generic.pkg.coding.net/galaxy-open/generic/galaxy-init.sh?version=latest",
         ));
         let deploy_type = Address::Git(
-            GitRepository::from("git@github.com:galaxy-sec/spec_test.git").with_branch("main"),
+            GitRepository::from("git@github.com:galaxio-labs/spec_test.git").with_branch("main"),
         );
         let _artifact = Artifact {
             name: "galaxy-init".to_string(),

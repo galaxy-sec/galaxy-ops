@@ -282,10 +282,7 @@ impl ModuleLocalizable<ModValuePaths> for MMOperator {
         make_clean_path(&local_path).owe_logic()?;
 
         let used = self.build_used_value(options, &val_path.mod_value_file())?;
-        orion_conf::TextConfigIO::save_valconf(
-            &used.export_origin(),
-            &val_path.used_with_origon(),
-        )
+        orion_conf::TextConfigIO::save_valconf(&used.export_origin(), &val_path.used_with_origon())
             .owe_res()?;
         let used_value_file = self.used_value_path()?;
         ctx.record("value_file", &used_value_file);

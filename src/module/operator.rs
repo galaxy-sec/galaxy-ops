@@ -263,6 +263,7 @@ pub fn make_mod_prj_testins(prj_path: &Path) -> MainResult<ModOperator> {
 
 #[cfg(test)]
 pub mod tests {
+    use super::super::prelude::*;
     use crate::{
         accessor::accessor_for_test,
         module::{
@@ -271,7 +272,6 @@ pub mod tests {
         },
         types::{LocalizeOptions, ModuleLocalizable, RefUpdateable},
     };
-    use super::super::prelude::*;
     use std::path::PathBuf;
 
     use orion_error::TestAssertWithMsg;

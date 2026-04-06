@@ -1,7 +1,7 @@
 use crate::{
     error::MainReason,
-    localize::{TemplateConfig, TemplatePath},
     internal_prelude::*,
+    localize::{TemplateConfig, TemplatePath},
 };
 
 use fs_extra::dir::CopyOptions;
@@ -1057,7 +1057,8 @@ EOF
 
     #[test]
     fn test_shell_comments_keep_multiple_heredoc_bodies() {
-        let input = "cat <<'EOF1' <<'EOF2'\n# keep first\nEOF1\n# keep second\nEOF2\necho done # trim\n";
+        let input =
+            "cat <<'EOF1' <<'EOF2'\n# keep first\nEOF1\n# keep second\nEOF2\necho done # trim\n";
 
         let output = strip_shell_comments(input);
 

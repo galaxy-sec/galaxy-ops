@@ -49,9 +49,9 @@ pub fn convert_addr(input: &str) -> Address {
 }
 // input :
 // /Users/dayu/ds-build/mac-devkit-0.1.5.tar.gz
-// https://github.com/galaxy-sec/galaxy-flow.git
-// git@github.com:galaxy-sec/galaxy-flow.git
-// https://github.com/galaxy-sec/galaxy-flow/releases/download/v0.8.4/galaxy-flow-v0.8.4-aarch64-apple-darwin.tar.gz
+// https://github.com/galaxio-labs/galaxy-flow.git
+// git@github.com:galaxio-labs/galaxy-flow.git
+// https://github.com/galaxio-labs/galaxy-flow/releases/download/v0.8.4/galaxy-flow-v0.8.4-aarch64-apple-darwin.tar.gz
 pub fn build_pkg(input: &str) -> PackageType {
     let addr_type = convert_addr(input);
 
@@ -103,7 +103,7 @@ mod tests {
 
     #[test]
     fn test_build_pkg_bin_remote() {
-        let input = "https://github.com/galaxy-sec/galaxy-flow/releases/download/v0.8.4/galaxy-flow-v0.8.4-aarch64-apple-darwin.tar.gz";
+        let input = "https://github.com/galaxio-labs/galaxy-flow/releases/download/v0.8.4/galaxy-flow-v0.8.4-aarch64-apple-darwin.tar.gz";
         let pkg = build_pkg(input);
         match pkg {
             PackageType::Bin(bin_pkg) => {
@@ -116,7 +116,7 @@ mod tests {
 
     #[test]
     fn test_build_pkg_git_https() {
-        let input = "https://github.com/galaxy-sec/galaxy-flow.git";
+        let input = "https://github.com/galaxio-labs/galaxy-flow.git";
         let pkg = build_pkg(input);
         match pkg {
             PackageType::Git(git_pkg) => {
@@ -129,7 +129,7 @@ mod tests {
 
     #[test]
     fn test_build_pkg_git_ssh() {
-        let input = "git@github.com:galaxy-sec/galaxy-flow.git";
+        let input = "git@github.com:galaxio-labs/galaxy-flow.git";
         let pkg = build_pkg(input);
         match pkg {
             PackageType::Git(git_pkg) => {
@@ -161,21 +161,21 @@ mod convert_addr_tests {
 
     #[test]
     fn test_convert_addr_http_tar() {
-        let input = "https://github.com/galaxy-sec/galaxy-flow/releases/download/v0.8.4/galaxy-flow-v0.8.4-aarch64-apple-darwin.tar.gz";
+        let input = "https://github.com/galaxio-labs/galaxy-flow/releases/download/v0.8.4/galaxy-flow-v0.8.4-aarch64-apple-darwin.tar.gz";
         let addr = convert_addr(input);
         assert!(matches!(addr, Address::Http(_)));
     }
 
     #[test]
     fn test_convert_addr_https_git() {
-        let input = "https://github.com/galaxy-sec/galaxy-flow.git";
+        let input = "https://github.com/galaxio-labs/galaxy-flow.git";
         let addr = convert_addr(input);
         assert!(matches!(addr, Address::Git(_)));
     }
 
     #[test]
     fn test_convert_addr_ssh_git() {
-        let input = "git@github.com:galaxy-sec/galaxy-flow.git";
+        let input = "git@github.com:galaxio-labs/galaxy-flow.git";
         let addr = convert_addr(input);
         assert!(matches!(addr, Address::Git(_)));
     }

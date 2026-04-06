@@ -1,6 +1,6 @@
+use crate::internal_prelude::*;
 use crate::localize::path::LocalizeVarPath;
 use crate::localize::{LocalizeTemplate, TemplateConfig};
-use crate::internal_prelude::*;
 
 use crate::system::setting::Setting;
 use crate::{

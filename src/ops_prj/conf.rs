@@ -1,9 +1,7 @@
 use super::prelude::*;
 
 use crate::module::depend::DependencySet;
-use crate::system::refs::SysModelSpecRef;
 use crate::types::{Accessor, RefUpdateable};
-use orion_variate::addr::LocalPath;
 
 #[derive(Getters, Clone, Debug, Serialize, Deserialize)]
 pub struct ProjectConf {
@@ -19,10 +17,6 @@ impl ProjectConf {
         }
     }
     pub fn for_test() -> Self {
-        let _systems = vec![SysModelSpecRef::from(
-            "example_sys",
-            LocalPath::from("./example/sys-model-spec/example_sys"),
-        )];
         let work_envs = DependencySet::example();
         Self {
             name: "example_sys".to_string(),

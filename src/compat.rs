@@ -69,10 +69,7 @@ impl<T> Yamlable for T where
 #[deprecated(note = "use orion_conf::TextConfigIO::load_valconf/save_valconf instead")]
 pub trait ValueConfable
 where
-    Self: serde::de::DeserializeOwned
-        + serde::Serialize
-        + Sized
-        + orion_conf::TextConfigIO<Self>,
+    Self: serde::de::DeserializeOwned + serde::Serialize + Sized + orion_conf::TextConfigIO<Self>,
 {
     fn from_valconf(path: &Path) -> SerdeResult<Self> {
         <Self as orion_conf::TextConfigIO<Self>>::load_valconf(path)
