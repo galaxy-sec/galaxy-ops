@@ -1,64 +1,93 @@
-use std::path::{Path, PathBuf};
-
-use log::info;
-use orion_conf::{Configable, ValueConfable, Yamlable};
-use orion_error::ErrorOwe;
-use orion_infra::path::ensure_path;
-use orion_variate::vars::{EnvDict, EnvEvalable, OriginDict, ValueDict, ValueType, VarCollection};
+use crate::internal_prelude::*;
 
 use crate::{
-    const_vars::{VALUE_DIR, VALUE_FILE},
-    error::MainResult,
-    module::model::TargetValuePaths,
+    const_vars::{MOD_VALUE_FILE, SYS_VALUE_FILE, SYS_VARS_YML, USER_VALUE_FILE, VALUE_DIR},
     types::LocalizeOptions,
 };
 
-pub fn load_project_global_value(root: &Path, options: &Option<String>) -> MainResult<ValueDict> {
+pub fn load_mod_opr_value(root: &Path, model: &str) -> MainResult<OriginDict> {
     let value_root = ensure_path(root.join(VALUE_DIR)).owe_logic()?;
-    let value_file = if let Some(v_file) = options {
-        PathBuf::from(v_file)
-    } else {
-        let v_file = value_root.join(VALUE_FILE);
-        if !v_file.exists() {
-            let mut dict = ValueDict::new();
-            dict.insert("SAMPLE_KEY", ValueType::from("SAMPLE_VAL"));
-            dict.save_valconf(&v_file).owe_res()?;
-        }
-        v_file
-    };
-    let dict = ValueDict::from_yml(&value_file).owe_logic()?;
-    Ok(dict)
+    let sys_v_file = value_root.join(SYS_VALUE_FILE);
+    if !sys_v_file.exists() {
+        let mut ctx = OperationContext::want("build sys-value.yml").with_auto_log();
+        let vars_file = root.join("mod").join(model).join("vars.yml");
+        let vars_vec = VarCollection::load_conf(&vars_file).owe_res()?;
+        let sys_value = vars_vec.system_vars();
+        ctx.record("sys-value", &sys_v_file);
+        orion_conf::ConfigIO::save_conf(sys_value, &sys_v_file).owe_res()?;
+        ctx.mark_suc();
+    }
+    let mut sys_dict = OriginDict::from(ValueDict::load_yaml(&sys_v_file).owe_logic()?);
+    sys_dict.set_source("sys-setting");
+
+    let mod_v_file = value_root.join(model).join(MOD_VALUE_FILE);
+    if !mod_v_file.exists() {
+        ensure_path(&value_root.join(model)).owe_res()?;
+        let vars_file = root.join("mod").join(model).join("vars.yml");
+        let vars_vec = VarCollection::load_conf(&vars_file).owe_res()?;
+        let sys_value = vars_vec.module_vars();
+        orion_conf::ConfigIO::save_conf(sys_value, &mod_v_file).owe_res()?;
+    }
+    let mut mod_dict = OriginDict::from(ValueDict::load_yaml(&mod_v_file).owe_logic()?);
+    mod_dict.set_source("mod-setting");
+    sys_dict.merge(&mod_dict);
+    Ok(sys_dict)
+}
+
+pub fn load_sys_opr_value(prj_root: &Path) -> MainResult<OriginDict> {
+    let value_root = ensure_path(prj_root.join(VALUE_DIR)).owe_logic()?;
+    let sys_v_file = value_root.join(SYS_VALUE_FILE);
+    if !sys_v_file.exists() {
+        let mut ctx = OperationContext::want("build sys-value.yml").with_auto_log();
+        let vars_file = prj_root.join("sys").join(SYS_VARS_YML);
+        let vars_vec = VarCollection::load_conf(&vars_file).owe_res()?;
+        let sys_value = vars_vec.system_vars();
+        ctx.record("sys-value", &sys_v_file);
+        orion_conf::ConfigIO::save_conf(sys_value, &sys_v_file).owe_res()?;
+        ctx.mark_suc();
+    }
+    let mut sys_dict = OriginDict::from(ValueDict::load_yaml(&sys_v_file).owe_logic()?);
+    sys_dict.set_source("sys-setting");
+    Ok(sys_dict)
 }
 
 pub fn mix_used_value(
     options: LocalizeOptions,
-    value_paths: &TargetValuePaths,
     vars: &VarCollection,
+    mod_value: &Path,
 ) -> MainResult<OriginDict> {
     let mut used = OriginDict::default();
     let mut default = OriginDict::from(vars.clone());
     default.set_source("mod-default");
     used.merge(&default);
-    if value_paths.user_value_file().exists() && !options.use_default_value() {
-        let user_dict = ValueDict::from_conf(value_paths.user_value_file()).owe_res()?;
-        let mut mod_cust = OriginDict::from(user_dict);
-        mod_cust.set_source("mod-cust");
-        used.merge(&mod_cust);
-        info!(target:"mod/target", "use  model value : {}", value_paths.user_value_file().display());
+
+    // 加载用户值文件（如果存在）
+    let user_value_path = mod_value.parent().unwrap().join(USER_VALUE_FILE);
+    if user_value_path.exists() {
+        let mut user_dict = OriginDict::from(ValueDict::load_yaml(&user_value_path).owe_res()?);
+        user_dict.set_source("mod-cust");
+        used.merge(&user_dict);
     }
-    let mut global = OriginDict::from(options.raw_value().clone());
+
+    let mut mod_dict = OriginDict::from(ValueDict::load_yaml(mod_value).owe_res()?);
+    mod_dict.set_source("mod-setting");
+    let mut global = options.raw_value().clone();
     global.set_source("global");
+    used.merge(&mod_dict);
     used.merge(&global);
-    let used = used.clone().env_eval(&EnvDict::default());
+    let used = used.env_eval(&EnvDict::default());
     Ok(used)
 }
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
     use crate::const_vars::USER_VALUE_FILE;
 
     use super::*;
-    use orion_variate::vars::{OriginValue, VarDefinition};
+    use orion_error::TestAssert;
+    use orion_vars::vars::{Mutability, OriginValue, ValueType, VarDefinition};
     use tempfile::tempdir;
 
     fn test_init() {
@@ -69,11 +98,13 @@ mod tests {
     fn test_build_used_value_with_default_only() {
         test_init();
         let vars = VarCollection::define(vec![VarDefinition::from(("TEST_KEY", "default_value"))]);
-        let options = LocalizeOptions::new(ValueDict::new(), false);
+        let options = LocalizeOptions::new(OriginDict::new());
         let temp_dir = tempdir().unwrap();
-        let value_paths = TargetValuePaths::from(&temp_dir.path().to_path_buf());
+        let mod_value_path = temp_dir.path().join(MOD_VALUE_FILE);
+        // 创建空的 mod_value.yml 文件
+        std::fs::write(&mod_value_path, "").unwrap();
 
-        let result = mix_used_value(options, &value_paths, &vars).unwrap();
+        let result = mix_used_value(options, &vars, &mod_value_path).unwrap();
         assert_eq!(
             result.get("TEST_KEY"),
             Some(&OriginValue::from("default_value").with_origin("mod-default"))
@@ -83,27 +114,30 @@ mod tests {
     #[test]
     fn test_build_used_value_with_global_value() {
         test_init();
-        let mut global_dict = ValueDict::new();
+        let mut global_dict = OriginDict::new();
         global_dict.insert("TEST_KEY".to_string(), ValueType::from("global_value"));
         global_dict.insert("PRJ_SPACE".to_string(), ValueType::from("galaxy"));
         let vars = VarCollection::define(vec![
-            VarDefinition::from(("TEST_KEY", "default_value")).with_immutable(Some(true)),
+            VarDefinition::from(("TEST_KEY", "default_value"))
+                .with_mutability(Mutability::Immutable),
             VarDefinition::from(("PRJ_SPACE", "${HOME}")),
             VarDefinition::from(("SVR_NAME", "gflow")),
             VarDefinition::from(("MOD_SPACE", "${PRJ_SPACE}/${SVR_NAME}")),
             VarDefinition::from(("SVR_SPACE", "/home/${SVR_NAME}")),
         ]);
-        let options = LocalizeOptions::new(global_dict, false);
+        let options = LocalizeOptions::new(global_dict);
         let temp_dir = tempdir().unwrap();
-        let value_paths = TargetValuePaths::from(&temp_dir.path().to_path_buf());
+        let mod_value_path = temp_dir.path().join(MOD_VALUE_FILE);
+        // 创建只包含SVR_NAME的mod_value.yml文件，不包含PRJ_SPACE，让PRJ_SPACE来自全局设置
+        std::fs::write(&mod_value_path, "SVR_NAME: gflow").unwrap();
 
-        let result = mix_used_value(options, &value_paths, &vars).unwrap();
+        let result = mix_used_value(options, &vars, &mod_value_path).assert();
         assert_eq!(
             result.get("TEST_KEY"),
             Some(
                 &OriginValue::from("default_value")
                     .with_origin("mod-default")
-                    .with_immutable(Some(true))
+                    .with_mutability(Mutability::Immutable),
             )
         );
         assert_eq!(
@@ -128,10 +162,12 @@ mod tests {
         std::fs::write(&user_value_path, "TEST_KEY: user_value").unwrap();
 
         let vars = VarCollection::define(vec![VarDefinition::from(("TEST_KEY", "default_value"))]);
-        let options = LocalizeOptions::new(ValueDict::new(), false);
-        let value_paths = TargetValuePaths::from(&temp_dir.path().to_path_buf());
+        let options = LocalizeOptions::new(OriginDict::new());
+        let mod_value_path = temp_dir.path().join(MOD_VALUE_FILE);
+        // 创建空的 mod_value.yml 文件
+        std::fs::write(&mod_value_path, "").unwrap();
 
-        let result = mix_used_value(options, &value_paths, &vars).unwrap();
+        let result = mix_used_value(options, &vars, &mod_value_path).unwrap();
         assert_eq!(
             result.get("TEST_KEY"),
             Some(&OriginValue::from("user_value").with_origin("mod-cust"))
@@ -149,7 +185,7 @@ mod tests {
         )
         .unwrap();
 
-        let mut global_dict = ValueDict::new();
+        let mut global_dict = OriginDict::new();
         global_dict.insert("TEST_KEY".to_string(), ValueType::from("global_value"));
         global_dict.insert("GLOBAL_ONLY".to_string(), ValueType::from("global_only"));
 
@@ -157,10 +193,12 @@ mod tests {
             VarDefinition::from(("TEST_KEY", "default_value")),
             VarDefinition::from(("DEFAULT_ONLY", "default_only")),
         ]);
-        let options = LocalizeOptions::new(global_dict, false);
-        let value_paths = TargetValuePaths::from(&temp_dir.path().to_path_buf());
+        let options = LocalizeOptions::new(global_dict);
+        let mod_value_path = temp_dir.path().join(MOD_VALUE_FILE);
+        // 创建空的 mod_value.yml 文件
+        std::fs::write(&mod_value_path, "").unwrap();
 
-        let result = mix_used_value(options, &value_paths, &vars).unwrap();
+        let result = mix_used_value(options, &vars, &mod_value_path).unwrap();
         // 验证优先级: global > cust  > default
         assert_eq!(
             result.get("TEST_KEY"),
@@ -185,11 +223,13 @@ mod tests {
     fn test_empty_vars_returns_empty_dict() {
         test_init();
         let vars = VarCollection::define(vec![]);
-        let options = LocalizeOptions::new(ValueDict::new(), false);
+        let options = LocalizeOptions::new(OriginDict::new());
         let temp_dir = tempdir().unwrap();
-        let value_paths = TargetValuePaths::from(&temp_dir.path().to_path_buf());
+        let mod_value_path = temp_dir.path().join(MOD_VALUE_FILE);
+        // 创建空的 mod_value.yml 文件
+        std::fs::write(&mod_value_path, "").unwrap();
 
-        let result = mix_used_value(options, &value_paths, &vars).unwrap();
+        let result = mix_used_value(options, &vars, &mod_value_path).unwrap();
         assert!(result.is_empty());
     }
 
@@ -202,11 +242,13 @@ mod tests {
             VarDefinition::from(("NUMBER_VAR", ValueType::from(42))),
             VarDefinition::from(("BOOL_VAR", ValueType::from(true))),
         ]);
-        let options = LocalizeOptions::new(ValueDict::new(), false);
+        let options = LocalizeOptions::new(OriginDict::new());
         let temp_dir = tempdir().unwrap();
-        let value_paths = TargetValuePaths::from(&temp_dir.path().to_path_buf());
+        let mod_value_path = temp_dir.path().join(MOD_VALUE_FILE);
+        // 创建空的 mod_value.yml 文件
+        std::fs::write(&mod_value_path, "").unwrap();
 
-        let result = mix_used_value(options, &value_paths, &vars).unwrap();
+        let result = mix_used_value(options, &vars, &mod_value_path).unwrap();
 
         assert_eq!(
             result.get("STRING_VAR"),
@@ -233,11 +275,13 @@ mod tests {
             VarDefinition::from(("ENV_VAR", "${TEST_ENV_VAR}")),
             VarDefinition::from(("MIXED_VAR", "prefix_${TEST_ENV_VAR}_suffix")),
         ]);
-        let options = LocalizeOptions::new(ValueDict::new(), false);
+        let options = LocalizeOptions::new(OriginDict::new());
         let temp_dir = tempdir().unwrap();
-        let value_paths = TargetValuePaths::from(&temp_dir.path().to_path_buf());
+        let mod_value_path = temp_dir.path().join(MOD_VALUE_FILE);
+        // 创建空的 mod_value.yml 文件
+        std::fs::write(&mod_value_path, "").unwrap();
 
-        let result = mix_used_value(options, &value_paths, &vars).unwrap();
+        let result = mix_used_value(options, &vars, &mod_value_path).unwrap();
 
         assert_eq!(
             result.get("ENV_VAR"),
@@ -254,21 +298,25 @@ mod tests {
     }
 
     #[test]
-    fn test_use_default_value_flag() {
+    fn test_use_ver_final_answer() {
         test_init();
+
         let temp_dir = tempdir().unwrap();
-        let user_value_path = temp_dir.path().join(USER_VALUE_FILE);
-        std::fs::write(&user_value_path, "TEST_KEY: user_value").unwrap();
+        let mod_value_path = temp_dir.path().join(MOD_VALUE_FILE);
 
-        let vars = VarCollection::define(vec![VarDefinition::from(("TEST_KEY", "default_value"))]);
-        let options = LocalizeOptions::new(ValueDict::new(), true);
-        let value_paths = TargetValuePaths::from(&temp_dir.path().to_path_buf());
+        let vars = VarCollection::load_yaml(&PathBuf::from("./src/data/vars.yml")).assert();
+        //let mut global_dict = OriginDict::from(vars);
+        // 创建 mod_value.yml 文件，使用给定的输入数据（扁平结构）
+        let mod_value_content = r#"
+"#;
+        std::fs::write(&mod_value_path, mod_value_content).unwrap();
 
-        let result = mix_used_value(options, &value_paths, &vars).unwrap();
-        assert_eq!(
-            result.get("TEST_KEY"),
-            Some(&OriginValue::from("default_value").with_origin("mod-default"))
-        );
+        let options = LocalizeOptions::new(OriginDict::new());
+        let result = mix_used_value(options.clone(), &vars, &mod_value_path).unwrap();
+
+        // 验证：没有环境变量时，use_ver 保持原样
+        let use_ver_result = result.get_case_insensitive("use_ver").assert();
+        assert_eq!(use_ver_result.value(), &ValueType::from("v0.12.6-beta"));
     }
 
     #[test]
@@ -278,14 +326,16 @@ mod tests {
         let user_value_path = temp_dir.path().join(USER_VALUE_FILE);
         std::fs::write(&user_value_path, "TEST_KEY: user_value").unwrap();
 
-        let mut global_dict = ValueDict::new();
+        let mut global_dict = OriginDict::new();
         global_dict.insert("TEST_KEY".to_string(), ValueType::from("global_value"));
 
         let vars = VarCollection::define(vec![VarDefinition::from(("TEST_KEY", "default_value"))]);
-        let options = LocalizeOptions::new(global_dict, false);
-        let value_paths = TargetValuePaths::from(&temp_dir.path().to_path_buf());
+        let options = LocalizeOptions::new(global_dict);
+        let mod_value_path = temp_dir.path().join(MOD_VALUE_FILE);
+        // 创建空的 mod_value.yml 文件
+        std::fs::write(&mod_value_path, "").unwrap();
 
-        let result = mix_used_value(options, &value_paths, &vars).unwrap();
+        let result = mix_used_value(options, &vars, &mod_value_path).unwrap();
         // 全局值应该覆盖用户值和默认值
         assert_eq!(
             result.get("TEST_KEY"),

@@ -1,5 +1,4 @@
 use std::path::PathBuf;
-
 use url::Url;
 
 #[derive(Default, Clone, Debug)]

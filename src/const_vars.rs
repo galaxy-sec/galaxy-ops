@@ -1,9 +1,9 @@
-pub const MODULES_SPC_ROOT: &str = "./example/modules";
+pub const MOD_OPERATORS_ROOT: &str = "./example/mod-operators";
 pub const TARGET_SPC_ROOT: &str = "./example/targets";
 pub const MODULES_INS_ROOT: &str = "./example/mod-ins";
-pub const SYS_MODEL_PRJ_ROOT: &str = "./example/sys-model-prj";
-pub const SYS_MODEL_SPC_ROOT: &str = "./example/sys-model-spec";
-pub const WORKINS_PRJ_ROOT: &str = "./example/workins-prj";
+pub const SYS_OPERATORS_ROOT: &str = "./example/sys-operators";
+pub const SYS_MODEL_SPC_ROOT: &str = "./example/sys-operators";
+pub const OPS_PRJ_ROOT: &str = "./example/ops-projects";
 pub const EXAMPLE_ROOT: &str = "./example";
 pub const WORK_GXL: &str = "work.gxl";
 pub const ADM_GXL: &str = "adm.gxl";
@@ -13,15 +13,17 @@ pub const RESOURCE_YML: &str = "resource.yml";
 pub const NET_RES_YML: &str = "net_res.yml";
 pub const SYS_MODLE_DEF_YML: &str = "sys_model.yml";
 pub const VARS_YML: &str = "vars.yml";
+pub const SYS_VARS_YML: &str = "sys_vars.yml";
 pub const SPEC_YML: &str = "spec.yml";
-pub const VALUE_FILE: &str = "value.yml";
+pub const SYS_VALUE_FILE: &str = "sys_value.yml";
 pub const DEFAULT_VALUE_FILE: &str = "_default.yml";
 pub const USER_VALUE_FILE: &str = "value.yml";
-pub const SAMPLE_VALUE_FILE: &str = "_value.yml";
+pub const MOD_VALUE_FILE: &str = "mod_value.yml";
 pub const VALUE_DIR: &str = "values";
-pub const GLOBAL_VALUE_FILE: &str = "value/value.yml";
+pub const SETTING_DIR: &str = "setting";
+pub const GLOBAL_VALUE_FILE: &str = "sys_value.yml";
 pub const USED_JSON: &str = "_used.json";
-pub const USED_READABLE_FILE: &str = "_used.yml";
+pub const USED_READABLE_FILE: &str = ".used_value.yml";
 pub const ARTIFACT_YML: &str = "artifact.yml";
 pub const DEPENDS_YML: &str = "depends.yml";
 pub const CONF_SPEC_YML: &str = "conf.yml";
@@ -40,8 +42,7 @@ pub const SYS_LOCAL_PRJ: &str = "sys_local_prj.yml";
 pub const MOD_PRJ_CONF_FILE_V1: &str = "mod_prj.yml";
 pub const MOD_PRJ_CONF_FILE_V2: &str = "mod-prj.yml";
 pub const MOD_PRJ_TEST_ROOT: &str = "/home/galaxy";
-pub const BITNAMI_COMMON_GIT_URL: &str =
-    "https://e.coding.net/dy-sec/galaxy-open/bitnami-common.git";
+pub const EXAMPLE_GIT_URL: &str = "https://github.com/galaxio-labs/hello-word.git";
 // Constants for OpsProject
 pub const OPS_PRJ_CONF_FILE: &str = "ops-prj.yml";
 // Constants for SysProject

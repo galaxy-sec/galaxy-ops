@@ -1,24 +1,18 @@
-use super::predule::*;
-use std::{
-    fs,
-    path::{Path, PathBuf},
-};
+use crate::error::MainReason;
+use crate::internal_prelude::*;
 
 use crate::{
     const_vars::CONFS_DIR,
-    error::MainResult,
     types::{Accessor, RefUpdateable},
 };
-use async_trait::async_trait;
-use orion_conf::Configable;
 use orion_error::ErrorConv;
 use orion_variate::{
     addr::{Address, accessor::path_file_name},
     types::{ResourceDownloader, UpdateUnit},
-    update::DownloadOptions,
 };
 // 由于 `crate::tools::log_flag` 未定义，移除该导入
 #[derive(Clone, Debug, Getters, Deserialize, Serialize)]
+#[getset(get = "pub")]
 pub struct ConfSpec {
     version: String,
     #[serde(default = "default_local_root")]
@@ -30,6 +24,7 @@ fn default_local_root() -> String {
 }
 
 #[derive(Clone, Debug, Getters, Deserialize, Serialize)]
+#[getset(get = "pub")]
 pub struct ConfFile {
     path: String,
     addr: Option<Address>,
@@ -73,12 +68,12 @@ impl ConfSpecRef {
     pub fn new<S: Into<String>>(path: S) -> MainResult<Self> {
         let path = path.into();
         let file_path = PathBuf::from(path.as_str());
-        let obj = ConfSpec::from_conf(&file_path).owe_conf()?;
+        let obj = ConfSpec::load_conf(&file_path).owe_conf()?;
         Ok(Self { path, obj })
     }
     fn load_ref(path: &str) -> MainResult<ConfSpec> {
         let path = PathBuf::from(path);
-        ConfSpec::from_conf(&path).owe_conf()
+        ConfSpec::load_conf(&path).owe_conf()
     }
 }
 
@@ -145,7 +140,7 @@ impl RefUpdateable<UpdateUnit> for ConfSpec {
                 let x = accessor
                     .download_rename(addr, &root, filename.as_str(), options)
                     .await
-                    .err_conv()?;
+                    .map_err(MainReason::from_addr_error)?;
                 ctx.mark_suc();
                 return Ok(x);
             }
@@ -156,11 +151,10 @@ impl RefUpdateable<UpdateUnit> for ConfSpec {
 
 #[cfg(test)]
 mod tests {
-
     use crate::accessor::accessor_for_test;
 
     use super::*;
-    use httpmock::{Method::GET, MockServer};
+    use mockito::Server;
     use orion_error::TestAssert;
     use orion_variate::{
         addr::{HttpResource, LocalPath},
@@ -219,17 +213,27 @@ mod tests {
     }
 
     #[tokio::test(flavor = "current_thread")]
+    /// Test HTTP configuration loading with mock HTTP server
+    /// This test verifies the async update_local functionality with HTTP resources
+    /// using mockito 1.7 for HTTP mocking
     async fn test_conf_with_http_addr() -> MainResult<()> {
-        let server = MockServer::start();
-        server.mock(|when, then| {
-            when.method(GET).path("/global.yml");
-            then.status(200).body("[settings]\nenv=\"test\"");
-        });
+        // 使用 mockito 1.7 的异步兼容API - 通过线程避免 runtime 嵌套
+        let server = std::thread::spawn(|| {
+            let mut server = Server::new();
+            let _mock = server
+                .mock("GET", "/global.yml")
+                .with_status(200)
+                .with_body("[settings]\nenv=\"test\"")
+                .create();
+            server
+        })
+        .join()
+        .expect("Failed to create mock server");
 
         // 创建包含HttpResource的配置
         let mut conf = ConfSpec::new("1.0", CONFS_DIR);
         conf.add(
-            ConfFile::new("remote.yml").with_addr(HttpResource::from(server.url("/global.yml"))),
+            ConfFile::new("remote.yml").with_addr(HttpResource::from(server.url() + "/global.yml")),
         );
 
         // 测试更新
@@ -263,11 +267,21 @@ mod tests {
     }
     #[tokio::test(flavor = "current_thread")]
     async fn test_conf_with_addr_addr() -> MainResult<()> {
+        let server = std::thread::spawn(|| {
+            let mut server = Server::new();
+            let _mock = server
+                .mock("GET", "/bitnami")
+                .with_status(200)
+                .with_body("name=bitnami")
+                .create();
+            server
+        })
+        .join()
+        .expect("Failed to create mock server");
+
         // 创建包含HttpResource的配置
         let mut conf = ConfSpec::new("1.0", CONFS_DIR);
-        conf.add(ConfFile::new("bitnami").with_addr(HttpResource::from(
-            "https://github.com/galaxy-sec/hello-word.git",
-        )));
+        conf.add(ConfFile::new("bitnami").with_addr(HttpResource::from(server.url() + "/bitnami")));
 
         // 测试更新
         //let src_dir = PathBuf::from("./temp/src");
@@ -287,6 +301,11 @@ mod tests {
             updated_v.position(),
             &temp_dir.join(CONFS_DIR).join("bitnami")
         );
+        let content = fs::read_to_string(updated_v.position())
+            .await
+            .owe_res()
+            .with(format!("path: {}", updated_v.position().display()))?;
+        assert_eq!(content, "name=bitnami");
 
         Ok(())
     }

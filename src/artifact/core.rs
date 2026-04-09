@@ -1,16 +1,7 @@
-use getset::Getters;
-use getset::Setters;
-use getset::WithSetters;
-use orion_error::ErrorOwe;
-use orion_variate::addr::AddrResult;
-use orion_variate::addr::Address;
-use orion_variate::types::ResourceDownloader;
-use orion_variate::types::UpdateUnit;
-use orion_variate::update::DownloadOptions;
-use serde_derive::{Deserialize, Serialize};
-use std::path::Path;
-
+use crate::internal_prelude::*;
 use crate::types::Accessor;
+use orion_variate::addr::AddrResult;
+use orion_variate::types::{ResourceDownloader, UpdateUnit};
 
 #[derive(Getters, Clone, Debug, Deserialize, Serialize, Setters, WithSetters)]
 #[getset(get = "pub")]
@@ -58,21 +49,8 @@ impl Artifact {
     }
 }
 
-#[derive(Getters, Clone, Debug, Deserialize, Serialize)]
-pub struct DockImage {
-    cep: String,
-    addr: Address,
-}
-
-#[derive(Getters, Clone, Debug, Deserialize, Serialize)]
-pub struct BinPackage {
-    cep: String,
-    addr: Address,
-}
-
 #[cfg(test)]
 mod tests {
-
     use home::home_dir;
 
     use orion_variate::addr::{GitRepository, HttpResource};
@@ -87,7 +65,7 @@ mod tests {
         let artifact = Artifact::new(
             "hello-word",
             "0.1.0",
-            HttpResource::from("https://github.com/galaxy-sec/hello-word.git"),
+            HttpResource::from("https://github.com/galaxio-labs/hello-word.git"),
             "hello-word",
         );
         let path = home_dir()
@@ -110,7 +88,7 @@ mod tests {
             "https://dy-sec-generic.pkg.coding.net/galaxy-open/generic/galaxy-init.sh?version=latest",
         ));
         let deploy_type = Address::Git(
-            GitRepository::from("git@github.com:galaxy-sec/spec_test.git").with_branch("main"),
+            GitRepository::from("git@github.com:galaxio-labs/spec_test.git").with_branch("main"),
         );
         let _artifact = Artifact {
             name: "galaxy-init".to_string(),

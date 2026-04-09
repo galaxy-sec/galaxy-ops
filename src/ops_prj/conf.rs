@@ -1,15 +1,7 @@
-use crate::const_vars::OPS_PRJ_CONF_FILE;
-use crate::error::OpsReason;
-use crate::predule::*;
-use crate::system::refs::SysModelSpecRef;
-use crate::{error::MainResult, module::depend::DependencySet};
-use orion_conf::Configable;
+use super::prelude::*;
 
-use crate::types::{Accessor, InsUpdateable, RefUpdateable};
-use async_trait::async_trait;
-use orion_infra::auto_exit_log;
-use orion_variate::addr::LocalPath;
-use orion_variate::update::DownloadOptions;
+use crate::module::depend::DependencySet;
+use crate::types::{Accessor, RefUpdateable};
 
 #[derive(Getters, Clone, Debug, Serialize, Deserialize)]
 pub struct ProjectConf {
@@ -25,10 +17,6 @@ impl ProjectConf {
         }
     }
     pub fn for_test() -> Self {
-        let _systems = vec![SysModelSpecRef::from(
-            "example_sys",
-            LocalPath::from("./example/sys-model-spec/example_sys"),
-        )];
         let work_envs = DependencySet::example();
         Self {
             name: "example_sys".to_string(),
@@ -37,7 +25,7 @@ impl ProjectConf {
     }
     pub fn load(path: &Path) -> MainResult<Self> {
         let conf_file = path.join(OPS_PRJ_CONF_FILE);
-        let ins = Self::from_conf(&conf_file).owe_conf()?;
+        let ins = Self::load_conf(&conf_file).owe_conf()?;
         Ok(ins)
     }
 }
@@ -62,7 +50,7 @@ impl InsUpdateable<ProjectConf> for ProjectConf {
         self.work_envs
             .update_local(accessor, path, options)
             .await
-            .owe(OpsReason::Update.into())?;
+            .with(("ops-conf", "update work envs"))?;
         flag.mark_suc();
         Ok(self)
     }

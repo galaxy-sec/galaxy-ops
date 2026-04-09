@@ -1,14 +1,6 @@
-use std::path::Path;
-
-use derive_getters::Getters;
-use orion_conf::{
-    Persistable, UvsConfFrom,
-    error::{SerdeReason, SerdeResult},
-};
-use orion_error::ErrorOwe;
-use serde::Serialize;
-
+use super::prelude::*;
 #[derive(Getters, Clone, Debug, PartialEq, Serialize)]
+#[getset(get = "pub")]
 pub struct GxlAction {
     file: String,
     code: String,
@@ -28,7 +20,7 @@ impl GxlAction {
         false
     }
 }
-impl Persistable<GxlAction> for GxlAction {
+impl FilePersist<GxlAction> for GxlAction {
     fn save_to(&self, path: &Path, _name: Option<String>) -> SerdeResult<()> {
         let path_file = path.join(self.file());
         std::fs::write(path_file, self.code.as_str()).owe_res()?;
@@ -39,7 +31,7 @@ impl Persistable<GxlAction> for GxlAction {
         let file_name = path
             .file_name()
             .and_then(|f| f.to_str())
-            .ok_or_else(|| SerdeReason::from_conf("bad file name".to_string()))?;
+            .ok_or_else(|| SerdeReason::from("bad file name".to_string()))?;
 
         let code = std::fs::read_to_string(path).owe_res()?;
         Ok(Self {

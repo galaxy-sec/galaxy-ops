@@ -1,10 +1,11 @@
 use crate::{
-    predule::*,
+    error::MainReason,
+    module::prelude::*,
     types::{Accessor, RefUpdateable},
 };
 
 use async_trait::async_trait;
-use orion_error::ErrorConv;
+use getset::Getters;
 use orion_variate::{
     addr::{Address, GitRepository, LocalPath, types::PathTemplate},
     types::ResourceDownloader,
@@ -12,6 +13,7 @@ use orion_variate::{
 };
 
 #[derive(Getters, Clone, Debug, Serialize, Deserialize)]
+#[getset(get = "pub")]
 pub struct Dependency {
     addr: Address,
     local: PathTemplate,
@@ -49,18 +51,19 @@ impl RefUpdateable<()> for Dependency {
             accessor
                 .download_rename(self.addr(), &path, rename, options)
                 .await
-                .err_conv()?;
+                .map_err(MainReason::from_addr_error)?;
         } else {
             accessor
                 .download_to_local(self.addr(), &path, options)
                 .await
-                .err_conv()?;
+                .map_err(MainReason::from_addr_error)?;
         }
         Ok(())
     }
 }
 
 #[derive(Getters, Clone, Debug, Serialize, Deserialize, Default)]
+#[getset(get = "pub")]
 pub struct DependencySet {
     dep_root: PathTemplate,
     deps: Vec<Dependency>,

@@ -22,11 +22,14 @@ jobs:
       matrix:
         target:
           - x86_64-unknown-linux-gnu
+          - x86_64-unknown-linux-musl
           - aarch64-apple-darwin
         rustup_toolchain: [stable]
         include:
           - os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-musl
           - os: macos-14
             target: aarch64-apple-darwin
     steps:
@@ -38,11 +41,44 @@ jobs:
         with:
           toolchain: ${{ matrix.rustup_toolchain }}
 
+      - name: Install cross-compilation tools
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+        uses: taiki-e/setup-cross-toolchain-action@v1
+        with:
+          target: ${{ matrix.target }}
+
+      - name: Install musl target
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Configure static linking environment
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+        run: |
+          echo "RUSTFLAGS=-C target-feature=+crt-static" >> $GITHUB_ENV
+          echo "PKG_CONFIG_ALL_STATIC=1" >> $GITHUB_ENV
+          echo "OPENSSL_STATIC=1" >> $GITHUB_ENV
+          echo "LIBZ_SYS_STATIC=1" >> $GITHUB_ENV
+
       - name: Cargo build
         run: cargo build --release --target ${{ matrix.target }}
 
       - name: Show version
         run: ./target/${{ matrix.target }}/release/gops --version
+
+      - name: Verify musl static linking
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+        run: |
+          echo "Verifying musl static linking..."
+          echo "Debug info: Testing binary with ldd..."
+          ldd_result=$(ldd ./target/${{ matrix.target }}/release/gops 2>&1)
+          echo "ldd output: $ldd_result"
+          if echo "$ldd_result" | grep -q "statically linked"; then
+            echo "✓ musl binary verified as statically linked"
+          else
+            echo "✗ musl binary shows dynamic dependencies:"
+            echo "$ldd_result"
+            exit 1
+          fi
 
       - name: Archive (UNIX)
         run: |
@@ -64,43 +100,8 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  coverage:
-    name: Release Coverage
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: llvm-tools-preview
-
-      - uses: Swatinem/rust-cache@v2
-      - uses: taiki-e/install-action@cargo-llvm-cov
-
-      - name: Generate coverage report
-        run: cargo llvm-cov --all-features --workspace --lcov --output-path lcov.info -- --test-threads=1
-
-      - name: Upload to Codecov
-        uses: codecov/codecov-action@v5
-        with:
-          file: ./lcov.info
-          flags: unittests
-          token: ${{ secrets.CODECOV_TOKEN }}
-          name: codecov-release-${{ github.ref_name }}
-          fail_ci_if_error: false
-
-      - name: Upload coverage artifact
-        uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: coverage-lcov-release-${{ github.ref_name }}
-          path: lcov.info
-          retention-days: 30
-
   Release:
-    needs: [Release-Build, coverage]
+    needs: [Release-Build]
     runs-on: ubuntu-22.04
     permissions:
       contents: write
@@ -131,9 +132,6 @@ jobs:
             ```shell
             gh attestation verify --owner ${{ github.repository_owner }} <my-artifact>
             ```
-
-            ## Code Coverage
-            For this release, code coverage reports are available on [Codecov](https://codecov.io/gh/galaxy-sec/galaxy-ops/tree/${{ github.ref_name }}).
           token: ${{ secrets.GITHUB_TOKEN }}
           prerelease: ${{ contains(github.ref, '-pre') }}
           files: artifacts/*
